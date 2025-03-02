@@ -7,7 +7,7 @@
     <img src="https://img.shields.io/github/actions/workflow/status/atick-faisal/Jetpack-Android-Starter/Build.yaml?style=for-the-badge&logo=android&labelColor=363a4f"/>
 </p>
 
-# Jetpack Android Starter 🚀
+# 🚀 Jetpack Android Starter
 
 A robust, production-ready template for modern Android development that takes the pain out of
 setting up a new project. Built on the foundation
@@ -16,7 +16,7 @@ a comprehensive starting point for both new and experienced Android developers.
 
 ![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
 
-## Apps Built With This Template
+## 📱 Apps Built With This Template
 
 ![Feature Graphic](https://github.com/user-attachments/assets/17e81025-2184-4a5a-8485-8b18de3cbabb)
 
@@ -25,7 +25,7 @@ template [here](https://github.com/atick-faisal?tab=repositories&q=&type=source&
 
 ![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
 
-## Why This Template?
+## ☃️ Why This Template?
 
 - **Production-Ready Authentication**: Firebase authentication with Google Sign-In and
   email/password
@@ -40,9 +40,9 @@ template [here](https://github.com/atick-faisal?tab=repositories&q=&type=source&
 
 ![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
 
-## Technical Stack
+## 📂 Technical Stack
 
-### Core Libraries
+### 💾 Core Libraries
 
 - **UI**: [Jetpack Compose](https://developer.android.com/compose), [Material3](https://m3.material.io/)
 - **DI**: [Dagger Hilt](https://dagger.dev/hilt/)
@@ -52,7 +52,7 @@ template [here](https://github.com/atick-faisal?tab=repositories&q=&type=source&
 - **Firebase**: [Auth](https://firebase.google.com/docs/auth/android/start), [Firestore](https://firebase.google.com/docs/firestore/quickstart), [Analytics](https://firebase.google.com/docs/analytics), [Performance](https://firebase.google.com/docs/perf-mon)
 - **Others**: [WorkManager](https://developer.android.com/topic/libraries/architecture/workmanager), [Coil](https://coil-kt.github.io/coil/), [Timber](https://github.com/JakeWharton/timber), [Lottie](https://airbnb.io/lottie/)
 
-### Build & Tools
+### 🏗️ Build & Tools
 
 - [Kotlin 2.0](https://kotlinlang.org/)
 - [Gradle 8.11.1](https://docs.gradle.org/current/userguide/userguide.html) with [Version Catalogs](https://docs.gradle.org/current/userguide/version_catalogs.html)
@@ -63,30 +63,30 @@ template [here](https://github.com/atick-faisal?tab=repositories&q=&type=source&
 
 ![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
 
-## Documentation
+## 📖 Documentation
 
 ### [📚 Full Documentation](https://atick.dev/Jetpack-Android-Starter)
 
-### Getting Started
+### 🎯 Getting Started
 
 - [Quick Start Guide](docs/getting-started.md)
 - [Firebase Setup](docs/firebase.md)
 - [Dependency Management](docs/dependency.md)
 
-### Architecture & Design
+### 🏛️ Architecture & Design
 
 - [Architecture Overview](docs/architecture.md)
 - [Design Philosophy](docs/philosophy.md)
 - [Adding New Features](docs/guide.md)
 
-### Development Tools
+### 🚧 Development Tools
 
 - [Convention Plugins](docs/plugins.md)
 - [Code Style with Spotless](docs/spotless.md)
 - [Performance Optimization](docs/performance.md)
 - [Useful Tips & Tricks](docs/tips.md)
 
-### Deployment
+### ⚡ Deployment
 
 - [GitHub CI/CD Setup](docs/github.md)
 - [Fastlane Configuration](docs/fastlane.md)

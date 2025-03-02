@@ -14,12 +14,16 @@ setting up a new project. Built on the foundation
 of [Now In Android](https://github.com/android/nowinandroid)'s architecture, this template provides
 a comprehensive starting point for both new and experienced Android developers.
 
+![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
+
 ## Apps Built With This Template
 
 ![Feature Graphic](https://github.com/user-attachments/assets/17e81025-2184-4a5a-8485-8b18de3cbabb)
 
 Check out apps built with this
 template [here](https://github.com/atick-faisal?tab=repositories&q=&type=source&language=kotlin&sort=).
+
+![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
 
 ## Why This Template?
 
@@ -33,6 +37,8 @@ template [here](https://github.com/atick-faisal?tab=repositories&q=&type=source&
 - **Background Sync**: Data synchronization using WorkManager
 - **Multilingual Support**: Runtime localization update with support for RTL languages
 - **CI/CD**: Automated build, release, and deployment with GitHub Actions
+
+![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
 
 ## Technical Stack
 
@@ -54,6 +60,8 @@ template [here](https://github.com/atick-faisal?tab=repositories&q=&type=source&
 - Custom [Gradle Convention Plugins](https://docs.gradle.org/current/userguide/custom_plugins.html)
 - [Dokka](https://kotlinlang.org/docs/dokka-introduction.html) and [MkDocs Material](https://squidfunk.github.io/mkdocs-material/) for documentation
 - [ktlint](https://github.com/pinterest/ktlint) and [Spotless](https://github.com/diffplug/spotless) for code formatting
+
+![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
 
 ## Documentation
 

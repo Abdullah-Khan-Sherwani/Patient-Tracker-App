@@ -23,7 +23,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.atick.core.extensions.asOneTimeEvent
 import dev.atick.core.extensions.stateInDelayed
 import dev.atick.core.ui.utils.UiState
-import dev.atick.core.ui.utils.asUiState
 import dev.atick.core.ui.utils.updateWith
 import dev.atick.data.model.home.Jetpack
 import dev.atick.data.repository.home.HomeRepository
@@ -48,7 +47,7 @@ class HomeViewModel @Inject constructor(
     private val _homeUiState = MutableStateFlow(UiState(HomeScreenData()))
     val homeUiState = _homeUiState
         .onStart { getJetpacks() }
-        .stateInDelayed(HomeScreenData::class.asUiState(), viewModelScope)
+        .stateInDelayed(UiState(HomeScreenData()), viewModelScope)
 
     private fun getJetpacks() {
         homeRepository.getJetpacks()

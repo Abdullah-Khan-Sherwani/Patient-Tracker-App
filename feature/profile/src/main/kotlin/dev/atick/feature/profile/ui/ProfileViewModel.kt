@@ -22,7 +22,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.atick.core.extensions.asOneTimeEvent
 import dev.atick.core.extensions.stateInDelayed
 import dev.atick.core.ui.utils.UiState
-import dev.atick.core.ui.utils.asUiState
 import dev.atick.core.ui.utils.updateWith
 import dev.atick.data.model.profile.Profile
 import dev.atick.data.repository.profile.ProfileRepository
@@ -47,7 +46,7 @@ class ProfileViewModel @Inject constructor(
     private val _profileUiState = MutableStateFlow(UiState(Profile()))
     val profileUiState = _profileUiState
         .onStart { updateProfileData() }
-        .stateInDelayed(Profile::class.asUiState(), viewModelScope)
+        .stateInDelayed(UiState(Profile()), viewModelScope)
 
     private fun updateProfileData() {
         profileRepository.getProfile()

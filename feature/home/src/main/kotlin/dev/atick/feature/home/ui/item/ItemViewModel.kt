@@ -25,7 +25,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dev.atick.core.extensions.asOneTimeEvent
 import dev.atick.core.extensions.stateInDelayed
 import dev.atick.core.ui.utils.UiState
-import dev.atick.core.ui.utils.asUiState
 import dev.atick.core.ui.utils.updateState
 import dev.atick.core.ui.utils.updateStateWith
 import dev.atick.core.utils.OneTimeEvent
@@ -56,7 +55,7 @@ class ItemViewModel @Inject constructor(
     private val _itemUiState = MutableStateFlow(UiState(ItemScreenData()))
     val itemUiState = _itemUiState
         .onStart { getJetpack() }
-        .stateInDelayed(ItemScreenData::class.asUiState(), viewModelScope)
+        .stateInDelayed(UiState(ItemScreenData()), viewModelScope)
 
     fun updateName(name: String) {
         _itemUiState.updateState { copy(jetpackName = name) }

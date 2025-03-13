@@ -4,7 +4,7 @@
     <a href="https://github.com/atick-faisal/Jetpack-Android-Starter/releases"><img src="https://img.shields.io/github/release/atick-faisal/Jetpack-Android-Starter?colorA=363a4f&colorB=b7bdf8&style=for-the-badge"></a>
     <a href="https://github.com/atick-faisal/Jetpack-Android-Starter/issues"><img src="https://img.shields.io/github/issues/atick-faisal/Jetpack-Android-Starter?colorA=363a4f&colorB=f5a97f&style=for-the-badge"></a>
     <a href="https://github.com/atick-faisal/Jetpack-Android-Starter/contributors"><img src="https://img.shields.io/github/contributors/atick-faisal/Jetpack-Android-Starter?colorA=363a4f&colorB=a6da95&style=for-the-badge"></a>
-    <img src="https://img.shields.io/github/actions/workflow/status/atick-faisal/Jetpack-Android-Starter/Build.yaml?style=for-the-badge&logo=android&labelColor=363a4f"/>
+    <img src="https://img.shields.io/github/actions/workflow/status/atick-faisal/Jetpack-Android-Starter/ci.yml?style=for-the-badge&logo=android&labelColor=363a4f"/>
 </p>
 
 # 🚀 Jetpack Android Starter
@@ -13,6 +13,10 @@ A robust, production-ready template for modern Android development that takes th
 setting up a new project. Built on the foundation
 of [Now In Android](https://github.com/android/nowinandroid)'s architecture, this template provides
 a comprehensive starting point for both new and experienced Android developers.
+
+<div align="center">
+  <p><i>"Android Development is Easy until You Rotate the Device"<i/></p>
+</div>
 
 ![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)
 

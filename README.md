@@ -15,7 +15,7 @@ of [Now In Android](https://github.com/android/nowinandroid)'s architecture, thi
 a comprehensive starting point for both new and experienced Android developers.
 
 <div align="center">
-  <p><i>"Android Development is Easy until You Rotate the Device"<i/></p>
+  <p><i>"Android Development is Easy until You Rotate the Device"</i></p>
 </div>
 
 ![-----------------------------------------------------](https://raw.githubusercontent.com/andreasbm/readme/master/assets/lines/rainbow.png)

@@ -66,8 +66,8 @@ workVersion = "2.10.1"
 
 # ... SDK-CONFIG ...
 minSdk = "24"
-compileSdk = "35"
-targetSdk = "35"
+compileSdk = "36"
+targetSdk = "36"
 
 
 [plugins]

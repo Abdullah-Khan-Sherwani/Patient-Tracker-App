@@ -50,3 +50,4 @@ play-store.json
 
 # Mac OS
 .DS_Storeapp/google-services.json
+app/google-services.json

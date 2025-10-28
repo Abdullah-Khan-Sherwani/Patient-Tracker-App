@@ -49,4 +49,4 @@ output-metadata.json
 play-store.json
 
 # Mac OS
-.DS_Store
+.DS_Storeapp/google-services.json

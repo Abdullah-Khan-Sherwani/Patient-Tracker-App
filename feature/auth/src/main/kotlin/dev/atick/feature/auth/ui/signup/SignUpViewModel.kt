@@ -32,6 +32,8 @@ import dev.atick.data.repository.auth.AuthRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
+import com.google.firebase.auth.FirebaseAuth
+import dev.atick.data.repository.profile.UserRepository
 
 /**
  * [ViewModel] for [SignUpScreen].
@@ -41,6 +43,8 @@ import javax.inject.Inject
 @HiltViewModel
 class SignUpViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val userRepository: UserRepository,
+    private val auth: FirebaseAuth,
 ) : ViewModel() {
     private val _signUpUiState = MutableStateFlow(UiState(SignUpScreenData()))
     val signUpUiState = _signUpUiState.asStateFlow()
@@ -79,17 +83,35 @@ class SignUpViewModel @Inject constructor(
     }
 
     fun registerWithGoogle(activity: Activity) {
-        _signUpUiState.updateWith(viewModelScope) { authRepository.registerWithGoogle(activity) }
+        _signUpUiState.updateWith(viewModelScope) {
+            val result = authRepository.registerWithGoogle(activity)
+            if (result.isSuccess) {
+                auth.currentUser?.let { u ->
+                    // fallback to typed name if displayName is empty
+                    val display = u.displayName?.takeIf { it.isNotBlank() } ?: signUpUiState.value.data.name.value
+                    userRepository.ensure(u.uid, u.email, display)
+                }
+            }
+            result
+        }
     }
+
 
     fun registerWithEmailAndPassword(activity: Activity) {
         _signUpUiState.updateWith(viewModelScope) {
-            authRepository.registerWithEmailAndPassword(
+            val result = authRepository.registerWithEmailAndPassword(
                 name = name.value,
                 email = email.value,
                 password = password.value,
                 activity = activity,
             )
+            if (result.isSuccess) {
+                auth.currentUser?.let { u ->
+                    // prefer the form name for display
+                    userRepository.ensure(u.uid, u.email, name.value)
+                }
+            }
+            result
         }
     }
 }

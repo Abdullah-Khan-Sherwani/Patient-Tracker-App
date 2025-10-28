@@ -6,6 +6,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import javax.inject.Qualifier
+import dev.atick.core.di.IoDispatcher
 
 /**
  * Firestore access for /users collection.
@@ -14,7 +16,7 @@ import javax.inject.Inject
  */
 class UserDataSource @Inject constructor(
     private val db: FirebaseFirestore,
-    private val io: CoroutineDispatcher // use your existing @IoDispatcher binding
+    @IoDispatcher private val io: CoroutineDispatcher // << issue Here
 ) {
     private val col get() = db.collection("users")
 

@@ -28,4 +28,6 @@ dependencies {
     // ... Modules
     implementation(project(":core:ui"))
     implementation(project(":data"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services")
 }

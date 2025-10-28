@@ -1,0 +1,43 @@
+🔹 firebase/firestore/data/UserDataSource.kt
+
+Role: Firestore data-access layer for /users collection.
+Purpose: Ensures user docs exist, retrieves them, and updates their roles.
+Usage: Used by UserRepository to manage user profiles and roles.
+Key methods: ensureUserDoc(), getUser(), setRole()
+Notes: Runs on IO dispatcher; depends on FirebaseFirestore.
+
+🔹 firebase/firestore/data/DoctorRequestDataSource.kt
+
+Role: Firestore data-access for /doctor_requests.
+Purpose: Creates, streams, and updates doctor-access requests.
+Usage: Used by DoctorRequestRepository → ViewModels for patient/admin actions.
+Key methods: create(), observePending(), setStatus()
+Notes: Uses Firestore snapshot listeners for real-time updates.
+
+🔹 data/model/profile/AppUser.kt
+Role: Domain model for user profile and role.
+Purpose: Represents a signed-in user’s information (email, display name, role, approval).
+Usage: Returned by UserRepository; consumed by ViewModels and UI for role-based logic.
+Key fields: uid, email, displayName, role, approved.
+Notes: Maps from FirebaseAppUser (Firestore model) to clean domain object.
+
+🔹 data/model/profile/DoctorRequest.kt
+Role: Domain model for doctor access / verification requests.
+Purpose: Encapsulates pending, approved, or rejected doctor credential requests.
+Usage: Used by DoctorRequestRepository and admin/doctor ViewModels.
+Key fields: id, uid, fullName, specialization, licenseNumber, status.
+Notes: Mirrors FirebaseDoctorRequest for domain layer use.
+
+🔹 data/repository/profile/UserRepository.kt
+Role: Domain-layer repository for user documents and roles.
+Purpose: Provides APIs to ensure user doc exists, fetch user info, and update role.
+Usage: Injected into auth/profile ViewModels; bridges Firestore ↔ domain.
+Key methods: ensure(), get(), setRole().
+Notes: Depends on firebase.firestore.data.UserDataSource; converts between Firestore and domain models.
+
+🔹 data/repository/profile/DoctorRequestRepository.kt
+Role: Domain-layer repository for doctor request management.
+Purpose: Handles creation, approval, rejection, and observation of doctor requests.
+Usage: Injected into admin/doctor ViewModels for request workflows.
+Key methods: create(), observePending(), approve(), reject().
+Notes: Depends on firebase.firestore.data.DoctorRequestDataSource; exposes Flow for live updates.

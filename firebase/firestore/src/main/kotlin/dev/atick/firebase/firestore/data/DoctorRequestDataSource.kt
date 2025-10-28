@@ -9,13 +9,14 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+import dev.atick.core.di.IoDispatcher
 
 /**
  * Firestore access for /doctor_requests collection.
  */
 class DoctorRequestDataSource @Inject constructor(
     private val db: FirebaseFirestore,
-    private val io: CoroutineDispatcher // use your existing @IoDispatcher binding
+    @IoDispatcher private val io: CoroutineDispatcher
 ) {
     private val col get() = db.collection("doctor_requests")
 

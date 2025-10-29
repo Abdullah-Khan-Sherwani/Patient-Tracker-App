@@ -34,6 +34,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import com.google.firebase.auth.FirebaseAuth
 import dev.atick.data.repository.profile.UserRepository
+import android.util.Log
 
 /**
  * [ViewModel] for [SignUpScreen].
@@ -46,6 +47,9 @@ class SignUpViewModel @Inject constructor(
     private val userRepository: UserRepository,
     private val auth: FirebaseAuth,
 ) : ViewModel() {
+    companion object {
+        private const val TAG = "Auth/SignUpVM"
+    }
     private val _signUpUiState = MutableStateFlow(UiState(SignUpScreenData()))
     val signUpUiState = _signUpUiState.asStateFlow()
 
@@ -85,17 +89,28 @@ class SignUpViewModel @Inject constructor(
     fun registerWithGoogle(activity: Activity) {
         _signUpUiState.updateWith(viewModelScope) {
             val result = authRepository.registerWithGoogle(activity)
-            if (result.isSuccess) {
-                auth.currentUser?.let { u ->
-                    // fallback to typed name if displayName is empty
-                    val display = u.displayName?.takeIf { it.isNotBlank() } ?: signUpUiState.value.data.name.value
-                    userRepository.ensure(u.uid, u.email, display)
-                }
+            if (!result.isSuccess) return@updateWith result
+
+            val u = auth.currentUser
+            if (u == null) {
+                Log.w(TAG, "Google sign-up succeeded but currentUser is null")
+                return@updateWith result
             }
+
+            // Prefer Google displayName; fall back to the typed name in the form
+            val display = (u.displayName ?: "").ifBlank { signUpUiState.value.data.name.value }
+            Log.d(TAG, "ensureUserDoc[Google]: uid=${u.uid}, email=${u.email}, display=$display")
+
+            // IMPORTANT: await the Firestore write inside this suspend block
+            runCatching {
+                userRepository.ensure(u.uid, u.email, display)
+            }.onFailure { e ->
+                Log.e(TAG, "ensureUserDoc[Google] failed", e)
+            }
+
             result
         }
     }
-
 
     fun registerWithEmailAndPassword(activity: Activity) {
         _signUpUiState.updateWith(viewModelScope) {
@@ -105,15 +120,29 @@ class SignUpViewModel @Inject constructor(
                 password = password.value,
                 activity = activity,
             )
-            if (result.isSuccess) {
-                auth.currentUser?.let { u ->
-                    // prefer the form name for display
-                    userRepository.ensure(u.uid, u.email, name.value)
-                }
+            if (!result.isSuccess) return@updateWith result
+
+            val u = auth.currentUser
+            if (u == null) {
+                Log.w(TAG, "Email sign-up succeeded but currentUser is null")
+                return@updateWith result
             }
+
+            // Prefer the form name for email/password flow (fallback to account displayName)
+            val display = name.value.ifBlank { u.displayName ?: "" }
+            Log.d(TAG, "ensureUserDoc[Email]: uid=${u.uid}, email=${u.email}, display=$display")
+
+            // IMPORTANT: await the Firestore write inside this suspend block
+            runCatching {
+                userRepository.ensure(u.uid, u.email, display)
+            }.onFailure { e ->
+                Log.e(TAG, "ensureUserDoc[Email] failed", e)
+            }
+
             result
         }
     }
+
 }
 
 /**

@@ -1,43 +1,133 @@
-🔹 firebase/firestore/data/UserDataSource.kt
+# Patient Tracker — Firebase Auth & User Flow Documentation
+(Last updated: after Firestore integration + ensureUserDoc fixes)
 
-Role: Firestore data-access layer for /users collection.
-Purpose: Ensures user docs exist, retrieves them, and updates their roles.
-Usage: Used by UserRepository to manage user profiles and roles.
-Key methods: ensureUserDoc(), getUser(), setRole()
-Notes: Runs on IO dispatcher; depends on FirebaseFirestore.
+──────────────────────────────────────────────
+🔹 feature/auth/ui/signup/SignUpViewModel.kt
+Role: Handles user registration via Email/Password or Google.
+Purpose: Manages sign-up form state and triggers user creation both in Firebase Auth and Firestore.
+Usage: Invoked by SignUpScreen; interacts with AuthRepository and UserRepository.
+Key logic:
+  • registerWithEmailAndPassword(): Registers user and calls userRepository.ensure() to create Firestore user doc.
+  • registerWithGoogle(): Signs in with Google and ensures user doc exists.
+  • updateName(), updateEmail(), updatePassword(): Validate and update UI text fields.
+Fixes/Notes:
+  • Added proper logging with TAG = "Auth/SignUpVM".
+  • Ensures Firestore write completion by awaiting ensureUserDoc().
+  • Falls back to typed name if displayName is empty.
+  • Runs inside viewModelScope; exceptions logged safely.
 
-🔹 firebase/firestore/data/DoctorRequestDataSource.kt
+──────────────────────────────────────────────
+🔹 feature/auth/ui/signin/SignInViewModel.kt
+Role: Handles sign-in with email, Google, or saved credentials.
+Purpose: Authenticates existing users and ensures Firestore documents exist.
+Usage: Called from SignInScreen and integrated into Auth flow.
+Key logic:
+  • loginWithEmailAndPassword(): Signs in, then calls userRepository.ensure() (on a NonCancellable background job).
+  • signInWithGoogle(): Same ensure pattern; backfills user docs for Google users.
+  • signInWithSavedCredentials(): Handles auto sign-in from Smart Lock / Credential Manager; ensures Firestore doc.
+Fixes/Notes:
+  • Previously ensureUserDoc() was never called—now fully integrated.
+  • Fixed coroutine JobCancellationException by isolating writes in a new IO coroutine.
+  • Added detailed Logcat tracing for enter/exit and Firestore ensure() events.
 
-Role: Firestore data-access for /doctor_requests.
-Purpose: Creates, streams, and updates doctor-access requests.
-Usage: Used by DoctorRequestRepository → ViewModels for patient/admin actions.
-Key methods: create(), observePending(), setStatus()
-Notes: Uses Firestore snapshot listeners for real-time updates.
-
-🔹 data/model/profile/AppUser.kt
-Role: Domain model for user profile and role.
-Purpose: Represents a signed-in user’s information (email, display name, role, approval).
-Usage: Returned by UserRepository; consumed by ViewModels and UI for role-based logic.
-Key fields: uid, email, displayName, role, approved.
-Notes: Maps from FirebaseAppUser (Firestore model) to clean domain object.
-
-🔹 data/model/profile/DoctorRequest.kt
-Role: Domain model for doctor access / verification requests.
-Purpose: Encapsulates pending, approved, or rejected doctor credential requests.
-Usage: Used by DoctorRequestRepository and admin/doctor ViewModels.
-Key fields: id, uid, fullName, specialization, licenseNumber, status.
-Notes: Mirrors FirebaseDoctorRequest for domain layer use.
-
+──────────────────────────────────────────────
 🔹 data/repository/profile/UserRepository.kt
-Role: Domain-layer repository for user documents and roles.
-Purpose: Provides APIs to ensure user doc exists, fetch user info, and update role.
-Usage: Injected into auth/profile ViewModels; bridges Firestore ↔ domain.
-Key methods: ensure(), get(), setRole().
-Notes: Depends on firebase.firestore.data.UserDataSource; converts between Firestore and domain models.
+Role: Domain-layer bridge between app logic and Firestore user documents.
+Purpose: Ensures users exist in Firestore and manages their roles.
+Usage: Injected into Auth and Profile ViewModels.
+Key methods:
+  • ensure(uid, email, name): Ensures user doc exists, logs success/failure.
+  • get(uid): Retrieves existing user doc.
+  • setRole(uid, role): Updates user’s role field in Firestore.
+Fixes/Notes:
+  • Added rich debug logging (FirestoreDebug tag).
+  • Catches and logs all exceptions; rethrows for higher-level handling.
+  • Used toDomain() to convert FirebaseAppUser → AppUser cleanly.
+  • ensure() now confirmed working after Firestore rule correction and async fix.
 
+──────────────────────────────────────────────
+🔹 firebase/firestore/data/UserDataSource.kt
+Role: Low-level Firestore access layer for /users collection.
+Purpose: Creates and reads user documents; updates role fields.
+Usage: Used by UserRepository.
+Key methods:
+  • ensureUserDoc(uid, email, displayName)
+  • getUser(uid)
+  • setRole(uid, role)
+Notes:
+  • Runs all Firestore ops on IO dispatcher.
+  • Throws explicit FirebaseFirestoreException on permission or network issues.
+  • Now compatible with new Firestore security rules allowing self-writes.
+
+──────────────────────────────────────────────
+🔹 firebase/firestore/data/DoctorRequestDataSource.kt
+Role: Firestore layer for /doctor_requests.
+Purpose: Handles doctor verification requests submitted by patients or admins.
+Usage: Used by DoctorRequestRepository.
+Key methods:
+  • create() — creates new request document.
+  • observePending() — snapshot listener for live updates.
+  • setStatus() — updates approval/rejection.
+Notes:
+  • Uses real-time snapshot listeners via addSnapshotListener().
+  • Observed by admin and doctor dashboards for live state.
+
+──────────────────────────────────────────────
 🔹 data/repository/profile/DoctorRequestRepository.kt
-Role: Domain-layer repository for doctor request management.
-Purpose: Handles creation, approval, rejection, and observation of doctor requests.
-Usage: Injected into admin/doctor ViewModels for request workflows.
-Key methods: create(), observePending(), approve(), reject().
-Notes: Depends on firebase.firestore.data.DoctorRequestDataSource; exposes Flow for live updates.
+Role: Domain-level API for doctor verification and access requests.
+Purpose: Abstracts Firestore operations behind high-level app logic.
+Usage: Used by Admin and Doctor ViewModels.
+Key methods:
+  • create(), approve(), reject(), observePending().
+Notes:
+  • Converts FirebaseDoctorRequest → DoctorRequest domain model.
+  • Emits Flow for reactive UI updates.
+
+──────────────────────────────────────────────
+🔹 data/model/profile/AppUser.kt
+Role: Domain model representing a user’s Firestore document.
+Purpose: Clean model for UI and ViewModels.
+Fields: uid, email, displayName, role, approved (bool)
+Notes:
+  • approved = approvedAt != null (auto true for approved doctors).
+  • Serves as standard user representation across the app.
+
+──────────────────────────────────────────────
+🔹 data/model/profile/DoctorRequest.kt
+Role: Domain model for doctor credential verification.
+Purpose: Encapsulates all fields related to pending doctor requests.
+Fields: id, uid, fullName, specialization, licenseNumber, status (PENDING/APPROVED/REJECTED)
+Notes:
+  • Mirrors FirebaseDoctorRequest Firestore model.
+  • Used by both DoctorRequestRepository and admin UI.
+
+──────────────────────────────────────────────
+🔹 firebase/firestore/rules/firestore.rules
+Role: Defines Firestore access policy for all data.
+Purpose: Protects user and patient records while enabling role-based access.
+Key rules:
+  • /users/{uid} — user can read/write their own doc.
+  • /doctor_requests/{id} — patient can create, admin can approve/reject.
+  • /records, /appointments — (future) restricted to owner/assigned doctor.
+Fixes/Notes:
+  • Old rule `allow read, write: if false;` blocked all writes — fixed.
+  • Current rules enforce authenticated self-writes and admin-only management.
+  • To be extended for full doctor–patient logic.
+
+──────────────────────────────────────────────
+🔹 overall next steps
+1. Add fields: role, createdAt, updatedAt, approvedAt to ensure() write.
+2. Add AccessGrantDataSource & Repository for doctor–patient linking.
+3. Add PatientRecordDataSource & Repository for record storage.
+4. Implement minimal admin panel for approving doctor accounts.
+5. Integrate role-based navigation in the app (Admin → approvals, Doctor → patients, Patient → records).
+6. Add Firestore indexes for grants/appointments.
+7. Test rules via Firebase Emulator Suite.
+
+──────────────────────────────────────────────
+Summary:
+✔ Auth + Firestore persistence working for both sign-up and sign-in.
+✔ Firestore rules fixed and confirmed operational.
+⚙ Doctor–patient logic skeleton in place (needs AccessGrant + Records).
+⚙ Admin logic pending for doctor approvals.
+Next milestone: full role-based dashboard flows (Admin/Doctor/Patient).

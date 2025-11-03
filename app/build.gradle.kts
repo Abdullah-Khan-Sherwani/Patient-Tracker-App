@@ -120,6 +120,7 @@ dependencies {
     implementation(project(":feature:home"))
     implementation(project(":feature:profile"))
     implementation(project(":feature:settings"))
+    implementation(project(":feature:records"))
 
     // ... Analytics
     implementation(project(":firebase:analytics"))

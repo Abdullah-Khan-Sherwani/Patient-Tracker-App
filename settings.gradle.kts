@@ -76,6 +76,7 @@ include(":feature:auth")
 include(":feature:home")
 include(":feature:profile")
 include(":feature:settings")
+include(":feature:records")
 
 // ... Firebase
 include(":firebase:analytics")
@@ -92,3 +93,4 @@ check(JavaVersion.current().isCompatibleWith(JavaVersion.VERSION_17)) {
     https://developer.android.com/build/jdks#jdk-config-in-studio
     """.trimIndent()
 }
+include(":feature:records")

@@ -33,6 +33,7 @@ import dev.atick.feature.home.navigation.homeScreen
 import dev.atick.feature.home.navigation.itemScreen
 import dev.atick.feature.home.navigation.navigateToItemScreen
 import dev.atick.feature.profile.navigation.profileScreen
+import dev.atick.feature.records.navigation.*
 
 /**
  * Composable function that sets up the navigation host for the Jetpack Compose application.

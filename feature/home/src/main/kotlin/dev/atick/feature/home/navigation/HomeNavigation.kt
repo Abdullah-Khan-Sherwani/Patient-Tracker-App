@@ -24,68 +24,42 @@ import androidx.navigation.navigation
 import dev.atick.core.ui.utils.SnackbarAction
 import dev.atick.feature.home.ui.home.HomeScreen
 import dev.atick.feature.home.ui.item.ItemScreen
+import dev.atick.feature.home.ui.schedule.ScheduleAppointmentRoute
 import kotlinx.serialization.Serializable
 
-/**
- * Home navigation.
- */
+/** Home navigation (type-safe destinations). */
 @Serializable
 data object Home
 
-/**
- * Home navigation graph.
- */
+/** Home navigation graph root. */
 @Serializable
 data object HomeNavGraph
 
-/**
- * Item navigation.
- */
+/** Item navigation (with optional id). */
 @Serializable
 data class Item(val itemId: String?)
 
-/**
- * Navigates to the Home navigation graph.
- *
- * @param navOptions Optional navigation options to configure the navigation behavior.
- */
+/** Schedule Appointment destination (type-safe). */
+@Serializable
+data object ScheduleAppointment
+
+/** Action keys passed via HomeScreen(onJetpackClick: (String) -> Unit). */
+object HomeActions {
+    // When HomeScreen calls onJetpackClick with this key, we navigate to schedule.
+    const val ScheduleKey = "__schedule__"
+}
+
+/** Navigate to Home graph. */
 fun NavController.navigateToHomeNavGraph(navOptions: NavOptions? = null) {
     navigate(HomeNavGraph, navOptions)
 }
 
-/**
- * Navigates to the Item screen.
- *
- * @param itemId The item ID.
- */
+/** Navigate to Item screen. */
 fun NavController.navigateToItemScreen(itemId: String?) {
     navigate(Item(itemId)) { launchSingleTop = true }
 }
 
-/**
- * Home screen.
- *
- * @param onJetpackClick The click listener for the jetpack.
- * @param onShowSnackbar The snackbar listener.
- */
-fun NavGraphBuilder.homeScreen(
-    onJetpackClick: (String) -> Unit,
-    onShowSnackbar: suspend (String, SnackbarAction, Throwable?) -> Boolean,
-) {
-    composable<Home> {
-        HomeScreen(
-            onJetpackClick = onJetpackClick,
-            onShowSnackbar = onShowSnackbar,
-        )
-    }
-}
-
-/**
- * Item screen.
- *
- * @param onBackClick The back click listener.
- * @param onShowSnackbar The snackbar listener.
- */
+/** Item screen destination. */
 fun NavGraphBuilder.itemScreen(
     onBackClick: () -> Unit,
     onShowSnackbar: suspend (String, SnackbarAction, Throwable?) -> Boolean,
@@ -98,15 +72,59 @@ fun NavGraphBuilder.itemScreen(
     }
 }
 
+/** Schedule Appointment destination (type-safe). */
+fun NavGraphBuilder.scheduleAppointmentScreen(
+    onBackClick: () -> Unit,
+) {
+    composable<ScheduleAppointment> {
+        ScheduleAppointmentRoute(
+            onBack = onBackClick,
+            onSubmit = {
+                // TODO: hook to VM/repo later if needed
+                onBackClick()
+            }
+        )
+    }
+}
+
 /**
  * Home navigation graph.
  *
- * @param nestedNavGraphs The nested navigation graphs.
+ * Wires the destinations and handles the Schedule action inside the HomeScreen callback.
  */
 fun NavGraphBuilder.homeNavGraph(
-    nestedNavGraphs: NavGraphBuilder.() -> Unit,
+    navController: NavController,
+    nestedNavGraphs: NavGraphBuilder.() -> Unit = {},
+    onJetpackClickPassthrough: (String) -> Unit = {}, // if parent needs the original callback
 ) {
     navigation<HomeNavGraph>(startDestination = Home) {
+
+        // Home
+        composable<Home> {
+            HomeScreen(
+                onJetpackClick = { key ->
+                    if (key == HomeActions.ScheduleKey) {
+                        navController.navigate(ScheduleAppointment)
+                    } else {
+                        onJetpackClickPassthrough(key)
+                    }
+                },
+                onShowSnackbar = { _, _, _ -> false }
+            )
+        }
+
+        // Item
+        itemScreen(
+            onBackClick = { navController.popBackStack() },
+            onShowSnackbar = { _, _, _ -> false }
+        )
+
+        // Schedule screen
+        scheduleAppointmentScreen(
+            onBackClick = { navController.popBackStack() }
+        )
+
+        // Any nested graphs the caller wants to add
         nestedNavGraphs()
     }
 }

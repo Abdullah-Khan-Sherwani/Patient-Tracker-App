@@ -31,11 +31,14 @@ import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
 import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Event
 import androidx.compose.material.icons.rounded.Sync
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ElevatedCard
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -51,6 +54,7 @@ import dev.atick.core.ui.utils.PreviewThemes
 import dev.atick.core.ui.utils.SnackbarAction
 import dev.atick.core.ui.utils.StatefulComposable
 import dev.atick.data.model.home.Jetpack
+import dev.atick.feature.home.navigation.HomeActions
 
 /**
  * Home screen.
@@ -94,19 +98,34 @@ private fun HomeScreen(
 ) {
     val state = rememberLazyStaggeredGridState()
 
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Adaptive(300.dp),
-        contentPadding = PaddingValues(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(16.dp),
-        verticalItemSpacing = 16.dp,
-        state = state,
-    ) {
-        items(items = jetpacks, key = { it.id }) { jetpack ->
-            SwipeToDismiss(onDelete = { onDeleteJetpack(jetpack) }) {
-                JetpackCard(
-                    jetpack = jetpack,
-                    onClick = { onJetpackCLick(jetpack.id) },
+    Scaffold(
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = { onJetpackCLick(HomeActions.ScheduleKey) }
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Event,
+                    contentDescription = "Schedule appointment"
                 )
+            }
+        }
+    ) { innerPadding ->
+        Column(modifier = Modifier.padding(innerPadding)) {
+            LazyVerticalStaggeredGrid(
+                columns = StaggeredGridCells.Adaptive(300.dp),
+                contentPadding = PaddingValues(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalItemSpacing = 16.dp,
+                state = state,
+            ) {
+                items(items = jetpacks, key = { it.id }) { jetpack ->
+                    SwipeToDismiss(onDelete = { onDeleteJetpack(jetpack) }) {
+                        JetpackCard(
+                            jetpack = jetpack,
+                            onClick = { onJetpackCLick(jetpack.id) },
+                        )
+                    }
+                }
             }
         }
     }

@@ -1,0 +1,52 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // helper: return the caller's role from /users/{uid}
+    function callerRole() {
+      return request.auth != null
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : null;
+    }
+
+    function isAdmin() {
+      return request.auth != null && callerRole() == 'admin';
+    }
+
+    function isDoctor() {
+      return request.auth != null && callerRole() == 'doctor';
+    }
+
+    function isOwn(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // users collection
+    match /users/{uid} {
+      allow create: if request.auth != null &&
+        (isOwn(uid) && request.resource.data.role == 'patient' || isAdmin());
+      allow read: if request.auth != null &&
+        (isOwn(uid) || isAdmin() || isDoctor());
+      allow update, delete: if request.auth != null &&
+        (isOwn(uid) || isAdmin());
+    }
+
+    // appointments
+    match /appointments/{id} {
+      allow create: if request.auth != null &&
+        (request.resource.data.patientUid == request.auth.uid || isDoctor() || isAdmin());
+      allow read: if request.auth != null &&
+        (request.auth.uid == resource.data.patientUid || request.auth.uid == resource.data.doctorUid || isAdmin());
+      allow update, delete: if request.auth != null &&
+        (request.auth.uid == resource.data.patientUid || isAdmin());
+    }
+
+    // counters used by client transactions to generate humanId
+    match /counters/{role} {
+      // allow authenticated clients to read/write counters so client-side transaction works
+      allow read, write: if request.auth != null;
+    }
+
+    // default deny other documents
+  }
+}

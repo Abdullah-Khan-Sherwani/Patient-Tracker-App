@@ -1,0 +1,21 @@
+{
+  "indexes": [
+    {
+      "collectionId": "users",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "humanId", "order": "ASCENDING" },
+        { "fieldPath": "role", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionId": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "doctorUid", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

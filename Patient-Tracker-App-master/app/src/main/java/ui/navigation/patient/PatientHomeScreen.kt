@@ -101,6 +101,7 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
                     when (category.label) {
                         "Doctors" -> navController.navigate("doctor_list/All")
                         "Specialties" -> navController.navigate("doctor_list/All") // optional
+                        "Record" -> navController.navigate("patient_health_records")
                     }
                 }
             )

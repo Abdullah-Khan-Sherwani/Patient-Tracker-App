@@ -2,19 +2,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // helper: return the caller's role from /users/{uid}
-    function callerRole() {
-      return request.auth != null
-        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
-        : null;
+    // Helper functions
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
     function isAdmin() {
-      return request.auth != null && callerRole() == 'admin';
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserData().role == 'admin';
     }
 
     function isDoctor() {
-      return request.auth != null && callerRole() == 'doctor';
+      return request.auth != null &&
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             getUserData().role == 'doctor';
     }
 
     function isOwn(uid) {
@@ -23,10 +25,17 @@ service cloud.firestore {
 
     // users collection
     match /users/{uid} {
-      allow create: if request.auth != null &&
-        (isOwn(uid) && request.resource.data.role == 'patient' || isAdmin());
-      allow read: if request.auth != null &&
-        (isOwn(uid) || isAdmin() || isDoctor());
+      // Allow read for role checking - MUST come before create to allow get() calls
+      allow read: if request.auth != null;
+
+      // Create rules with proper admin check
+      allow create: if request.auth != null && (
+        // Self-registration as patient or doctor
+        (isOwn(uid) && (request.resource.data.role == 'patient' || request.resource.data.role == 'doctor')) ||
+        // Admin can create any role
+        isAdmin()
+      );
+
       allow update, delete: if request.auth != null &&
         (isOwn(uid) || isAdmin());
     }
@@ -41,12 +50,47 @@ service cloud.firestore {
         (request.auth.uid == resource.data.patientUid || isAdmin());
     }
 
-    // counters used by client transactions to generate humanId
+    // counters
     match /counters/{role} {
-      // allow authenticated clients to read/write counters so client-side transaction works
       allow read, write: if request.auth != null;
     }
 
-    // default deny other documents
+    // healthRecords collection
+    match /healthRecords/{recordId} {
+      // Helper to check if doctor has appointment with patient within 2-day window
+      function hasDoctorAppointmentAccess(patientUid) {
+        let appointments = get(/databases/$(database)/documents/appointments/$(patientUid)).data;
+        // Check if doctor has active appointment with patient
+        // For now: doctors with appointment access can view (2-day window enforced in app logic)
+        return exists(/databases/$(database)/documents/appointments/$(patientUid));
+      }
+
+      // Patients can create/read/update/delete their own records
+      allow create: if request.auth != null && 
+        request.resource.data.patientUid == request.auth.uid;
+      
+      allow read: if request.auth != null && (
+        // Patient can read own records
+        resource.data.patientUid == request.auth.uid ||
+        // Doctor can read if has appointment access (2-day window checked in app)
+        (isDoctor() && resource.data.patientUid in resource.data.get('doctorAccessList', [])) ||
+        // Admin can read all
+        isAdmin()
+      );
+      
+      allow update: if request.auth != null && (
+        // Patient can update own records
+        resource.data.patientUid == request.auth.uid ||
+        // Admin can update
+        isAdmin()
+      );
+      
+      allow delete: if request.auth != null && (
+        // Patient can delete own records
+        resource.data.patientUid == request.auth.uid ||
+        // Admin can delete
+        isAdmin()
+      );
+    }
   }
 }

@@ -30,6 +30,9 @@ import com.example.patienttracker.ui.screens.patient.DoctorFull
 import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
+import com.example.patienttracker.ui.screens.patient.PatientHealthRecordsScreen
+import com.example.patienttracker.ui.screens.patient.UploadHealthRecordScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorViewPatientRecordsScreen
 
 private object Route {
     const val SPLASH = "splash"
@@ -190,6 +193,21 @@ fun AppNavHost(context: Context) {
             val first = backStackEntry.arguments?.getString("firstName") ?: ""
             val last = backStackEntry.arguments?.getString("lastName") ?: ""
             PatientProfileScreen(navController, first, last)
+        }
+
+        // Health Records Routes
+        composable("patient_health_records") {
+            PatientHealthRecordsScreen(navController, context)
+        }
+
+        composable("upload_health_record") {
+            UploadHealthRecordScreen(navController, context)
+        }
+
+        composable("doctor_view_patient_records/{patientUid}/{patientName}") { backStackEntry ->
+            val patientUid = backStackEntry.arguments?.getString("patientUid") ?: ""
+            val patientName = backStackEntry.arguments?.getString("patientName") ?: "Patient"
+            DoctorViewPatientRecordsScreen(navController, context, patientUid, patientName)
         }
 
         composable(

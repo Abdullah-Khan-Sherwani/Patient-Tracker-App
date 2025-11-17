@@ -37,7 +37,18 @@ fun UnifiedLoginScreen(
     var idOrEmail by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var navigationTarget by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    // Handle navigation after successful login
+    LaunchedEffect(navigationTarget) {
+        navigationTarget?.let { target ->
+            navController.navigate(target) {
+                popUpTo("login") { inclusive = true }
+            }
+            navigationTarget = null
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -117,23 +128,11 @@ fun UnifiedLoginScreen(
 
                                 Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
 
-                                // 4) Route based on role
-                                when (profile.role) {
-                                    "patient" -> {
-                                        navController.navigate("patient_home/${profile.firstName}/${profile.lastName}") {
-                                            popUpTo("login") { inclusive = true }
-                                        }
-                                    }
-                                    "doctor" -> {
-                                        navController.navigate("doctor_home/${profile.firstName}/${profile.lastName}/${profile.humanId}") {
-                                            popUpTo("login") { inclusive = true }
-                                        }
-                                    }
-                                    "admin" -> {
-                                        navController.navigate("admin_dashboard/${profile.firstName}/${profile.lastName}") {
-                                            popUpTo("login") { inclusive = true }
-                                        }
-                                    }
+                                // 4) Route based on role - set navigation target to trigger LaunchedEffect
+                                navigationTarget = when (profile.role) {
+                                    "patient" -> "patient_home/${profile.firstName}/${profile.lastName}"
+                                    "doctor" -> "doctor_home/${profile.firstName}/${profile.lastName}/${profile.humanId}"
+                                    "admin" -> "admin_home"
                                     else -> throw IllegalStateException("Unknown role: ${profile.role}")
                                 }
 

@@ -1,15 +1,53 @@
+##############################
+# IntelliJ / Android Studio
+##############################
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+.idea/
+.idea/caches
+.idea/libraries
+.idea/modules.xml
+.idea/workspace.xml
+.idea/navEditor.xml
+.idea/assetWizardSettings.xml
+
+##############################
+# Gradle
+##############################
+.gradle/
+build/
+**/build/
+**/.gradle/
 local.properties
+
+##############################
+# Firebase Sensitive Files
+##############################
+# Firebase CLI config
+.firebaserc
+firebase.json
+firestore.rules
+firestore.indexes.json
+
+# Firebase config (critical)
+google-services.json
+GoogleService-Info.plist
+
+##############################
+# Android Generated Stuff
+##############################
+captures/
+externalNativeBuild/
+.cxx/
+outputs/
+navigation.json
+
+##############################
+# OS Junk Files
+##############################
+.DS_Store
+Thumbs.db
+
+##############################
+# Logs
+##############################
+*.log

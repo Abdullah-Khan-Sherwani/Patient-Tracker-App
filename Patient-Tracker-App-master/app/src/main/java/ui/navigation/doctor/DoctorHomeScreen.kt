@@ -62,6 +62,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import com.example.patienttracker.R
 import com.example.patienttracker.data.AppointmentStorage
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -381,7 +382,7 @@ data class Appointment(
     val report: String? = null
 )
 
-private fun appointmentsFor(context: Context, date: LocalDate): List<Appointment> {
+private fun appointmentsFor(context: Context, date: LocalDate): List<com.example.patienttracker.ui.screens.doctor.Appointment> {
     val allAppointments = AppointmentStorage.getAppointments(context)
     val formatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", Locale.getDefault())
     return allAppointments.filter { 
@@ -391,7 +392,7 @@ private fun appointmentsFor(context: Context, date: LocalDate): List<Appointment
             false
         }
     }.map { 
-        Appointment(it.time, it.doctorName, it.speciality, it.report)
+        com.example.patienttracker.ui.screens.doctor.Appointment(it.time, it.doctorName, it.speciality, it.report)
     }
 }
 

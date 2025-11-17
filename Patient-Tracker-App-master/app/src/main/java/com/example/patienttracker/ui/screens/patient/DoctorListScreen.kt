@@ -18,8 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.patienttracker.data.DoctorAccountStorage
-import com.example.patienttracker.data.DoctorAccount
+
 import com.example.patienttracker.ui.screens.patient.DoctorFull
 import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.FullScheduleScreen

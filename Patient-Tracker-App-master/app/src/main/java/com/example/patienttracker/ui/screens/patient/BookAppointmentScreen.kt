@@ -94,7 +94,8 @@ fun BookAppointmentScreen(
                             context,
                             doctor,
                             selectedDate.format(dateFormatter),
-                            timing
+                            timing,
+                            selectedReport
                         )
                         message = "Appointment booked successfully!"
                     } else {

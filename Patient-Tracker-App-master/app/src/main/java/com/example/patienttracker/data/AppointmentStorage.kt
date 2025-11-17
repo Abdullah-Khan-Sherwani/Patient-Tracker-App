@@ -9,7 +9,7 @@ import java.io.File
 object AppointmentStorage {
     private const val FILE_NAME = "PatientAppointments.json"
 
-    fun saveAppointment(context: Context, doctor: DoctorFull, date: String, time: String) {
+    fun saveAppointment(context: Context, doctor: DoctorFull, date: String, time: String, report: String? = null) {
         val file = File(context.filesDir, FILE_NAME)
         val arr = if (file.exists()) JSONArray(file.readText()) else JSONArray()
 
@@ -18,6 +18,7 @@ object AppointmentStorage {
             put("speciality", doctor.speciality)
             put("date", date)
             put("time", time)
+            put("report", report)
         }
 
         arr.put(obj)
@@ -35,7 +36,8 @@ object AppointmentStorage {
                 o.getString("doctorName"),
                 o.getString("speciality"),
                 o.getString("date"),
-                o.getString("time")
+                o.getString("time"),
+                o.optString("report", null)
             )
         }
     }
@@ -45,5 +47,6 @@ data class Appointment(
     val doctorName: String,
     val speciality: String,
     val date: String,
-    val time: String
+    val time: String,
+    val report: String?
 )

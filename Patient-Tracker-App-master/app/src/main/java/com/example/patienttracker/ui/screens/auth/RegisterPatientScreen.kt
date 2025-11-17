@@ -37,14 +37,14 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .padding(24.dp)
+            .verticalScroll(rememberScrollState()),
         contentAlignment = Alignment.Center
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             modifier = Modifier
                 .fillMaxWidth()
-                .verticalScroll(rememberScrollState())
         ) {
             Text(
                 text = "Sign Up",
@@ -169,9 +169,10 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
 
                             Toast.makeText(context, "Account created!", Toast.LENGTH_SHORT).show()
 
-                            // 4) Navigate to the Account Created screen that shows the Patient ID and a "Go to Login" button.
-                            navController.navigate("account_created/$humanId") {
+                            // 4) Navigate to the Patient Home screen.
+                            navController.navigate("patient_home/${firstName.trim()}/${lastName.trim()}") {
                                 popUpTo("register_patient") { inclusive = true }
+                                popUpTo("login") { inclusive = true }
                             }
                         } catch (e: Exception) {
                             Toast.makeText(context, e.message ?: "Registration failed", Toast.LENGTH_LONG).show()

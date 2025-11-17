@@ -2,7 +2,9 @@ package com.example.patienttracker.ui.screens.patient
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,7 +42,7 @@ fun PatientProfileScreen(
                         // Sign out from Firebase
                         Firebase.auth.signOut()
                         // Navigate to login screen
-                        navController.navigate("role") {
+                        navController.navigate("login") {
                             popUpTo(0) // Clear entire back stack
                         }
                     }
@@ -65,7 +67,8 @@ fun PatientProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             // Header

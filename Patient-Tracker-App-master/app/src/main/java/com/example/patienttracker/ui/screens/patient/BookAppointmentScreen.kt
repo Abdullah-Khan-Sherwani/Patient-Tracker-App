@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +22,7 @@ import java.util.*
 import androidx.compose.foundation.clickable
 
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BookAppointmentScreen(
     navController: NavController,
@@ -38,21 +41,19 @@ fun BookAppointmentScreen(
 
     Scaffold(
         topBar = {
-            Surface(color = Color.Transparent, tonalElevation = 0.dp) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(gradient)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "Book Appointment",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            }
+            TopAppBar(
+                title = { Text("Book Appointment") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF05B8C7),
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
+            )
         }
     ) { innerPadding ->
         Column(

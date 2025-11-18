@@ -4,7 +4,12 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,18 +43,8 @@ fun UnifiedLoginScreen(
     var idOrEmail by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    var navigationTarget by remember { mutableStateOf<String?>(null) }
+    var passwordVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-
-    // Handle navigation after successful login
-    LaunchedEffect(navigationTarget) {
-        navigationTarget?.let { target ->
-            navController.navigate(target) {
-                popUpTo("login") { inclusive = true }
-            }
-            navigationTarget = null
-        }
-    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -61,6 +57,7 @@ fun UnifiedLoginScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(24.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
                 Text(
                     text = "HealthTrack",
@@ -95,7 +92,15 @@ fun UnifiedLoginScreen(
                     onValueChange = { password = it },
                     label = { Text("Password") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -106,34 +111,33 @@ fun UnifiedLoginScreen(
                         scope.launch {
                             isLoading = true
                             try {
-                                // 1) Resolve email from humanId or use email directly
                                 val emailToUse = if (idOrEmail.contains("@")) {
                                     idOrEmail.trim()
                                 } else {
-                                    // Treat as humanId, look up in Firestore
                                     val user = findUserByHumanId(idOrEmail.trim())
                                         ?: throw IllegalArgumentException("No user with this ID")
                                     user.email
                                 }
 
-                                // 2) Firebase Auth sign-in
                                 val authUser = Firebase.auth
                                     .signInWithEmailAndPassword(emailToUse, password)
                                     .await()
                                     .user ?: throw IllegalStateException("Auth failed")
 
-                                // 3) Fetch full profile from Firestore
                                 val profile = fetchUserProfile(authUser.uid)
                                     ?: throw IllegalStateException("Profile not found")
 
                                 Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
 
-                                // 4) Route based on role - set navigation target to trigger LaunchedEffect
-                                navigationTarget = when (profile.role) {
-                                    "patient" -> "patient_home/${profile.firstName}/${profile.lastName}"
-                                    "doctor" -> "doctor_home/${profile.firstName}/${profile.lastName}/${profile.humanId}"
+                                val route = when (profile.role) {
+                                    "patient" -> "patient_home/${profile.firstName.ifEmpty { "User" }}/${profile.lastName.ifEmpty { "" }}"
+                                    "doctor" -> "doctor_home/${profile.firstName.ifEmpty { "Doctor" }}/${profile.lastName.ifEmpty { "" }}/${profile.humanId}"
                                     "admin" -> "admin_home"
                                     else -> throw IllegalStateException("Unknown role: ${profile.role}")
+                                }
+                                
+                                navController.navigate(route) {
+                                    popUpTo("login") { inclusive = true }
                                 }
 
                             } catch (e: Exception) {
@@ -202,11 +206,6 @@ fun UnifiedLoginScreen(
     }
 }
 
-/* ------------ Firestore Helpers ------------ */
-
-/**
- * Find user by humanId (generic across all roles)
- */
 private suspend fun findUserByHumanId(humanId: String): AppUser? {
     val db = Firebase.firestore
     val snap = db.collection("users")
@@ -226,9 +225,6 @@ private suspend fun findUserByHumanId(humanId: String): AppUser? {
     )
 }
 
-/**
- * Fetch user profile by Firebase UID
- */
 private suspend fun fetchUserProfile(uid: String): AppUser? {
     val db = Firebase.firestore
     val d = db.collection("users").document(uid).get().await()
@@ -243,9 +239,6 @@ private suspend fun fetchUserProfile(uid: String): AppUser? {
     )
 }
 
-/**
- * Data class for user profile (same as in UserRepository)
- */
 data class AppUser(
     val uid: String,
     val role: String,

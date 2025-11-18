@@ -1,6 +1,7 @@
 package com.example.patienttracker.ui.navigation
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -13,6 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.patienttracker.auth.AuthManager
+import kotlinx.coroutines.delay
 import com.example.patienttracker.ui.screens.common.SplashScreen
 import com.example.patienttracker.ui.screens.auth.RegisterPatientScreen
 import com.example.patienttracker.ui.screens.patient.PatientHomeScreen
@@ -55,75 +57,64 @@ private object Route {
 fun AppNavHost(context: Context) {
     val navController = rememberNavController()
     var startDestination by remember { mutableStateOf(Route.SPLASH) }
+    var isAuthCheckComplete by remember { mutableStateOf(false) }
+    var nextDestination by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        try {
+            delay(500) // Allow UI to render first
+            
+            // Perform async authentication check
+            if (AuthManager.isUserLoggedIn()) {
+                try {
+                    val role = AuthManager.getCurrentUserRole()
+                    val profile = AuthManager.getCurrentUserProfile()
+
+                    nextDestination = when (role) {
+                        "patient" -> {
+                            if (profile != null) {
+                                "${Route.PATIENT_HOME}/${profile.firstName}/${profile.lastName}"
+                            } else {
+                                Route.LOGIN
+                            }
+                        }
+                        "doctor" -> {
+                            if (profile != null) {
+                                "${Route.DOCTOR_HOME}/${profile.firstName}/${profile.lastName}/${profile.humanId}"
+                            } else {
+                                Route.LOGIN
+                            }
+                        }
+                        "admin" -> Route.ADMIN_HOME
+                        else -> Route.LOGIN
+                    }
+                } catch (e: Exception) {
+                    Log.e("AppNavHost", "Error fetching user role/profile", e)
+                    nextDestination = Route.LOGIN
+                }
+            } else {
+                nextDestination = Route.LOGIN
+            }
+            
+            isAuthCheckComplete = true
+        } catch (e: Exception) {
+            Log.e("AppNavHost", "Critical error in auth check", e)
+            nextDestination = Route.LOGIN
+            isAuthCheckComplete = true
+        }
+    }
+
+    if (isAuthCheckComplete && nextDestination != null) {
+        startDestination = nextDestination ?: Route.LOGIN
+    }
 
     NavHost(
         navController = navController,
         startDestination = startDestination
     ) {
-        // Splash screen - handles auth check
+        // Splash screen - only rendered briefly
         composable(Route.SPLASH) {
             SplashScreen()
-            
-            LaunchedEffect(Unit) {
-                // Check authentication state
-                if (AuthManager.isUserLoggedIn()) {
-                    // User is logged in, get their role and navigate accordingly
-                    try {
-                        val role = AuthManager.getCurrentUserRole()
-                        val profile = AuthManager.getCurrentUserProfile()
-                        
-                        when (role) {
-                            "patient" -> {
-                                if (profile != null) {
-                                    // Navigate directly to patient home
-                                    navController.navigate("${Route.PATIENT_HOME}/${profile.firstName}/${profile.lastName}") {
-                                        popUpTo(Route.SPLASH) { inclusive = true }
-                                    }
-                                } else {
-                                    // Fallback: go to login
-                                    navController.navigate(Route.LOGIN) {
-                                        popUpTo(Route.SPLASH) { inclusive = true }
-                                    }
-                                }
-                            }
-                            "doctor" -> {
-                                if (profile != null) {
-                                    // Navigate directly to doctor home
-                                    navController.navigate("${Route.DOCTOR_HOME}/${profile.firstName}/${profile.lastName}/${profile.humanId}") {
-                                        popUpTo(Route.SPLASH) { inclusive = true }
-                                    }
-                                } else {
-                                    // Fallback: go to login
-                                    navController.navigate(Route.LOGIN) {
-                                        popUpTo(Route.SPLASH) { inclusive = true }
-                                    }
-                                }
-                            }
-                            "admin" -> {
-                                navController.navigate(Route.ADMIN_HOME) {
-                                    popUpTo(Route.SPLASH) { inclusive = true }
-                                }
-                            }
-                            else -> {
-                                // Unknown role, go to login
-                                navController.navigate(Route.LOGIN) {
-                                    popUpTo(Route.SPLASH) { inclusive = true }
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        // If there's any error, go to login
-                        navController.navigate(Route.LOGIN) {
-                            popUpTo(Route.SPLASH) { inclusive = true }
-                        }
-                    }
-                } else {
-                    // User is not logged in, go to unified login
-                    navController.navigate(Route.LOGIN) {
-                        popUpTo(Route.SPLASH) { inclusive = true }
-                    }
-                }
-            }
         }
 
         // Unified login screen for all roles
@@ -162,6 +153,11 @@ fun AppNavHost(context: Context) {
             val firstName = backStackEntry.arguments?.getString("firstName") ?: ""
             val lastName = backStackEntry.arguments?.getString("lastName") ?: ""
             PatientHomeScreen(navController, context)
+            // Pass firstName and lastName through savedStateHandle for the screen to use
+            LaunchedEffect(Unit) {
+                navController.currentBackStackEntry?.savedStateHandle?.set("firstName", firstName)
+                navController.currentBackStackEntry?.savedStateHandle?.set("lastName", lastName)
+            }
         }
 
         composable(Route.PATIENT_HOME) {

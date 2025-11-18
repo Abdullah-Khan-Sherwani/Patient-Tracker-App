@@ -6,6 +6,9 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -13,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -33,6 +37,7 @@ fun DoctorLoginScreen(
     var doctorId by remember { mutableStateOf("") }   // humanId like 000001
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
 
     var showWelcome by remember { mutableStateOf(false) }
     var doctorName by remember { mutableStateOf("") }
@@ -108,7 +113,15 @@ fun DoctorLoginScreen(
                     onValueChange = { password = it },
                     label = { Text("Password") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -147,11 +160,10 @@ fun DoctorLoginScreen(
                                 navController.currentBackStackEntry?.savedStateHandle?.set("lastName", full.lastName)
                                 navController.currentBackStackEntry?.savedStateHandle?.set("doctorId", full.humanId)
 
-                                // Navigate directly to doctor home (or keep welcome screen if you prefer)
+                                // Navigate directly to doctor home
                                 navController.navigate("doctor_home/${full.firstName}/${full.lastName}/${full.humanId}") {
                                     popUpTo("doctor_login") { inclusive = true }
                                 }
-                                showWelcome = true
                             } catch (e: Exception) {
                                 Toast.makeText(context, e.message ?: "Login failed", Toast.LENGTH_LONG).show()
                             } finally {

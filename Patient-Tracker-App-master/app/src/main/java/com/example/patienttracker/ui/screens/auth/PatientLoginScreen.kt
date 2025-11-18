@@ -5,6 +5,9 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -32,6 +36,7 @@ fun PatientLoginScreen(
     var idOrEmail by remember { mutableStateOf("") }     // accepts PatientID or email
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
+    var passwordVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     Surface(
@@ -70,7 +75,15 @@ fun PatientLoginScreen(
                     onValueChange = { password = it },
                     label = { Text("Password") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -105,10 +118,6 @@ fun PatientLoginScreen(
                                     throw IllegalStateException("This account is not a patient")
                                 }
 
-                                // In PatientLoginScreen.kt, find this section and update:
-                                Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
-
-                                // In PatientLoginScreen.kt, update the login success section:
                                 Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
 
                                 // Store profile data for persistence
@@ -119,18 +128,6 @@ fun PatientLoginScreen(
                                 navController.navigate("patient_home/${profile.firstName}/${profile.lastName}") {
                                     popUpTo("patient_login") { inclusive = true }
                                 }
-
-                                // 4) Hand off name/ID to the next screen via savedStateHandle
-                                // Replace this section in the login button onClick:
-                                navController.currentBackStackEntry?.savedStateHandle?.set("firstName", profile.firstName)
-                                navController.currentBackStackEntry?.savedStateHandle?.set("lastName", profile.lastName)
-
-                                // Navigate to patient_home with arguments
-                                navController.navigate("patient_home/${profile.firstName}/${profile.lastName}") {
-                                    popUpTo("patient_login") { inclusive = true }
-                                }
-                                // If you instead want a welcome screen, use:
-                                // navController.navigate("patient_welcome/${profile.firstName}/${profile.lastName}/${profile.humanId}")
 
                             } catch (e: Exception) {
                                 Toast.makeText(context, e.message ?: "Invalid ID/email or password", Toast.LENGTH_SHORT).show()

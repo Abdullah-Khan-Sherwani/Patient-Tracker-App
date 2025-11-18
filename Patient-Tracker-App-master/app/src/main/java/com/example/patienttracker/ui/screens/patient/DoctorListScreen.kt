@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,6 +43,7 @@ data class DoctorFull(
     val timings: String
 ) : Parcelable
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorListScreen(navController: NavController, context: Context, specialityFilter: String?) {
     val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
@@ -59,24 +62,19 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
 
     Scaffold(
         topBar = {
-            Surface(
-                color = Color.Transparent,
-                tonalElevation = 0.dp
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(gradient)
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = specialityFilter?.ifBlank { "All Doctors" } ?: "All Doctors",
-                        color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                    )
-                }
-            }
+            TopAppBar(
+                title = { Text(specialityFilter?.ifBlank { "All Doctors" } ?: "All Doctors") },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF05B8C7),
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
+            )
         }
     ) { inner ->
         LazyColumn(

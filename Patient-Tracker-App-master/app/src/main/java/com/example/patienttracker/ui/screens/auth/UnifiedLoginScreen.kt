@@ -49,8 +49,18 @@ fun UnifiedLoginScreen(
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
-    var passwordVisible by remember { mutableStateOf(false) }
+    var navigationTarget by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+
+    // Handle navigation after successful login
+    LaunchedEffect(navigationTarget) {
+        navigationTarget?.let { target ->
+            navController.navigate(target) {
+                popUpTo("login") { inclusive = true }
+            }
+            navigationTarget = null
+        }
+    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),

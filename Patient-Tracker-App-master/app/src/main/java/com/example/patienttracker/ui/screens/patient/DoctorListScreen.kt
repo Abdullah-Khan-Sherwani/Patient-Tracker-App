@@ -89,8 +89,9 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
         ) {
             items(filtered) { doc ->
                 DoctorCard(doc) {
-                    navController.currentBackStackEntry?.savedStateHandle?.set("selectedDoctor", doc)
-                    navController.navigate("book_appointment")
+                    // Navigate to simplified booking with doctor info
+                    val doctorFullName = "Dr. ${doc.firstName} ${doc.lastName}"
+                    navController.navigate("book_appointment_simple/${doc.id}/${doctorFullName}/${doc.speciality}")
                 }
             }
         }

@@ -60,8 +60,12 @@ import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.asPaddingValues
 import com.example.patienttracker.R
-import com.example.patienttracker.data.AppointmentStorage
+import com.example.patienttracker.data.Appointment as FirebaseAppointment
+import com.example.patienttracker.data.AppointmentRepository
+import com.google.firebase.auth.FirebaseAuth
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
@@ -118,7 +122,7 @@ fun DoctorHomeScreen(
                 initials = initials,
                 onBell = { /* TODO: open notifications */ },
                 onSettings = { /* TODO: open settings */ },
-                onSearch = { /* TODO: open search */ }
+                onSearch = { navController.navigate("doctor_patient_list") }
             )
 
             Spacer(Modifier.height(12.dp))
@@ -242,6 +246,9 @@ private fun DoctorSchedule(gradient: Brush, context: Context) {
     val (dates, todayIndex) = remember { generateDateChipsAroundToday(15, 15, locale) }
     var selected by rememberSaveable { mutableIntStateOf(todayIndex) }
     var displayedMonth by remember { mutableStateOf(monthLabel(dates[todayIndex].date, locale)) }
+    
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    var appts by remember { mutableStateOf<List<com.example.patienttracker.ui.screens.doctor.Appointment>>(emptyList()) }
 
     // Header (title + month)
     Surface(color = Color.Transparent) {
@@ -301,7 +308,11 @@ private fun DoctorSchedule(gradient: Brush, context: Context) {
     }
 
     // Appointments list for selected day
-    val appts = remember(selected) { appointmentsFor(context, dates[selected].date) }
+    LaunchedEffect(selected, currentUser?.uid) {
+        currentUser?.uid?.let { uid ->
+            appts = appointmentsFor(uid, dates[selected].date)
+        }
+    }
 
     Surface(
         modifier = Modifier
@@ -382,17 +393,30 @@ data class Appointment(
     val report: String? = null
 )
 
-private fun appointmentsFor(context: Context, date: LocalDate): List<com.example.patienttracker.ui.screens.doctor.Appointment> {
-    val allAppointments = AppointmentStorage.getAppointments(context)
-    val formatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", Locale.getDefault())
-    return allAppointments.filter { 
-        try {
-            LocalDate.parse(it.date, formatter) == date
-        } catch (e: Exception) {
-            false
+private suspend fun appointmentsFor(doctorUid: String, date: LocalDate): List<com.example.patienttracker.ui.screens.doctor.Appointment> {
+    return try {
+        val result = AppointmentRepository.getDoctorAppointments()
+        val allAppointments: List<FirebaseAppointment> = result.getOrElse { emptyList() }
+        
+        allAppointments.filter { appointment ->
+            try {
+                val appointmentDate = Instant.ofEpochSecond(appointment.appointmentDate.seconds)
+                    .atZone(ZoneId.systemDefault())
+                    .toLocalDate()
+                appointmentDate == date
+            } catch (e: Exception) {
+                false
+            }
+        }.map { appointment ->
+            com.example.patienttracker.ui.screens.doctor.Appointment(
+                time = appointment.timeSlot,
+                patientName = appointment.patientName,
+                reason = appointment.speciality,
+                report = if (appointment.notes.isNotEmpty()) appointment.notes else null
+            )
         }
-    }.map { 
-        com.example.patienttracker.ui.screens.doctor.Appointment(it.time, it.doctorName, it.speciality, it.report)
+    } catch (e: Exception) {
+        emptyList()
     }
 }
 

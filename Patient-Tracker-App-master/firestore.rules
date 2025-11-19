@@ -57,31 +57,36 @@ service cloud.firestore {
 
     // healthRecords collection
     match /healthRecords/{recordId} {
-      // Helper to check if doctor has appointment with patient within 2-day window
-      function hasDoctorAppointmentAccess(patientUid) {
-        let appointments = get(/databases/$(database)/documents/appointments/$(patientUid)).data;
-        // Check if doctor has active appointment with patient
-        // For now: doctors with appointment access can view (2-day window enforced in app logic)
-        return exists(/databases/$(database)/documents/appointments/$(patientUid));
-      }
-
-      // Patients can create/read/update/delete their own records
+      // Patients can create their own records
       allow create: if request.auth != null && 
         request.resource.data.patientUid == request.auth.uid;
       
       allow read: if request.auth != null && (
-        // Patient can read own records
+        // Patient can always read own records (including private ones)
         resource.data.patientUid == request.auth.uid ||
-        // Doctor can read if has appointment access (2-day window checked in app)
-        (isDoctor() && resource.data.patientUid in resource.data.get('doctorAccessList', [])) ||
-        // Admin can read all
-        isAdmin()
+        // Admin can read all records
+        isAdmin() ||
+        // Doctor can read non-private records OR private records if they're in doctorAccessList
+        (isDoctor() && (
+          !resource.data.get('isPrivate', false) ||
+          request.auth.uid in resource.data.get('doctorAccessList', []) ||
+          resource.data.get('glassBreakAccess', []).hasAny([request.auth.uid])
+        ))
       );
       
       allow update: if request.auth != null && (
         // Patient can update own records
         resource.data.patientUid == request.auth.uid ||
-        // Admin can update
+        // Doctor can update to add view logs or glass break access
+        (isDoctor() && (
+          // Can add to viewedBy
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedBy']) ||
+          // Can add to glassBreakAccess
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['glassBreakAccess']) ||
+          // Can update both
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedBy', 'glassBreakAccess'])
+        )) ||
+        // Admin can update all
         isAdmin()
       );
       

@@ -32,7 +32,12 @@ import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
 import com.example.patienttracker.ui.screens.patient.PatientHealthRecordsScreen
 import com.example.patienttracker.ui.screens.patient.UploadHealthRecordScreen
+import com.example.patienttracker.ui.screens.patient.EnhancedUploadHealthRecordScreen
+import com.example.patienttracker.ui.screens.patient.MyRecordsScreen
+import com.example.patienttracker.ui.screens.patient.SimplifiedBookAppointmentScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorViewPatientRecordsScreen
+import com.example.patienttracker.ui.screens.doctor.EnhancedDoctorViewPatientRecordsScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorPatientListScreen
 
 private object Route {
     const val SPLASH = "splash"
@@ -204,10 +209,41 @@ fun AppNavHost(context: Context) {
             UploadHealthRecordScreen(navController, context)
         }
 
+        // Enhanced Upload Health Record Screen with privacy, notes, medication
+        composable("upload_health_record_enhanced") {
+            EnhancedUploadHealthRecordScreen(navController, context)
+        }
+
+        // My Records Screen - Patient view of their own records with access logs
+        composable("my_records") {
+            MyRecordsScreen(navController, context)
+        }
+
+        // Simplified Booking Screen with calendar view
+        composable("book_appointment_simple/{doctorUid}/{doctorName}/{speciality}") { backStackEntry ->
+            val doctorUid = backStackEntry.arguments?.getString("doctorUid") ?: ""
+            val doctorName = backStackEntry.arguments?.getString("doctorName") ?: ""
+            val speciality = backStackEntry.arguments?.getString("speciality") ?: ""
+            SimplifiedBookAppointmentScreen(navController, context, doctorUid, doctorName, speciality)
+        }
+
+        // Doctor View Patient Records - Original screen
         composable("doctor_view_patient_records/{patientUid}/{patientName}") { backStackEntry ->
             val patientUid = backStackEntry.arguments?.getString("patientUid") ?: ""
             val patientName = backStackEntry.arguments?.getString("patientName") ?: "Patient"
             DoctorViewPatientRecordsScreen(navController, context, patientUid, patientName)
+        }
+
+        // Enhanced Doctor View Patient Records with sorting, filtering, glass break
+        composable("doctor_view_patient_records_enhanced/{patientUid}/{patientName}") { backStackEntry ->
+            val patientUid = backStackEntry.arguments?.getString("patientUid") ?: ""
+            val patientName = backStackEntry.arguments?.getString("patientName") ?: "Patient"
+            EnhancedDoctorViewPatientRecordsScreen(navController, context, patientUid, patientName)
+        }
+
+        // Doctor Patient List Screen - View all patients with appointments
+        composable("doctor_patient_list") {
+            DoctorPatientListScreen(navController, context)
         }
 
         composable(

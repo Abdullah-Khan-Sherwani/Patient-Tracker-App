@@ -17,12 +17,30 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavController
-import com.example.patienttracker.data.AppointmentStorage
+import com.example.patienttracker.data.Appointment
+import com.example.patienttracker.data.AppointmentRepository
+import com.google.firebase.auth.FirebaseAuth
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun FullScheduleScreen(navController: NavController, context: Context) {
     val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
-    val appointments = remember { AppointmentStorage.getAppointments(context) }
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    var appointments by remember { mutableStateOf<List<Appointment>>(emptyList()) }
+    
+    LaunchedEffect(currentUser?.uid) {
+        currentUser?.uid?.let { _ ->
+            try {
+                val result = AppointmentRepository.getPatientAppointments()
+                appointments = result.getOrElse { emptyList() }
+            } catch (e: Exception) {
+                // Handle error
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -60,6 +78,12 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(appointments) { app ->
+                    val formatter = DateTimeFormatter.ofPattern("EEEE, MMM dd, yyyy", Locale.getDefault())
+                    val appointmentDate = Instant.ofEpochSecond(app.appointmentDate.seconds)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
+                    val formattedDate = appointmentDate.format(formatter)
+                    
                     Surface(
                         shape = RoundedCornerShape(16.dp),
                         color = Color.White,
@@ -67,9 +91,9 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(Modifier.padding(16.dp)) {
-                            Text(app.date, color = Color(0xFF4CB7C2), fontWeight = FontWeight.Bold)
+                            Text(formattedDate, color = Color(0xFF4CB7C2), fontWeight = FontWeight.Bold)
                             Spacer(Modifier.height(6.dp))
-                            Text(app.time, color = Color(0xFF2A6C74))
+                            Text(app.timeSlot, color = Color(0xFF2A6C74))
                             Text(app.doctorName, color = Color(0xFF1C3D5A), fontWeight = FontWeight.Bold)
                             Text(app.speciality, color = Color(0xFF4CB7C2))
                         }

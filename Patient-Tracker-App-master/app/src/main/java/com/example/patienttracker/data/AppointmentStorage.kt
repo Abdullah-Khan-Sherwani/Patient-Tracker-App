@@ -25,14 +25,14 @@ object AppointmentStorage {
         file.writeText(arr.toString())
     }
 
-    fun getAppointments(context: Context): List<Appointment> {
+    fun getAppointments(context: Context): List<LocalAppointment> {
         val file = File(context.filesDir, FILE_NAME)
         if (!file.exists()) return emptyList()
 
         val arr = JSONArray(file.readText())
         return List(arr.length()) {
             val o = arr.getJSONObject(it)
-            Appointment(
+            LocalAppointment(
                 o.getString("doctorName"),
                 o.getString("speciality"),
                 o.getString("date"),
@@ -43,7 +43,7 @@ object AppointmentStorage {
     }
 }
 
-data class Appointment(
+data class LocalAppointment(
     val doctorName: String,
     val speciality: String,
     val date: String,

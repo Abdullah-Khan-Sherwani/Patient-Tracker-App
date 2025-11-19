@@ -28,6 +28,9 @@ object HealthRecordRepository {
      * @param description User-provided description
      * @param appointmentId Optional appointment ID
      * @param tags Optional tags
+     * @param isPrivate Whether record is private (only patient can see)
+     * @param notes Optional notes
+     * @param pastMedication Optional past medication info
      */
     suspend fun uploadRecord(
         fileUri: Uri,
@@ -36,7 +39,10 @@ object HealthRecordRepository {
         fileSize: Long,
         description: String,
         appointmentId: String? = null,
-        tags: List<String> = emptyList()
+        tags: List<String> = emptyList(),
+        isPrivate: Boolean = false,
+        notes: String = "",
+        pastMedication: String = ""
     ): Result<HealthRecord> {
         return try {
             val currentUser = auth.currentUser
@@ -73,7 +79,12 @@ object HealthRecordRepository {
                 uploadDate = Timestamp.now(),
                 appointmentId = appointmentId,
                 doctorAccessList = emptyList(),
-                tags = tags
+                tags = tags,
+                isPrivate = isPrivate,
+                notes = notes,
+                pastMedication = pastMedication,
+                viewedBy = emptyList(),
+                glassBreakAccess = emptyList()
             )
             
             // 4) Save to Firestore
@@ -228,6 +239,143 @@ object HealthRecordRepository {
             docRef.update("doctorAccessList", updatedList).await()
             
             Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Record that a doctor viewed a record
+     */
+    suspend fun recordView(recordId: String, wasGlassBreak: Boolean = false): Result<Unit> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            // Get doctor name
+            val userDoc = db.collection("users").document(currentUser.uid).get().await()
+            val firstName = userDoc.getString("firstName") ?: ""
+            val lastName = userDoc.getString("lastName") ?: ""
+            val doctorName = "Dr. $firstName $lastName"
+            
+            // Get current record
+            val docRef = db.collection(COLLECTION).document(recordId)
+            val docSnapshot = docRef.get().await()
+            val record = HealthRecord.fromFirestore(docSnapshot.data ?: return Result.failure(Exception("Record not found")), recordId)
+            
+            // Add view log
+            val viewLog = ViewLog(
+                doctorUid = currentUser.uid,
+                doctorName = doctorName,
+                viewedAt = Timestamp.now(),
+                wasGlassBreak = wasGlassBreak
+            )
+            
+            val updatedViewedBy = record.viewedBy.toMutableList()
+            updatedViewedBy.add(viewLog)
+            
+            docRef.update("viewedBy", updatedViewedBy.map { log ->
+                hashMapOf(
+                    "doctorUid" to log.doctorUid,
+                    "doctorName" to log.doctorName,
+                    "viewedAt" to log.viewedAt,
+                    "wasGlassBreak" to log.wasGlassBreak
+                )
+            }).await()
+            
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Glass break access - emergency access to private records
+     */
+    suspend fun glassBreakAccess(recordId: String, reason: String): Result<Unit> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            // Get doctor info
+            val userDoc = db.collection("users").document(currentUser.uid).get().await()
+            val firstName = userDoc.getString("firstName") ?: ""
+            val lastName = userDoc.getString("lastName") ?: ""
+            val doctorName = "Dr. $firstName $lastName"
+            
+            // Get record
+            val docRef = db.collection(COLLECTION).document(recordId)
+            val docSnapshot = docRef.get().await()
+            val record = HealthRecord.fromFirestore(docSnapshot.data ?: return Result.failure(Exception("Record not found")), recordId)
+            
+            // Create glass break log
+            val glassBreakLog = GlassBreakLog(
+                doctorUid = currentUser.uid,
+                doctorName = doctorName,
+                accessedAt = Timestamp.now(),
+                reason = reason,
+                notificationSent = true // Will be implemented with notification system
+            )
+            
+            val updatedGlassBreak = record.glassBreakAccess.toMutableList()
+            updatedGlassBreak.add(glassBreakLog)
+            
+            // Update record
+            docRef.update("glassBreakAccess", updatedGlassBreak.map { log ->
+                hashMapOf(
+                    "doctorUid" to log.doctorUid,
+                    "doctorName" to log.doctorName,
+                    "accessedAt" to log.accessedAt,
+                    "reason" to log.reason,
+                    "notificationSent" to log.notificationSent
+                )
+            }).await()
+            
+            // Also record as a view
+            recordView(recordId, wasGlassBreak = true)
+            
+            // TODO: Send notification to patient and admin
+            
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get records accessible to current doctor for a patient
+     * Respects privacy settings and appointment access
+     */
+    suspend fun getDoctorAccessibleRecordsForPatient(patientUid: String): Result<List<HealthRecord>> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            // Check if doctor has active appointment with patient
+            val hasAppointment = AppointmentRepository.hasActiveAppointment(currentUser.uid, patientUid).getOrNull() ?: false
+            
+            // Get all patient records
+            val recordsSnapshot = db.collection(COLLECTION)
+                .whereEqualTo("patientUid", patientUid)
+                .orderBy("uploadDate", Query.Direction.DESCENDING)
+                .get()
+                .await()
+            
+            val allRecords = recordsSnapshot.documents.mapNotNull { doc ->
+                HealthRecord.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
+            }
+            
+            // Filter out private records unless doctor has explicit access or appointment
+            val accessibleRecords = allRecords.filter { record ->
+                !record.isPrivate || 
+                record.doctorAccessList.contains(currentUser.uid) ||
+                hasAppointment
+            }
+            
+            Result.success(accessibleRecords)
             
         } catch (e: Exception) {
             Result.failure(e)

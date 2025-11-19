@@ -43,8 +43,10 @@ service firebase.storage {
         isAdmin()
       );
       
-      // File size limit: 10MB
-      allow write: if request.resource.size < 10 * 1024 * 1024;
+      // File size limit: 10MB - must be authenticated and owner
+      allow write: if isAuthenticated() && 
+                      isOwner(patientUid) && 
+                      request.resource.size < 10 * 1024 * 1024;
     }
     
     // Deny all other access

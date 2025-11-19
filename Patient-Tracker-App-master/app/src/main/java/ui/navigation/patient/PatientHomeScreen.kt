@@ -47,11 +47,16 @@ import java.util.Locale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.snapshotFlow
-import com.example.patienttracker.data.AppointmentStorage
 import com.example.patienttracker.data.Appointment
+import com.example.patienttracker.data.AppointmentRepository
+import com.google.firebase.auth.FirebaseAuth
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalContext
+import kotlinx.coroutines.tasks.await
+import java.time.Instant
 
+// Data class for date selection chips - must be defined before use
+data class DayChip(val date: LocalDate, val day: String, val dow: String)
 
 @Composable
 fun PatientHomeScreen(navController: NavController, context: Context) {
@@ -101,7 +106,7 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
                     when (category.label) {
                         "Doctors" -> navController.navigate("doctor_list/All")
                         "Specialties" -> navController.navigate("doctor_list/All") // optional
-                        "Record" -> navController.navigate("patient_health_records")
+                        "Record" -> navController.navigate("my_records")
                     }
                 }
             )
@@ -291,7 +296,19 @@ private fun monthLabel(date: LocalDate, locale: Locale = Locale.getDefault()): S
 @Composable
 private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
     val context = LocalContext.current
-    val allAppointments = remember { AppointmentStorage.getAppointments(context) }
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    var allAppointments by remember { mutableStateOf<List<Appointment>>(emptyList()) }
+    
+    LaunchedEffect(currentUser?.uid) {
+        currentUser?.uid?.let { _ ->
+            try {
+                val result = AppointmentRepository.getPatientAppointments()
+                allAppointments = result.getOrElse { emptyList() }
+            } catch (e: Exception) {
+                // Handle error silently for now
+            }
+        }
+    }
 
     Column(Modifier.fillMaxWidth()) {
         val (dates, todayIndex) = remember { generateDateChipsAroundToday(pastDays = 7, futureDays = 7) }
@@ -360,15 +377,13 @@ private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
         val selectedDate = dates[selected].date
         val filtered = remember(selectedDate, allAppointments) {
             allAppointments.filter { appointment ->
-                // Parse the appointment date string and compare with selected date
                 try {
-                    val formatter = DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy", locale)
-                    val appointmentDate = LocalDate.parse(appointment.date, formatter)
+                    val appointmentDate = Instant.ofEpochSecond(appointment.appointmentDate.seconds)
+                        .atZone(ZoneId.systemDefault())
+                        .toLocalDate()
                     appointmentDate == selectedDate
                 } catch (e: Exception) {
-                    // If parsing fails, try alternative approach
-                    appointment.date.contains(selectedDate.dayOfMonth.toString()) &&
-                    appointment.date.contains(selectedDate.month.getDisplayName(TextStyle.SHORT, locale))
+                    false
                 }
             }
         }
@@ -386,9 +401,6 @@ private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
         }
     }
 }
-
-
-data class DayChip(val date: LocalDate, val day: String, val dow: String)
 
 @Composable 
 private fun DayPill(item: DayChip, selected: Boolean, onClick: () -> Unit) {
@@ -470,7 +482,7 @@ private fun ScheduleCard(
             appointments.forEachIndexed { index, appointment ->
                 Column {
                     Text(
-                        appointment.time,
+                        appointment.timeSlot,
                         color = Color(0xFF2A6C74), 
                         style = MaterialTheme.typography.labelLarge
                     )
@@ -479,7 +491,7 @@ private fun ScheduleCard(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            appointment.time,
+                            appointment.timeSlot,
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = Color(0xFF2A6C74)
                         )

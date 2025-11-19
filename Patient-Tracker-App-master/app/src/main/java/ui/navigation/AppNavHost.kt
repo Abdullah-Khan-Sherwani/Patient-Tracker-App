@@ -16,6 +16,7 @@ import com.example.patienttracker.auth.AuthManager
 import com.example.patienttracker.ui.screens.common.SplashScreen
 import com.example.patienttracker.ui.screens.auth.RegisterPatientScreen
 import com.example.patienttracker.ui.screens.patient.PatientHomeScreen
+import com.example.patienttracker.ui.screens.patient.PatientDashboard
 import com.example.patienttracker.ui.screens.auth.PatientAccountCreatedScreen
 import com.example.patienttracker.ui.screens.admin.AdminHomeScreen
 import com.example.patienttracker.ui.screens.admin.AddDoctorScreen
@@ -38,6 +39,7 @@ import com.example.patienttracker.ui.screens.patient.SimplifiedBookAppointmentSc
 import com.example.patienttracker.ui.screens.doctor.DoctorViewPatientRecordsScreen
 import com.example.patienttracker.ui.screens.doctor.EnhancedDoctorViewPatientRecordsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientListScreen
+import com.example.patienttracker.ui.viewmodel.ThemeViewModel
 
 private object Route {
     const val SPLASH = "splash"
@@ -57,7 +59,7 @@ private object Route {
 }
 
 @Composable
-fun AppNavHost(context: Context) {
+fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
     val navController = rememberNavController()
     var startDestination by remember { mutableStateOf(Route.SPLASH) }
 
@@ -166,11 +168,11 @@ fun AppNavHost(context: Context) {
         ) { backStackEntry ->
             val firstName = backStackEntry.arguments?.getString("firstName") ?: ""
             val lastName = backStackEntry.arguments?.getString("lastName") ?: ""
-            PatientHomeScreen(navController, context)
+            PatientDashboard(navController, context, themeViewModel.isDarkMode.value)
         }
 
         composable(Route.PATIENT_HOME) {
-            PatientHomeScreen(navController, context)
+            PatientDashboard(navController, context, themeViewModel.isDarkMode.value)
         }
 
         composable("doctor_list/{speciality}") { backStackEntry ->
@@ -197,7 +199,7 @@ fun AppNavHost(context: Context) {
         composable("patient_profile/{firstName}/{lastName}") { backStackEntry ->
             val first = backStackEntry.arguments?.getString("firstName") ?: ""
             val last = backStackEntry.arguments?.getString("lastName") ?: ""
-            PatientProfileScreen(navController, first, last)
+            PatientProfileScreen(navController, first, last, themeViewModel)
         }
 
         // Health Records Routes

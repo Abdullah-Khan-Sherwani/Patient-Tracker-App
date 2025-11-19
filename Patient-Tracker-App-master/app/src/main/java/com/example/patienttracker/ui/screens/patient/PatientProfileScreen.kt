@@ -1,162 +1,433 @@
 package com.example.patienttracker.ui.screens.patient
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import com.example.patienttracker.ui.viewmodel.ThemeViewModel
+
+// Beige color scheme matching dashboard
+private val ProfileHeaderTopColor = Color(0xFFD4AF8C)
+private val ProfileHeaderBottomColor = Color(0xFFC9956E)
+private val ProfileBackgroundColor = Color(0xFFF7EFE7)
+private val CardWhiteColor = Color(0xFFFFFFFF)
+private val TextDarkColor = Color(0xFF5C4A42)
+private val TextLightColor = Color(0xFF999999)
+private val ButtonBeigeColor = Color(0xFFC9956E)
+
+// Dark mode colors
+private val DarkHeaderTopColor = Color(0xFF2C2C2C)
+private val DarkHeaderBottomColor = Color(0xFF1F1F1F)
+private val DarkBackgroundColor = Color(0xFF121212)
+private val DarkCardColor = Color(0xFF1E1E1E)
+private val DarkTextColor = Color(0xFFE0E0E0)
+private val DarkTextLightColor = Color(0xFF999999)
+private val DarkButtonColor = Color(0xFF424242)
 
 @Composable
 fun PatientProfileScreen(
     navController: NavController,
     firstName: String?,
-    lastName: String?
+    lastName: String?,
+    themeViewModel: ThemeViewModel
 ) {
     val safeFirstName = firstName ?: "Patient"
     val safeLastName = lastName ?: ""
+    val fullName = if (safeLastName.isNotEmpty()) "$safeFirstName $safeLastName" else safeFirstName
     
-    var showLogoutDialog by remember { mutableStateOf(false) }
+    var userPhoneNumber by remember { mutableStateOf<String?>(null) }
+    var userDisplayName by remember { mutableStateOf(fullName) }
     
-    // Logout dialog
-    if (showLogoutDialog) {
-        AlertDialog(
-            onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Log Out") },
-            text = { Text("Are you sure you want to log out?") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showLogoutDialog = false
-                        // Sign out from Firebase
-                        Firebase.auth.signOut()
-                        // Navigate to login screen
-                        navController.navigate("login") {
-                            popUpTo(0) // Clear entire back stack
-                        }
+    // Fetch user data from Firestore
+    LaunchedEffect(Unit) {
+        val currentUser = Firebase.auth.currentUser
+        if (currentUser != null) {
+            Firebase.firestore.collection("users").document(currentUser.uid)
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document != null) {
+                        val firstName = document.getString("firstName") ?: safeFirstName
+                        val lastName = document.getString("lastName") ?: safeLastName
+                        val phone = document.getString("phoneNumber")
+                        
+                        userDisplayName = if (lastName.isNotEmpty()) "$firstName $lastName" else firstName
+                        userPhoneNumber = phone
                     }
-                ) {
-                    Text("Confirm", color = Color.Red)
                 }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = { showLogoutDialog = false }
-                ) {
-                    Text("Cancel")
-                }
-            }
-        )
+        }
     }
+    
+    var languageSelected by remember { mutableStateOf(false) } // false = English, true = Urdu
+    val isDarkMode by themeViewModel.isDarkMode
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFF9FEFF) // Same theme color as other screens
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(if (isDarkMode) DarkBackgroundColor else ProfileBackgroundColor)
+            .verticalScroll(rememberScrollState())
     ) {
+        // Header Section
+        ProfileHeader(
+            navController = navController,
+            fullName = userDisplayName,
+            phoneNumber = userPhoneNumber,
+            isDarkMode = isDarkMode
+        )
+
+        // General Settings Section
         Column(
             modifier = Modifier
-                .fillMaxSize()
-                .padding(24.dp)
-                .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(24.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 20.dp)
         ) {
-            // Header
+            // Section Title
             Text(
-                text = "Profile",
-                fontSize = 28.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFF0EA5B8)
+                text = "General",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isDarkMode) DarkTextColor else TextDarkColor,
+                modifier = Modifier.padding(bottom = 12.dp)
             )
 
-            // Profile Info Card
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(20.dp),
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
-                ) {
-                    // Profile Circle with initials
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(60.dp)
-                                .clip(CircleShape)
-                                .background(Color(0xFF0EA5B8)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            val initials = buildString {
-                                if (safeFirstName.isNotBlank()) append(safeFirstName.first().uppercaseChar())
-                                if (safeLastName.isNotBlank()) append(safeLastName.first().uppercaseChar())
-                            }.ifBlank { "P" }
-                            Text(
-                                text = initials,
-                                color = Color.White,
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                        
-                        Column {
-                            Text(
-                                text = "$safeFirstName $safeLastName", // Use safe variables here
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1C3D5A)
-                            )
-                            Text(
-                                text = "Patient",
-                                fontSize = 14.sp,
-                                color = Color(0xFF6AA8B0)
-                            )
-                        }
-                    }
+            // Language Setting
+            SettingItemWithToggle(
+                title = "Language",
+                subtitle = if (languageSelected) "Urdu" else "English",
+                icon = Icons.Default.Language,
+                isEnabled = languageSelected,
+                onToggle = { languageSelected = it },
+                isDarkMode = isDarkMode
+            )
 
-                    Divider(color = Color(0xFFE5EFF3))
+            Spacer(modifier = Modifier.height(12.dp))
 
-                    // Additional profile information can be added here
-                    Text(
-                        text = "Account Information",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = Color(0xFF2A6C74)
+            // Theme Setting
+            SettingItemWithToggle(
+                title = "Theme",
+                subtitle = if (isDarkMode) "Dark" else "Light",
+                icon = Icons.Default.Brightness4,
+                isEnabled = isDarkMode,
+                onToggle = { newValue ->
+                    themeViewModel.toggleDarkMode(newValue)
+                },
+                isDarkMode = isDarkMode
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Change Password
+            SettingItem(
+                title = "Change Password",
+                icon = Icons.Default.Lock,
+                onClick = { navController.navigate("change_password") },
+                isDarkMode = isDarkMode
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Privacy Policy
+            SettingItem(
+                title = "Privacy Policy",
+                icon = Icons.Default.PrivacyTip,
+                onClick = { navController.navigate("privacy_policy") },
+                isDarkMode = isDarkMode
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Terms and Conditions
+            SettingItem(
+                title = "Terms & Conditions",
+                icon = Icons.Default.Description,
+                onClick = { navController.navigate("terms_conditions") },
+                isDarkMode = isDarkMode
+            )
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        // Logout Button
+        LogoutButton(navController = navController, isDarkMode = isDarkMode)
+
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Composable
+fun ProfileHeader(navController: NavController, fullName: String, phoneNumber: String?, isDarkMode: Boolean) {
+    val headerTopColor = if (isDarkMode) DarkHeaderTopColor else ProfileHeaderTopColor
+    val headerBottomColor = if (isDarkMode) DarkHeaderBottomColor else ProfileHeaderBottomColor
+    val textColor = if (isDarkMode) DarkTextColor else CardWhiteColor
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(bottomStart = 40.dp, bottomEnd = 40.dp)),
+        color = Color.Transparent
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(
+                    brush = Brush.verticalGradient(
+                        colors = listOf(headerTopColor, headerBottomColor)
                     )
-                    // Add more profile details as needed
-                }
-            }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            // Logout Button
-            Button(
-                onClick = { showLogoutDialog = true },
+                )
+        ) {
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color.Red)
+                    .padding(20.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                // Top Row: Back + Title + Bell
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 20.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = textColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+
+                    Text(
+                        text = "Profile",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = textColor
+                    )
+
+                    IconButton(
+                        onClick = { /* Notification placeholder */ },
+                        modifier = Modifier.size(40.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Notifications",
+                            tint = textColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+
+                // Avatar
+                Surface(
+                    modifier = Modifier
+                        .size(80.dp)
+                        .clip(CircleShape),
+                    color = if (isDarkMode) DarkCardColor else CardWhiteColor
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Avatar",
+                            tint = if (isDarkMode) DarkTextColor else ProfileHeaderTopColor,
+                            modifier = Modifier.size(48.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Name
+                Text(
+                    text = "Hello, $fullName",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = textColor,
+                    textAlign = TextAlign.Center
+                )
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Phone (from Firestore)
+                if (!phoneNumber.isNullOrEmpty()) {
+                    Text(
+                        text = phoneNumber,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = textColor.copy(alpha = 0.8f),
+                        textAlign = TextAlign.Center
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingItemWithToggle(
+    title: String,
+    subtitle: String,
+    icon: ImageVector? = null,
+    isEnabled: Boolean,
+    onToggle: (Boolean) -> Unit,
+    isDarkMode: Boolean
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(18.dp)
+            )
+            .clip(RoundedCornerShape(18.dp)),
+        color = if (isDarkMode) DarkCardColor else CardWhiteColor
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = "Log Out",
-                    color = Color.White,
-                    fontSize = 18.sp
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (isDarkMode) DarkTextColor else TextDarkColor
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = if (isDarkMode) DarkTextLightColor else TextLightColor,
+                    modifier = Modifier.padding(top = 4.dp)
                 )
             }
+
+            Switch(
+                checked = isEnabled,
+                onCheckedChange = onToggle,
+                colors = SwitchDefaults.colors(
+                    checkedThumbColor = ButtonBeigeColor,
+                    checkedTrackColor = ButtonBeigeColor.copy(alpha = 0.3f)
+                )
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingItem(
+    title: String,
+    icon: ImageVector? = null,
+    onClick: () -> Unit,
+    isDarkMode: Boolean
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(18.dp)
+            )
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick
+            ),
+        color = if (isDarkMode) DarkCardColor else CardWhiteColor
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isDarkMode) DarkTextColor else TextDarkColor
+            )
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Navigate",
+                tint = if (isDarkMode) DarkTextLightColor else TextLightColor,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun LogoutButton(navController: NavController, isDarkMode: Boolean) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+    ) {
+        Button(
+            onClick = {
+                Firebase.auth.signOut()
+                navController.navigate("login") {
+                    popUpTo(0)
+                }
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp)
+                .clip(RoundedCornerShape(16.dp)),
+            colors = ButtonDefaults.buttonColors(
+                containerColor = if (isDarkMode) DarkButtonColor else ButtonBeigeColor,
+                contentColor = if (isDarkMode) DarkTextColor else CardWhiteColor
+            ),
+            shape = RoundedCornerShape(16.dp),
+            elevation = ButtonDefaults.buttonElevation(
+                defaultElevation = 4.dp,
+                pressedElevation = 8.dp
+            )
+        ) {
+            Text(
+                text = "LOG OUT",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = if (isDarkMode) DarkTextColor else CardWhiteColor
+            )
         }
     }
 }

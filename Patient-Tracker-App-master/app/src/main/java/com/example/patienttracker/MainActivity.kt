@@ -5,8 +5,10 @@ import android.util.Log
 import android.content.pm.ApplicationInfo
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.runtime.mutableStateOf
 import com.example.patienttracker.ui.navigation.AppNavHost
 import com.example.patienttracker.ui.theme.PatientTrackerTheme
+import com.example.patienttracker.ui.viewmodel.ThemeViewModel
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -31,9 +33,15 @@ class MainActivity : ComponentActivity() {
                 .addOnFailureListener { e -> Log.e(TAG, "❌ Firestore write failed", e) }
         }
 
+        // Initialize ThemeViewModel with app context
+        val themeViewModel = ThemeViewModel(this)
+
         setContent {
-            PatientTrackerTheme {
-                AppNavHost(context = this)
+            // Read isDarkMode from state - Compose will recompose when it changes
+            val isDarkMode = themeViewModel.isDarkMode.value
+            
+            PatientTrackerTheme(darkTheme = isDarkMode) {
+                AppNavHost(context = this@MainActivity, themeViewModel = themeViewModel)
             }
         }
     }

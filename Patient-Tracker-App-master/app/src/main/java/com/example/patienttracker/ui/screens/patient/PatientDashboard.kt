@@ -163,7 +163,7 @@ fun DashboardTopAppBar(navController: NavController, userName: String, userLastN
             )
 
             IconButton(
-                onClick = { navController.navigate("patient_profile/$userName/$userLastName") }
+                onClick = { /* Show notifications */ }
             ) {
                 Surface(
                     modifier = Modifier
@@ -176,8 +176,8 @@ fun DashboardTopAppBar(navController: NavController, userName: String, userLastN
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Profile",
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = "Notifications",
                             tint = headerTopCol,
                             modifier = Modifier.size(20.dp)
                         )
@@ -365,14 +365,33 @@ fun HeaderWithStats(fullName: String, navController: NavController, isDarkMode: 
 @Composable
 fun AppointmentInfoBlock(navController: NavController, isDarkMode: Boolean = false) {
     val statTextCol = if (isDarkMode) DarkTextColor else StatTextColor
+    var upcomingAppointment by remember { mutableStateOf<com.example.patienttracker.data.Appointment?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
     
-    // TODO: Fetch actual appointment data from Firebase
-    // For now using dummy data - replace with real data when integrated
-    val hasAppointment = true // Change based on actual data
-    val appointmentDate = "Monday, 20 Jan 2025"
-    val appointmentTime = "3:30 PM"
-    val doctorName = "Dr. Sarah Khan"
-    val doctorSpecialty = "Cardiologist"
+    // Fetch upcoming appointments
+    LaunchedEffect(Unit) {
+        try {
+            val result = com.example.patienttracker.data.AppointmentRepository.getPatientAppointments()
+            val appointments = result.getOrElse { emptyList() }
+            
+            val today = java.time.LocalDate.now()
+            val upcoming = appointments
+                .filter { appointment ->
+                    val appointmentDate = appointment.appointmentDate.toDate()
+                        .toInstant()
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toLocalDate()
+                    appointmentDate.isAfter(today) || appointmentDate.isEqual(today)
+                }
+                .sortedBy { it.appointmentDate }
+                .firstOrNull()
+            
+            upcomingAppointment = upcoming
+            isLoading = false
+        } catch (e: Exception) {
+            isLoading = false
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -384,32 +403,50 @@ fun AppointmentInfoBlock(navController: NavController, isDarkMode: Boolean = fal
                 onClick = { navController.navigate("full_schedule") }
             )
     ) {
-        if (hasAppointment) {
-            Text(
-                text = appointmentDate,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = statTextCol
-            )
-            Text(
-                text = "$appointmentTime • $doctorName, $doctorSpecialty",
-                fontSize = 18.sp,
-                color = statTextCol.copy(alpha = 0.85f),
-                modifier = Modifier.padding(top = 6.dp)
-            )
-        } else {
-            Text(
-                text = "No Appointments Scheduled",
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = statTextCol
-            )
-            Text(
-                text = "Book your next appointment to see it here",
-                fontSize = 15.sp,
-                color = statTextCol.copy(alpha = 0.75f),
-                modifier = Modifier.padding(top = 6.dp)
-            )
+        when {
+            isLoading -> {
+                Text(
+                    text = "Loading...",
+                    fontSize = 18.sp,
+                    color = statTextCol.copy(alpha = 0.75f)
+                )
+            }
+            upcomingAppointment != null -> {
+                val appointment = upcomingAppointment!!
+                val appointmentDate = appointment.appointmentDate.toDate()
+                    .toInstant()
+                    .atZone(java.time.ZoneId.systemDefault())
+                    .toLocalDate()
+                val formatter = java.time.format.DateTimeFormatter.ofPattern("EEEE, dd MMM yyyy")
+                val formattedDate = appointmentDate.format(formatter)
+                
+                Text(
+                    text = formattedDate,
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = statTextCol
+                )
+                Text(
+                    text = "${appointment.timeSlot} • ${appointment.doctorName}, ${appointment.speciality}",
+                    fontSize = 18.sp,
+                    color = statTextCol.copy(alpha = 0.85f),
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
+            else -> {
+                Text(
+                    text = "No Upcoming Appointments",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = statTextCol
+                )
+                Text(
+                    text = "Book your next appointment to see it here",
+                    fontSize = 15.sp,
+                    color = statTextCol.copy(alpha = 0.75f),
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+            }
         }
     }
 }
@@ -439,7 +476,7 @@ fun FloatingCardGrid(navController: NavController, fullName: String = "Patient",
             title = "Book Appointment",
             subtitle = "Schedule a visit",
             icon = Icons.Default.AddCircle,
-            route = "book_appointment"
+            route = "select_specialty"
         )
     )
 

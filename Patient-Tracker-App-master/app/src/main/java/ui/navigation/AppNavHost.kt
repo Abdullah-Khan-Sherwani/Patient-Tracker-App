@@ -40,6 +40,11 @@ import com.example.patienttracker.ui.screens.doctor.DoctorViewPatientRecordsScre
 import com.example.patienttracker.ui.screens.doctor.EnhancedDoctorViewPatientRecordsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientListScreen
 import com.example.patienttracker.ui.viewmodel.ThemeViewModel
+import com.example.patienttracker.ui.screens.patient.SelectSpecialtyScreen
+import com.example.patienttracker.ui.screens.patient.SelectDoctorScreen
+import com.example.patienttracker.ui.screens.patient.SelectDateTimeScreen
+import com.example.patienttracker.ui.screens.patient.ConfirmAppointmentScreen
+import com.example.patienttracker.ui.screens.patient.AppointmentSuccessScreen
 
 private object Route {
     const val SPLASH = "splash"
@@ -281,6 +286,41 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
 
         composable("admin_manage_users") {
             ManageUsersScreen(navController, context)
+        }
+
+        // New Booking Flow Routes
+        composable("select_specialty") {
+            SelectSpecialtyScreen(navController, context)
+        }
+
+        composable("select_doctor/{specialty}") { backStackEntry ->
+            val specialty = backStackEntry.arguments?.getString("specialty") ?: "General"
+            SelectDoctorScreen(navController, context, specialty)
+        }
+
+        composable("select_datetime/{doctorId}/{doctorFirstName}/{doctorLastName}/{specialty}") { backStackEntry ->
+            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
+            val doctorFirstName = backStackEntry.arguments?.getString("doctorFirstName") ?: ""
+            val doctorLastName = backStackEntry.arguments?.getString("doctorLastName") ?: ""
+            val specialty = backStackEntry.arguments?.getString("specialty") ?: ""
+            SelectDateTimeScreen(navController, context, doctorId, doctorFirstName, doctorLastName, specialty)
+        }
+
+        composable("confirm_appointment/{doctorId}/{doctorName}/{specialty}/{date}/{timeSlot}") { backStackEntry ->
+            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
+            val doctorName = backStackEntry.arguments?.getString("doctorName") ?: ""
+            val specialty = backStackEntry.arguments?.getString("specialty") ?: ""
+            val date = backStackEntry.arguments?.getString("date") ?: ""
+            val timeSlot = backStackEntry.arguments?.getString("timeSlot") ?: ""
+            ConfirmAppointmentScreen(navController, context, doctorId, doctorName, specialty, date, timeSlot)
+        }
+
+        composable("appointment_success/{appointmentId}/{doctorName}/{date}/{timeSlot}") { backStackEntry ->
+            val appointmentId = backStackEntry.arguments?.getString("appointmentId") ?: ""
+            val doctorName = backStackEntry.arguments?.getString("doctorName") ?: ""
+            val date = backStackEntry.arguments?.getString("date") ?: ""
+            val timeSlot = backStackEntry.arguments?.getString("timeSlot") ?: ""
+            AppointmentSuccessScreen(navController, context, appointmentId, doctorName, date, timeSlot)
         }
     }
 }

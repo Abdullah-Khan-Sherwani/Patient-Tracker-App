@@ -61,7 +61,7 @@ fun PatientHealthRecordsScreen(navController: NavController, context: Context) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF05B8C7),
+                    containerColor = Color(0xFFD4AF8C),
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -70,7 +70,7 @@ fun PatientHealthRecordsScreen(navController: NavController, context: Context) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate("upload_health_record") },
-                containerColor = Color(0xFF05B8C7),
+                containerColor = Color(0xFFC9956E),
                 contentColor = Color.White
             ) {
                 Icon(Icons.Default.Add, "Upload Record")
@@ -86,7 +86,7 @@ fun PatientHealthRecordsScreen(navController: NavController, context: Context) {
                 isLoading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
-                        color = Color(0xFF05B8C7)
+                        color = Color(0xFFD4AF8C)
                     )
                 }
                 records.isEmpty() -> {
@@ -164,7 +164,7 @@ fun HealthRecordCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -189,7 +189,7 @@ fun HealthRecordCard(
                             else -> Icons.Default.AttachFile
                         },
                         contentDescription = null,
-                        tint = Color(0xFF05B8C7),
+                        tint = Color(0xFFD4AF8C),
                         modifier = Modifier.size(32.dp)
                     )
                     
@@ -215,10 +215,10 @@ fun HealthRecordCard(
                 // Action buttons
                 Row {
                     IconButton(onClick = onView) {
-                        Icon(Icons.Default.Visibility, "View", tint = Color(0xFF05B8C7))
+                        Icon(Icons.Default.Visibility, "View", tint = Color(0xFFC9956E))
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, "Delete", tint = Color.Red)
+                        Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFD32F2F))
                     }
                 }
             }

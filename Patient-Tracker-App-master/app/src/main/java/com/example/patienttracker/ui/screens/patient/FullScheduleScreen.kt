@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
@@ -46,38 +47,53 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
     var appointments by remember { mutableStateOf<List<Appointment>>(emptyList()) }
     var selectedTabIndex by remember { mutableStateOf(0) }
     
-    LaunchedEffect(currentUser?.uid) {
-        currentUser?.uid?.let { _ ->
+    // Refresh appointments when screen is displayed
+    LaunchedEffect(Unit) {
+        currentUser?.uid?.let { userId ->
             try {
+                println("DEBUG: Fetching appointments for user: $userId")
                 val result = AppointmentRepository.getPatientAppointments()
                 appointments = result.getOrElse { emptyList() }
+                println("DEBUG: Fetched ${appointments.size} appointments")
+                appointments.forEach { apt ->
+                    println("DEBUG: Appointment - ${apt.doctorName} on ${apt.appointmentDate.toDate()}")
+                }
             } catch (e: Exception) {
-                // Handle error
+                println("DEBUG: Error fetching appointments: ${e.message}")
             }
+        } ?: run {
+            println("DEBUG: No current user found")
         }
     }
 
     // Separate appointments into upcoming and past
     val now = LocalDateTime.now(ZoneId.systemDefault())
+    val today = now.toLocalDate()
+    
     val upcomingAppointments = appointments
         .filter { appointment ->
-            val appointmentDateTime = appointment.appointmentDate.toDate()
+            val appointmentDate = appointment.appointmentDate.toDate()
                 .toInstant()
                 .atZone(ZoneId.systemDefault())
-                .toLocalDateTime()
-            appointmentDateTime.isAfter(now)
+                .toLocalDate()
+            // Include appointments from today and future dates
+            val isUpcoming = appointmentDate.isAfter(today) || appointmentDate.isEqual(today)
+            println("DEBUG: Appointment on $appointmentDate - isUpcoming: $isUpcoming (today: $today)")
+            isUpcoming
         }
         .sortedBy { it.appointmentDate }
 
     val pastAppointments = appointments
         .filter { appointment ->
-            val appointmentDateTime = appointment.appointmentDate.toDate()
+            val appointmentDate = appointment.appointmentDate.toDate()
                 .toInstant()
                 .atZone(ZoneId.systemDefault())
-                .toLocalDateTime()
-            appointmentDateTime.isBefore(now)
+                .toLocalDate()
+            appointmentDate.isBefore(today)
         }
         .sortedByDescending { it.appointmentDate }
+    
+    println("DEBUG: Upcoming: ${upcomingAppointments.size}, Past: ${pastAppointments.size}")
 
     Scaffold(
         topBar = {
@@ -90,20 +106,30 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                                 colors = listOf(HeaderTopColor, HeaderBottomColor)
                             )
                         )
-                        .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp),
-                    contentAlignment = Alignment.Center
+                        .padding(top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp, start = 16.dp, end = 16.dp, bottom = 16.dp)
                 ) {
+                    IconButton(
+                        onClick = { navController.popBackStack() },
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
                     Text(
                         text = "My Appointments",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate("book_appointment") },
+                onClick = { navController.navigate("select_specialty") },
                 containerColor = ButtonColor,
                 contentColor = Color.White,
                 modifier = Modifier.padding(16.dp)

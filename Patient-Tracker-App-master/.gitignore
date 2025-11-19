@@ -13,3 +13,29 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Gradle
+.gradle/
+**/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# Android Studio / IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Local config
+local.properties
+
+# Logs
+*.log
+
+# Android specific
+captures/
+.externalNativeBuild/
+.cxx/
+
+# OS junk
+.DS_Store
+Thumbs.db

@@ -4,15 +4,26 @@ import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -36,6 +47,7 @@ fun UnifiedLoginScreen(
 ) {
     var idOrEmail by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var navigationTarget by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -52,7 +64,7 @@ fun UnifiedLoginScreen(
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFF9FEFF)
+        color = Color(0xFFDDD2CE) // Warm peach/beige background
     ) {
         Box(Modifier.fillMaxSize()) {
             Column(
@@ -60,75 +72,128 @@ fun UnifiedLoginScreen(
                 verticalArrangement = Arrangement.Center,
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(24.dp)
+                    .padding(horizontal = 24.dp)
+                    .verticalScroll(rememberScrollState())
             ) {
+                Spacer(Modifier.height(40.dp))
+
+                // Title
                 Text(
-                    text = "HealthTrack",
-                    fontSize = 32.sp,
+                    text = "Sign In",
+                    fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF05B8C7)
-                )
-
-                Spacer(Modifier.height(8.dp))
-
-                Text(
-                    text = "Track your health, securely",
-                    fontSize = 14.sp,
-                    color = Color(0xFF6B7280),
+                    color = Color(0xFF2F2019),
                     textAlign = TextAlign.Center
                 )
 
-                Spacer(Modifier.height(48.dp))
+                Spacer(Modifier.height(12.dp))
 
+                // Subtitle with clickable "Sign Up"
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Do not have an account? ",
+                        fontSize = 14.sp,
+                        color = Color(0xFF6B5B54)
+                    )
+                    Text(
+                        text = "Sign Up",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color(0xFFA8653A),
+                        modifier = Modifier.clickable { onSignUp() }
+                    )
+                }
+
+                Spacer(Modifier.height(40.dp))
+
+                // Email field with leading icon
                 OutlinedTextField(
                     value = idOrEmail,
                     onValueChange = { idOrEmail = it },
-                    label = { Text("ID or Email") },
+                    label = { Text("Email") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = "Email icon",
+                            tint = Color(0xFF6B5B54)
+                        )
+                    },
                     singleLine = true,
+                    shape = RoundedCornerShape(28.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFB36B3C),
+                        unfocusedBorderColor = Color(0xFF9E8B82),
+                        focusedContainerColor = Color(0xFFF7ECE8),
+                        unfocusedContainerColor = Color(0xFFF7ECE8)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(Modifier.height(16.dp))
 
+                // Password field with leading icon and trailing toggle
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
                     label = { Text("Password") },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Lock,
+                            contentDescription = "Password icon",
+                            tint = Color(0xFF6B5B54)
+                        )
+                    },
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password",
+                                tint = Color(0xFF6B5B54)
+                            )
+                        }
+                    },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    shape = RoundedCornerShape(28.dp),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFB36B3C),
+                        unfocusedBorderColor = Color(0xFF9E8B82),
+                        focusedContainerColor = Color(0xFFF7ECE8),
+                        unfocusedContainerColor = Color(0xFFF7ECE8)
+                    ),
                     modifier = Modifier.fillMaxWidth()
                 )
 
                 Spacer(Modifier.height(24.dp))
 
+                // Sign In button
                 Button(
                     onClick = {
                         scope.launch {
                             isLoading = true
                             try {
-                                // 1) Resolve email from humanId or use email directly
                                 val emailToUse = if (idOrEmail.contains("@")) {
                                     idOrEmail.trim()
                                 } else {
-                                    // Treat as humanId, look up in Firestore
                                     val user = findUserByHumanId(idOrEmail.trim())
                                         ?: throw IllegalArgumentException("No user with this ID")
                                     user.email
                                 }
 
-                                // 2) Firebase Auth sign-in
                                 val authUser = Firebase.auth
                                     .signInWithEmailAndPassword(emailToUse, password)
                                     .await()
                                     .user ?: throw IllegalStateException("Auth failed")
 
-                                // 3) Fetch full profile from Firestore
                                 val profile = fetchUserProfile(authUser.uid)
                                     ?: throw IllegalStateException("Profile not found")
 
                                 Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
 
-                                // 4) Route based on role - set navigation target to trigger LaunchedEffect
                                 navigationTarget = when (profile.role) {
                                     "patient" -> "patient_home/${profile.firstName}/${profile.lastName}"
                                     "doctor" -> "doctor_home/${profile.firstName}/${profile.lastName}/${profile.humanId}"
@@ -148,46 +213,94 @@ fun UnifiedLoginScreen(
                         }
                     },
                     enabled = !isLoading && idOrEmail.isNotBlank() && password.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF05B8C7)),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2F2019)),
                     shape = RoundedCornerShape(28.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
                 ) {
                     Text(
-                        if (isLoading) "Signing In..." else "Log In",
+                        if (isLoading) "Signing In..." else "Sign In",
                         color = Color.White,
-                        fontSize = 18.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
                 }
 
-                Spacer(Modifier.height(12.dp))
+                Spacer(Modifier.height(24.dp))
 
-                Text(
-                    text = "Forgot ID / Password?",
-                    color = Color(0xFF0077B6),
-                    fontSize = 14.sp,
-                    modifier = Modifier.clickable { onForgotPassword() },
-                    textAlign = TextAlign.Center
-                )
+                // Divider with "or"
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Divider(
+                        modifier = Modifier.weight(1f),
+                        color = Color(0xFF9E8B82),
+                        thickness = 1.dp
+                    )
+                    Text(
+                        text = " or ",
+                        fontSize = 14.sp,
+                        color = Color(0xFF6B5B54)
+                    )
+                    Divider(
+                        modifier = Modifier.weight(1f),
+                        color = Color(0xFF9E8B82),
+                        thickness = 1.dp
+                    )
+                }
 
                 Spacer(Modifier.height(24.dp))
 
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center,
-                    verticalAlignment = Alignment.CenterVertically
+                // Google Sign In button
+                OutlinedButton(
+                    onClick = { /* TODO: Google sign-in */ },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color(0xFFF7ECE8)
+                    ),
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
                 ) {
-                    Text("New patient? ", color = Color(0xFF6B7280), fontSize = 14.sp)
                     Text(
-                        "Sign up",
-                        color = Color(0xFF05B8C7),
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.clickable { onSignUp() }
+                        text = "Sign In with Google",
+                        fontSize = 16.sp,
+                        color = Color(0xFF2F2019),
+                        fontWeight = FontWeight.Medium
                     )
                 }
+
+                Spacer(Modifier.height(32.dp))
+
+                // Footer text with links
+                val annotatedText = buildAnnotatedString {
+                    withStyle(style = SpanStyle(color = Color(0xFF6B5B54), fontSize = 12.sp)) {
+                        append("Before continuing, you agree to our ")
+                    }
+                    pushStringAnnotation(tag = "privacy", annotation = "privacy_policy")
+                    withStyle(style = SpanStyle(color = Color(0xFFA8653A), fontSize = 12.sp, fontWeight = FontWeight.Medium)) {
+                        append("Privacy Policy")
+                    }
+                    pop()
+                    withStyle(style = SpanStyle(color = Color(0xFF6B5B54), fontSize = 12.sp)) {
+                        append(" and ")
+                    }
+                    pushStringAnnotation(tag = "terms", annotation = "terms_of_service")
+                    withStyle(style = SpanStyle(color = Color(0xFFA8653A), fontSize = 12.sp, fontWeight = FontWeight.Medium)) {
+                        append("Terms of Service")
+                    }
+                    pop()
+                }
+
+                Text(
+                    text = annotatedText,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(40.dp))
             }
 
             if (isLoading) {
@@ -195,7 +308,7 @@ fun UnifiedLoginScreen(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(44.dp),
-                    color = Color(0xFF05B8C7)
+                    color = Color(0xFF2F2019)
                 )
             }
         }

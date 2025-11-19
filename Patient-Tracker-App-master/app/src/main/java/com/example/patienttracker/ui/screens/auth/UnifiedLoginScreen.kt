@@ -5,6 +5,9 @@ import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -12,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -37,18 +41,8 @@ fun UnifiedLoginScreen(
     var idOrEmail by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(false) }
-    var navigationTarget by remember { mutableStateOf<String?>(null) }
+    var passwordVisible by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
-
-    // Handle navigation after successful login
-    LaunchedEffect(navigationTarget) {
-        navigationTarget?.let { target ->
-            navController.navigate(target) {
-                popUpTo("login") { inclusive = true }
-            }
-            navigationTarget = null
-        }
-    }
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -95,7 +89,15 @@ fun UnifiedLoginScreen(
                     onValueChange = { password = it },
                     label = { Text("Password") },
                     singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
+                    visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                    trailingIcon = {
+                        IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                            Icon(
+                                imageVector = if (passwordVisible) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                contentDescription = if (passwordVisible) "Hide password" else "Show password"
+                            )
+                        }
+                    },
                     modifier = Modifier.fillMaxWidth()
                 )
 
@@ -129,10 +131,27 @@ fun UnifiedLoginScreen(
                                 Toast.makeText(context, "Login successful", Toast.LENGTH_SHORT).show()
 
                                 // 4) Route based on role - set navigation target to trigger LaunchedEffect
-                                navigationTarget = when (profile.role) {
-                                    "patient" -> "patient_home/${profile.firstName}/${profile.lastName}"
-                                    "doctor" -> "doctor_home/${profile.firstName}/${profile.lastName}/${profile.humanId}"
-                                    "admin" -> "admin_home"
+                                when (profile.role) {
+                                    "patient" -> {
+                                        navController.navigate("patient_home") {
+                                            popUpTo("login") { inclusive = true }
+                                        }
+                                        navController.currentBackStackEntry?.savedStateHandle?.set("firstName", profile.firstName.ifEmpty { "User" })
+                                        navController.currentBackStackEntry?.savedStateHandle?.set("lastName", profile.lastName.ifEmpty { "" })
+                                    }
+                                    "doctor" -> {
+                                        navController.navigate("doctor_home") {
+                                            popUpTo("login") { inclusive = true }
+                                        }
+                                        navController.currentBackStackEntry?.savedStateHandle?.set("firstName", profile.firstName.ifEmpty { "Doctor" })
+                                        navController.currentBackStackEntry?.savedStateHandle?.set("lastName", profile.lastName.ifEmpty { "" })
+                                        navController.currentBackStackEntry?.savedStateHandle?.set("doctorId", profile.humanId)
+                                    }
+                                    "admin" -> {
+                                        navController.navigate("admin_home") {
+                                            popUpTo("login") { inclusive = true }
+                                        }
+                                    }
                                     else -> throw IllegalStateException("Unknown role: ${profile.role}")
                                 }
 

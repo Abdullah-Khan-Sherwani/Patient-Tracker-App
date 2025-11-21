@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 
 import com.example.patienttracker.ui.screens.patient.DoctorFull
@@ -120,6 +121,23 @@ fun DoctorCard(doctor: DoctorFull, onBookClick: () -> Unit) {
             Spacer(Modifier.height(4.dp))
             Text("Days: ${doctor.days}", color = Color(0xFF2A6C74))
             Text("Timings: ${doctor.timings}", color = Color(0xFF2A6C74))
+            Spacer(Modifier.height(8.dp))
+            
+            // Price badge
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color(0xFF4CAF50),
+                modifier = Modifier.align(Alignment.Start)
+            ) {
+                Text(
+                    text = "Rs. 1,500",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
+            }
+            
             Spacer(Modifier.height(12.dp))
             Button(
                 onClick = onBookClick,

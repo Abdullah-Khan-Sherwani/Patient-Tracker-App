@@ -40,7 +40,7 @@ fun AdminAllAppointmentsScreen(navController: NavController, context: Context) {
     var appointments by remember { mutableStateOf<List<Appointment>>(emptyList()) }
     var filteredAppointments by remember { mutableStateOf<List<Appointment>>(emptyList()) }
     var searchQuery by remember { mutableStateOf("") }
-    var selectedTabIndex by remember { mutableStateOf(0) } // 0 = Upcoming, 1 = Past
+    var selectedTabIndex by remember { mutableStateOf(0) } // 0 = Upcoming, 1 = Past, 2 = Cancelled
     var sortOption by remember { mutableStateOf("Most Recent") }
     var showSortMenu by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(true) }
@@ -73,27 +73,36 @@ fun AdminAllAppointmentsScreen(navController: NavController, context: Context) {
         val now = Date()
         
         // First filter by tab
-        var result = if (selectedTabIndex == 0) {
-            // Upcoming: date >= today and status != cancelled
-            appointments.filter {
-                try {
-                    it.appointmentDate.toDate().after(Date(now.time - 86400000)) &&
-                    !it.status.contains("cancelled", ignoreCase = true)
-                } catch (e: Exception) {
-                    false
+        var result = when (selectedTabIndex) {
+            0 -> {
+                // Upcoming: date >= today and status != cancelled
+                appointments.filter {
+                    try {
+                        it.appointmentDate.toDate().after(Date(now.time - 86400000)) &&
+                        !it.status.contains("cancelled", ignoreCase = true)
+                    } catch (e: Exception) {
+                        false
+                    }
                 }
             }
-        } else {
-            // Past: date < today OR status = completed OR status = cancelled
-            appointments.filter {
-                try {
-                    it.appointmentDate.toDate().before(Date(now.time - 86400000)) ||
-                    it.status.contains("completed", ignoreCase = true) ||
+            1 -> {
+                // Past: date < today and status != cancelled
+                appointments.filter {
+                    try {
+                        it.appointmentDate.toDate().before(Date(now.time - 86400000)) &&
+                        !it.status.contains("cancelled", ignoreCase = true)
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+            }
+            2 -> {
+                // Cancelled: status = cancelled
+                appointments.filter {
                     it.status.contains("cancelled", ignoreCase = true)
-                } catch (e: Exception) {
-                    false
                 }
             }
+            else -> appointments
         }
         
         // Then apply search filter
@@ -186,7 +195,7 @@ fun AdminAllAppointmentsScreen(navController: NavController, context: Context) {
                 singleLine = true
             )
 
-            // Tabs for Upcoming / Past
+            // Tabs for Upcoming / Past / Cancelled
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = BgColor,
@@ -208,6 +217,11 @@ fun AdminAllAppointmentsScreen(navController: NavController, context: Context) {
                     selected = selectedTabIndex == 1,
                     onClick = { selectedTabIndex = 1 },
                     text = { Text("Past", fontWeight = FontWeight.SemiBold) }
+                )
+                Tab(
+                    selected = selectedTabIndex == 2,
+                    onClick = { selectedTabIndex = 2 },
+                    text = { Text("Cancelled", fontWeight = FontWeight.SemiBold) }
                 )
             }
 
@@ -257,7 +271,8 @@ fun AdminAllAppointmentsScreen(navController: NavController, context: Context) {
                             appointment = appointment,
                             onClick = {
                                 navController.navigate("admin_appointment_details/${appointment.appointmentId}")
-                            }
+                            },
+                            showCancelledBy = selectedTabIndex == 2
                         )
                     }
                 }
@@ -269,7 +284,8 @@ fun AdminAllAppointmentsScreen(navController: NavController, context: Context) {
 @Composable
 private fun AppointmentListItem(
     appointment: Appointment,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showCancelledBy: Boolean = false
 ) {
     Surface(
         modifier = Modifier
@@ -374,6 +390,28 @@ private fun AppointmentListItem(
                     color = TextSecondary,
                     modifier = Modifier.padding(top = 8.dp)
                 )
+            }
+            
+            // Show who cancelled the appointment if it's cancelled
+            if (showCancelledBy && appointment.status.contains("cancelled", ignoreCase = true) && appointment.cancelledBy.isNotEmpty()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(top = 8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color(0xFFEF4444),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "Cancelled by: ${appointment.cancelledBy.replaceFirstChar { it.uppercase() }}",
+                        fontSize = 12.sp,
+                        color = Color(0xFFEF4444),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }

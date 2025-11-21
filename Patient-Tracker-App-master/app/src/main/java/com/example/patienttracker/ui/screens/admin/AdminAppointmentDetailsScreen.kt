@@ -20,6 +20,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.patienttracker.data.Appointment
 import com.example.patienttracker.data.AppointmentRepository
+import com.example.patienttracker.data.NotificationRepository
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
@@ -356,18 +357,13 @@ fun AdminAppointmentDetailsScreen(
                                         val dateFormat = java.text.SimpleDateFormat("EEEE, MMMM dd, yyyy", java.util.Locale.getDefault())
                                         val formattedDate = dateFormat.format(currentAppointment.appointmentDate.toDate())
                                         
-                                        val notificationData = mapOf(
-                                            "patientUid" to currentAppointment.patientUid,
-                                            "title" to "Appointment Cancelled",
-                                            "body" to "Your appointment with ${currentAppointment.doctorName} scheduled on $formattedDate at ${currentAppointment.timeSlot} has been cancelled.",
-                                            "timestamp" to com.google.firebase.Timestamp.now(),
-                                            "isRead" to false,
-                                            "type" to "appointment_cancelled"
+                                        NotificationRepository().createNotification(
+                                            patientUid = currentAppointment.patientUid,
+                                            title = "Appointment Cancelled",
+                                            message = "Your appointment with Dr. ${currentAppointment.doctorName} scheduled on $formattedDate at ${currentAppointment.timeSlot} has been cancelled.",
+                                            type = "appointment_cancelled",
+                                            appointmentId = appointmentId
                                         )
-                                        
-                                        db.collection("notifications")
-                                            .add(notificationData)
-                                            .await()
                                     } catch (e: Exception) {
                                         // Notification failed but appointment cancelled successfully
                                     }

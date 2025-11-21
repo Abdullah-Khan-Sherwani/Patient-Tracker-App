@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.patienttracker.data.AppointmentRepository
+import com.example.patienttracker.data.NotificationRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -49,6 +50,9 @@ fun AdminCreateAppointmentScreen(navController: NavController, context: Context)
     var selectedDoctor by remember { mutableStateOf<DoctorItem?>(null) }
     var selectedDate by remember { mutableStateOf("") }
     var selectedTime by remember { mutableStateOf("") }
+    var availableTimeSlots by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isLoadingSlots by remember { mutableStateOf(false) }
+    var doctorUnavailableMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
     var showPatientDialog by remember { mutableStateOf(false) }
@@ -58,6 +62,35 @@ fun AdminCreateAppointmentScreen(navController: NavController, context: Context)
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var successMessage by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    
+    // Load time slots when doctor and date are selected
+    LaunchedEffect(selectedDoctor, selectedDate) {
+        if (selectedDoctor != null && selectedDate.isNotEmpty()) {
+            isLoadingSlots = true
+            doctorUnavailableMessage = null
+            selectedTime = ""
+            scope.launch {
+                try {
+                    val slots = loadAvailableTimeSlots(
+                        doctorUid = selectedDoctor!!.uid,
+                        dateString = selectedDate
+                    )
+                    availableTimeSlots = slots
+                    if (slots.isEmpty()) {
+                        doctorUnavailableMessage = "Doctor not available on selected date"
+                    }
+                } catch (e: Exception) {
+                    errorMessage = "Failed to load time slots: ${e.message}"
+                    availableTimeSlots = emptyList()
+                } finally {
+                    isLoadingSlots = false
+                }
+            }
+        } else {
+            availableTimeSlots = emptyList()
+            doctorUnavailableMessage = null
+        }
+    }
 
     LaunchedEffect(Unit) {
         scope.launch {
@@ -285,41 +318,121 @@ fun AdminCreateAppointmentScreen(navController: NavController, context: Context)
 
                 Spacer(Modifier.height(20.dp))
 
-                // Time Selection
-                Text("Select Time", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
+                // Time Slot Selection
+                Text("Select Time Slot", fontSize = 16.sp, fontWeight = FontWeight.SemiBold, color = TextPrimary)
                 Spacer(Modifier.height(8.dp))
-                Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable {
-                            val calendar = Calendar.getInstance()
-                            TimePickerDialog(
-                                context,
-                                { _, hour, minute ->
-                                    val time = String.format("%02d:%02d", hour, minute)
-                                    selectedTime = time
-                                },
-                                calendar.get(Calendar.HOUR_OF_DAY),
-                                calendar.get(Calendar.MINUTE),
-                                false
-                            ).show()
-                        },
-                    shape = RoundedCornerShape(12.dp),
-                    color = CardColor
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                
+                if (selectedDoctor == null || selectedDate.isEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = CardColor.copy(alpha = 0.5f)
                     ) {
                         Text(
-                            text = selectedTime.ifEmpty { "Choose time" },
-                            color = if (selectedTime.isEmpty()) TextSecondary else TextPrimary,
-                            fontSize = 16.sp
+                            text = "Select doctor and date first",
+                            color = TextSecondary,
+                            fontSize = 14.sp,
+                            modifier = Modifier.padding(16.dp)
                         )
-                        Icon(Icons.Default.Edit, contentDescription = null, tint = AccentColor)
+                    }
+                } else if (isLoadingSlots) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = CardColor
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = AccentColor,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text("Loading available slots...", color = TextSecondary, fontSize = 14.sp)
+                        }
+                    }
+                } else if (doctorUnavailableMessage != null) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFEF4444).copy(alpha = 0.1f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(doctorUnavailableMessage!!, color = Color(0xFFEF4444), fontSize = 14.sp)
+                        }
+                    }
+                } else if (availableTimeSlots.isEmpty()) {
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFEF4444).copy(alpha = 0.1f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, contentDescription = null, tint = Color(0xFFEF4444), modifier = Modifier.size(20.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text("No available slots for this date", color = Color(0xFFEF4444), fontSize = 14.sp)
+                        }
+                    }
+                } else {
+                    // Time Slot Grid
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = CardColor,
+                        shadowElevation = 2.dp
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Available Slots (${availableTimeSlots.size})",
+                                fontSize = 14.sp,
+                                color = TextSecondary,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(bottom = 12.dp)
+                            )
+                            
+                            // Grid layout for time slots
+                            val rows = availableTimeSlots.chunked(3)
+                            rows.forEach { rowSlots ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    rowSlots.forEach { slot ->
+                                        TimeSlotChip(
+                                            time = slot,
+                                            isSelected = selectedTime == slot,
+                                            onSelect = { selectedTime = slot },
+                                            modifier = Modifier.weight(1f)
+                                        )
+                                    }
+                                    // Fill empty spaces
+                                    repeat(3 - rowSlots.size) {
+                                        Spacer(Modifier.weight(1f))
+                                    }
+                                }
+                                Spacer(Modifier.height(8.dp))
+                            }
+                        }
                     }
                 }
 
@@ -356,22 +469,18 @@ fun AdminCreateAppointmentScreen(navController: NavController, context: Context)
                                         )
                                         
                                         if (result.isSuccess) {
+                                            val appointment = result.getOrNull()
                                             successMessage = "Appointment created successfully for ${selectedPatient!!.name} with ${selectedDoctor!!.name}"
                                             
                                             // Send notification to patient
                                             try {
-                                                val db = Firebase.firestore
-                                                val notificationData = hashMapOf(
-                                                    "patientUid" to selectedPatient!!.uid,
-                                                    "title" to "Appointment Confirmed",
-                                                    "body" to "Your appointment with ${selectedDoctor!!.name} has been scheduled on $selectedDate at $selectedTime.",
-                                                    "timestamp" to com.google.firebase.Timestamp.now(),
-                                                    "isRead" to false,
-                                                    "type" to "appointment_created"
+                                                NotificationRepository().createNotification(
+                                                    patientUid = selectedPatient!!.uid,
+                                                    title = "Appointment Confirmed",
+                                                    message = "Your appointment with Dr. ${selectedDoctor!!.name} has been scheduled on $selectedDate at $selectedTime.",
+                                                    type = "appointment_created",
+                                                    appointmentId = appointment?.appointmentId ?: ""
                                                 )
-                                                db.collection("notifications")
-                                                    .add(notificationData)
-                                                    .await()
                                             } catch (e: Exception) {
                                                 // Notification failed but appointment succeeded - log error but don't fail
                                                 android.util.Log.e("AdminCreateAppointment", "Failed to send notification: ${e.message}")
@@ -754,4 +863,130 @@ fun AdminCreateAppointmentScreen(navController: NavController, context: Context)
             }
         }
     }
+}
+
+@Composable
+private fun TimeSlotChip(
+    time: String,
+    isSelected: Boolean,
+    onSelect: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .height(44.dp)
+            .clickable(onClick = onSelect),
+        shape = RoundedCornerShape(10.dp),
+        color = if (isSelected) AccentColor else Color.White,
+        border = androidx.compose.foundation.BorderStroke(
+            width = 1.dp,
+            color = if (isSelected) AccentColor else AccentColor.copy(alpha = 0.3f)
+        )
+    ) {
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Text(
+                text = time,
+                fontSize = 14.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                color = if (isSelected) Color.White else TextPrimary
+            )
+        }
+    }
+}
+
+private suspend fun loadAvailableTimeSlots(
+    doctorUid: String,
+    dateString: String
+): List<String> {
+    try {
+        // Parse the date to get day of week
+        val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val date = dateFormat.parse(dateString) ?: return emptyList()
+        val calendar = Calendar.getInstance().apply { time = date }
+        val dayOfWeek = when (calendar.get(Calendar.DAY_OF_WEEK)) {
+            Calendar.MONDAY -> 1
+            Calendar.TUESDAY -> 2
+            Calendar.WEDNESDAY -> 3
+            Calendar.THURSDAY -> 4
+            Calendar.FRIDAY -> 5
+            Calendar.SATURDAY -> 6
+            Calendar.SUNDAY -> 7
+            else -> 1
+        }
+        
+        // Load doctor availability for this day
+        val db = Firebase.firestore
+        val availabilityDoc = db.collection("doctor_availability")
+            .document("${doctorUid}_$dayOfWeek")
+            .get()
+            .await()
+        
+        if (!availabilityDoc.exists()) {
+            return emptyList()
+        }
+        
+        val isActive = availabilityDoc.getBoolean("isActive") ?: false
+        if (!isActive) {
+            return emptyList()
+        }
+        
+        val startTime = availabilityDoc.getString("startTime") ?: "09:00"
+        val endTime = availabilityDoc.getString("endTime") ?: "17:00"
+        
+        // Generate 30-minute time slots
+        val slots = generateTimeSlots(startTime, endTime, 30)
+        
+        // Load existing appointments for this doctor on this date
+        val existingAppointments = db.collection("appointments")
+            .whereEqualTo("doctorUid", doctorUid)
+            .get()
+            .await()
+        
+        val bookedSlots = existingAppointments.documents.mapNotNull { doc ->
+            val appointmentDate = doc.getTimestamp("appointmentDate")
+            if (appointmentDate != null) {
+                val appointmentCal = Calendar.getInstance().apply { time = appointmentDate.toDate() }
+                val appointmentDateStr = dateFormat.format(appointmentCal.time)
+                
+                if (appointmentDateStr == dateString) {
+                    doc.getString("timeSlot")
+                } else null
+            } else null
+        }.toSet()
+        
+        // Filter out booked slots
+        return slots.filter { it !in bookedSlots }
+        
+    } catch (e: Exception) {
+        android.util.Log.e("AdminCreateAppointment", "Error loading time slots: ${e.message}")
+        return emptyList()
+    }
+}
+
+private fun generateTimeSlots(startTime: String, endTime: String, intervalMinutes: Int): List<String> {
+    val slots = mutableListOf<String>()
+    
+    val startParts = startTime.split(":")
+    val endParts = endTime.split(":")
+    
+    val startHour = startParts[0].toIntOrNull() ?: 9
+    val startMinute = startParts[1].toIntOrNull() ?: 0
+    val endHour = endParts[0].toIntOrNull() ?: 17
+    val endMinute = endParts[1].toIntOrNull() ?: 0
+    
+    val startTotalMinutes = startHour * 60 + startMinute
+    val endTotalMinutes = endHour * 60 + endMinute
+    
+    var currentMinutes = startTotalMinutes
+    while (currentMinutes < endTotalMinutes) {
+        val hour = currentMinutes / 60
+        val minute = currentMinutes % 60
+        slots.add(String.format("%02d:%02d", hour, minute))
+        currentMinutes += intervalMinutes
+    }
+    
+    return slots
 }

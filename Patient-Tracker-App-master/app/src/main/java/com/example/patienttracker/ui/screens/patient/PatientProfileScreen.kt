@@ -396,6 +396,8 @@ fun SettingItem(
 
 @Composable
 fun LogoutButton(navController: NavController, isDarkMode: Boolean) {
+    var showLogoutDialog by remember { mutableStateOf(false) }
+    
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -403,10 +405,7 @@ fun LogoutButton(navController: NavController, isDarkMode: Boolean) {
     ) {
         Button(
             onClick = {
-                Firebase.auth.signOut()
-                navController.navigate("login") {
-                    popUpTo(0)
-                }
+                showLogoutDialog = true
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -429,5 +428,35 @@ fun LogoutButton(navController: NavController, isDarkMode: Boolean) {
                 color = if (isDarkMode) DarkTextColor else CardWhiteColor
             )
         }
+    }
+    
+    // Logout confirmation dialog
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Confirm Logout") },
+            text = { Text("Are you sure you want to log out?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        Firebase.auth.signOut()
+                        navController.navigate("login") {
+                            popUpTo(0)
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFFD32F2F)
+                    )
+                ) {
+                    Text("Logout")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }

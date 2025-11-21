@@ -152,11 +152,15 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                     items(users) { user ->
                         UserListCard(
                             user = user,
+                            isDoctor = selectedRole == "doctor",
                             onMoreClick = {
                                 userToRemove = user
                             },
                             onViewDetails = {
                                 // Navigate to user details if needed
+                            },
+                            onEditAvailability = {
+                                navController.navigate("edit_availability/${user.uid}")
                             },
                             onRemove = {
                                 userToRemove = user
@@ -245,8 +249,10 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
 @Composable
 private fun UserListCard(
     user: UserListItem,
+    isDoctor: Boolean,
     onMoreClick: () -> Unit,
     onViewDetails: () -> Unit,
+    onEditAvailability: () -> Unit,
     onRemove: () -> Unit
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -322,6 +328,29 @@ private fun UserListCard(
                             onViewDetails()
                         }
                     )
+                    
+                    if (isDoctor) {
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.DateRange,
+                                        contentDescription = null,
+                                        tint = Color(0xFFB8956A),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Edit Availability", color = Color(0xFF2F2019))
+                                }
+                            },
+                            onClick = {
+                                showMenu = false
+                                onEditAvailability()
+                            }
+                        )
+                    }
+                    
                     HorizontalDivider()
                     DropdownMenuItem(
                         text = {

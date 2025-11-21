@@ -42,6 +42,7 @@ fun AdminProfileScreen(
     var adminEmail by remember { mutableStateOf("") }
     var adminRole by remember { mutableStateOf("System Administrator") }
     var isLoading by remember { mutableStateOf(true) }
+    var showLogoutDialog by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -193,7 +194,7 @@ fun AdminProfileScreen(
                     title = "Settings",
                     subtitle = "Manage app preferences",
                     onClick = {
-                        // Navigate to settings
+                        navController.navigate("admin_settings")
                     }
                 )
                 
@@ -204,7 +205,7 @@ fun AdminProfileScreen(
                     title = "About",
                     subtitle = "App version and information",
                     onClick = {
-                        // Navigate to about
+                        navController.navigate("admin_about")
                     }
                 )
                 
@@ -215,17 +216,48 @@ fun AdminProfileScreen(
                     title = "Sign Out",
                     subtitle = "Log out from your account",
                     onClick = {
-                        scope.launch {
-                            Firebase.auth.signOut()
-                            navController.navigate("unified_login") {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        }
+                        showLogoutDialog = true
                     },
                     isDestructive = true
                 )
             }
         }
+    }
+    
+    // Logout confirmation dialog - placed outside Scaffold to prevent crashes
+    if (showLogoutDialog) {
+        AlertDialog(
+            onDismissRequest = { showLogoutDialog = false },
+            title = { Text("Confirm Logout") },
+            text = { Text("Are you sure you want to log out?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showLogoutDialog = false
+                        scope.launch {
+                            try {
+                                Firebase.auth.signOut()
+                                navController.navigate("login") {
+                                    popUpTo(0) { inclusive = true }
+                                }
+                            } catch (e: Exception) {
+                                // Handle logout error silently
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFFEF4444)
+                    )
+                ) {
+                    Text("Logout")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
     }
 }
 

@@ -1,6 +1,7 @@
 package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -20,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.patienttracker.data.AppointmentRepository
+import com.example.patienttracker.data.NotificationRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
@@ -104,13 +106,23 @@ fun ConfirmAppointmentScreen(
                             start = 16.dp,
                             end = 16.dp,
                             bottom = 16.dp
-                        ),
-                    contentAlignment = Alignment.Center
+                        )
                 ) {
+                    IconButton(
+                        onClick = { navController.navigateUp() },
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
                     Text(
                         text = "Confirm Appointment",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
@@ -143,13 +155,42 @@ fun ConfirmAppointmentScreen(
                                 
                                 if (result.isSuccess) {
                                     val appointment = result.getOrNull()
+                                    
+                                    // Create notification (don't let this fail the whole flow)
+                                    try {
+                                        val currentUser = Firebase.auth.currentUser
+                                        android.util.Log.d("ConfirmAppointment", "Current user: ${currentUser?.uid}, Appointment: ${appointment?.appointmentId}")
+                                        
+                                        if (currentUser != null && appointment != null) {
+                                            android.util.Log.d("ConfirmAppointment", "Creating notification for user: ${currentUser.uid}")
+                                            val notificationId = NotificationRepository().createNotification(
+                                                patientUid = currentUser.uid,
+                                                title = "Appointment Booked",
+                                                message = "Your appointment with Dr. $doctorName on $formattedDate at $timeSlot has been confirmed.",
+                                                type = "appointment_created",
+                                                appointmentId = appointment.appointmentId
+                                            )
+                                            android.util.Log.d("ConfirmAppointment", "Notification created successfully with ID: $notificationId")
+                                            Toast.makeText(context, "Appointment booked! Check notifications.", Toast.LENGTH_SHORT).show()
+                                        } else {
+                                            android.util.Log.e("ConfirmAppointment", "Cannot create notification - user or appointment is null")
+                                        }
+                                    } catch (notifError: Exception) {
+                                        // Log but don't fail - notification is not critical
+                                        android.util.Log.e("ConfirmAppointment", "Failed to create notification: ${notifError.message}", notifError)
+                                        Toast.makeText(context, "Note: Notification failed - ${notifError.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                    
                                     // Navigate to success screen and clear booking flow from back stack
-                                    navController.navigate("appointment_success/${appointment?.appointmentId ?: ""}/$doctorName/$formattedDate/$timeSlot") {
+                                    navController.navigate("appointment_success/${appointment?.appointmentNumber ?: "000"}/$doctorName/$formattedDate/$timeSlot") {
                                         popUpTo("patient_home") { inclusive = false }
                                     }
+                                } else {
+                                    Toast.makeText(context, "Failed to create appointment. Please try again.", Toast.LENGTH_LONG).show()
                                 }
                             } catch (e: Exception) {
-                                // Handle error
+                                Toast.makeText(context, "Error: ${e.message ?: "Unknown error occurred"}", Toast.LENGTH_LONG).show()
+                                e.printStackTrace()
                             } finally {
                                 isBooking = false
                             }
@@ -252,6 +293,73 @@ fun ConfirmAppointmentScreen(
                         icon = Icons.Default.LocationOn,
                         label = "Location",
                         value = "Hospital Clinic"
+                    )
+                    
+                    // Price section with highlighted background
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = Color(0xFFE8F5E9),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AccountBalanceWallet,
+                                    contentDescription = null,
+                                    tint = Color(0xFF4CAF50),
+                                    modifier = Modifier.size(24.dp)
+                                )
+                                Text(
+                                    text = "Consultation Fee",
+                                    fontSize = 15.sp,
+                                    color = StatTextColor,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            Text(
+                                text = "Rs. 1,500",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF4CAF50)
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Medical Files Access Notice
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFFFF9E6),
+                tonalElevation = 1.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = null,
+                        tint = Color(0xFFF57C00),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "Once your appointment is booked, the doctor will have access to your medical files.",
+                        fontSize = 13.sp,
+                        color = Color(0xFF5D4037),
+                        lineHeight = 18.sp
                     )
                 }
             }

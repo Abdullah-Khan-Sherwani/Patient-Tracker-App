@@ -28,8 +28,10 @@ import androidx.navigation.NavController
 import com.example.patienttracker.data.Appointment as FirebaseAppointment
 import com.example.patienttracker.data.AppointmentRepository
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.Instant
@@ -219,16 +221,16 @@ private fun ModernDoctorDashboard(
             MetricCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.DateRange,
-                title = "Appointments",
+                title = "Total Today",
                 value = todayAppointments.size.toString(),
                 onClick = { navController.navigate("doctor_appointments_full") }
             )
             MetricCard(
                 modifier = Modifier.weight(1f),
-                icon = Icons.Default.Email,
-                title = "New Messages",
-                value = "0",
-                onClick = { navController.navigate("doctor_messages") }
+                icon = Icons.Default.CheckCircle,
+                title = "Completed",
+                value = todayAppointments.filter { it.status == "completed" }.size.toString(),
+                onClick = { navController.navigate("doctor_appointments_full") }
             )
             MetricCard(
                 modifier = Modifier.weight(1f),
@@ -238,6 +240,11 @@ private fun ModernDoctorDashboard(
                 onClick = { navController.navigate("doctor_appointments_full") }
             )
         }
+
+        Spacer(Modifier.height(24.dp))
+
+        // SECTION: MY SCHEDULE & STATUS
+        DoctorScheduleStatusCard(navController = navController)
 
         Spacer(Modifier.height(28.dp))
 
@@ -323,15 +330,15 @@ private fun ModernDoctorDashboard(
         ) {
             QuickActionCard(
                 modifier = Modifier.weight(1f),
-                icon = Icons.Default.Email,
-                title = "Messages",
-                onClick = { navController.navigate("doctor_messages") }
-            )
-            QuickActionCard(
-                modifier = Modifier.weight(1f),
                 icon = Icons.Default.Folder,
                 title = "View Records",
                 onClick = { navController.navigate("doctor_view_records") }
+            )
+            QuickActionCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Settings,
+                title = "Settings",
+                onClick = { navController.navigate("doctor_settings") }
             )
         }
 
@@ -663,27 +670,11 @@ private fun ModernDoctorBottomBar(
             )
         )
         NavigationBarItem(
-            icon = { Icon(Icons.Default.Email, contentDescription = "Messages") },
-            label = { Text("Messages", fontSize = 11.sp) },
+            icon = { Icon(Icons.Default.Person, contentDescription = "Patients") },
+            label = { Text("Patients", fontSize = 11.sp) },
             selected = selectedTab == 1,
             onClick = { 
                 onTabSelected(1)
-                navController.navigate("doctor_messages")
-            },
-            colors = NavigationBarItemDefaults.colors(
-                selectedIconColor = AccentColor,
-                selectedTextColor = AccentColor,
-                unselectedIconColor = TextSecondary,
-                unselectedTextColor = TextSecondary,
-                indicatorColor = AccentColor.copy(alpha = 0.1f)
-            )
-        )
-        NavigationBarItem(
-            icon = { Icon(Icons.Default.Person, contentDescription = "Patients") },
-            label = { Text("Patients", fontSize = 11.sp) },
-            selected = selectedTab == 2,
-            onClick = { 
-                onTabSelected(2)
                 navController.navigate("doctor_patient_list")
             },
             colors = NavigationBarItemDefaults.colors(
@@ -697,7 +688,7 @@ private fun ModernDoctorBottomBar(
         NavigationBarItem(
             icon = { Icon(Icons.Default.DateRange, contentDescription = "Appointments") },
             label = { Text("Appointments", fontSize = 11.sp) },
-            selected = selectedTab == 3,
+            selected = selectedTab == 2,
             onClick = { 
                 onTabSelected(3)
                 navController.navigate("doctor_appointments_full")
@@ -713,9 +704,9 @@ private fun ModernDoctorBottomBar(
         NavigationBarItem(
             icon = { Icon(Icons.Default.AccountCircle, contentDescription = "Profile") },
             label = { Text("Profile", fontSize = 11.sp) },
-            selected = selectedTab == 4,
+            selected = selectedTab == 3,
             onClick = { 
-                onTabSelected(4)
+                onTabSelected(3)
                 navController.navigate("doctor_profile")
             },
             colors = NavigationBarItemDefaults.colors(
@@ -726,6 +717,222 @@ private fun ModernDoctorBottomBar(
                 indicatorColor = AccentColor.copy(alpha = 0.1f)
             )
         )
+    }
+}
+
+// ========== SCHEDULE & STATUS CARD ==========
+@Composable
+private fun DoctorScheduleStatusCard(navController: NavController) {
+    var availability by remember { mutableStateOf<List<com.example.patienttracker.data.DoctorAvailability>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
+    val currentTime = remember { mutableStateOf(LocalDateTime.now()) }
+
+    // Update current time every minute
+    LaunchedEffect(Unit) {
+        while (true) {
+            currentTime.value = LocalDateTime.now()
+            kotlinx.coroutines.delay(60000) // Update every minute
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            try {
+                val doctorUid = Firebase.auth.currentUser?.uid ?: return@launch
+                val db = Firebase.firestore
+                val snapshot = db.collection("doctor_availability")
+                    .whereEqualTo("doctorUid", doctorUid)
+                    .get()
+                    .await()
+                
+                availability = snapshot.documents.mapNotNull { doc ->
+                    com.example.patienttracker.data.DoctorAvailability.fromFirestore(doc)
+                }
+            } catch (e: Exception) {
+                // Handle error silently
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
+    val currentDayOfWeek = currentTime.value.dayOfWeek.value // 1=Monday, 7=Sunday
+    val todayAvailability = availability.find { it.dayOfWeek == currentDayOfWeek && it.isActive }
+    
+    // Determine if doctor is currently available
+    val isCurrentlyAvailable = todayAvailability?.let { avail ->
+        val currentHour = currentTime.value.hour
+        val currentMinute = currentTime.value.minute
+        val currentMinutes = currentHour * 60 + currentMinute
+        
+        val startParts = avail.startTime.split(":")
+        val startMinutes = (startParts[0].toIntOrNull() ?: 0) * 60 + (startParts[1].toIntOrNull() ?: 0)
+        
+        val endParts = avail.endTime.split(":")
+        val endMinutes = (endParts[0].toIntOrNull() ?: 0) * 60 + (endParts[1].toIntOrNull() ?: 0)
+        
+        currentMinutes in startMinutes..endMinutes
+    } ?: false
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = CardColor,
+        shadowElevation = 4.dp
+    ) {
+        Column(
+            modifier = Modifier.padding(20.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "My Schedule",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                    Text(
+                        text = com.example.patienttracker.data.DoctorAvailability.getDayName(currentDayOfWeek),
+                        fontSize = 14.sp,
+                        color = TextSecondary,
+                        modifier = Modifier.padding(top = 2.dp)
+                    )
+                }
+                
+                // Status Badge
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = if (isCurrentlyAvailable) Color(0xFF10B981).copy(alpha = 0.15f) else Color(0xFFEF4444).copy(alpha = 0.15f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (isCurrentlyAvailable) Color(0xFF10B981) else Color(0xFFEF4444))
+                        )
+                        Text(
+                            text = if (isCurrentlyAvailable) "Available" else "Off Duty",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (isCurrentlyAvailable) Color(0xFF10B981) else Color(0xFFEF4444)
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .align(Alignment.CenterHorizontally),
+                    color = AccentColor
+                )
+            } else if (todayAvailability != null) {
+                // Today's timing
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = AccentColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Today's Hours",
+                            fontSize = 14.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Text(
+                        text = "${todayAvailability.startTime} - ${todayAvailability.endTime}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+                Divider(color = TextSecondary.copy(alpha = 0.2f))
+                Spacer(Modifier.height(12.dp))
+
+                // Current time display
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = AccentColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Current Time",
+                            fontSize = 14.sp,
+                            color = TextSecondary
+                        )
+                    }
+                    Text(
+                        text = currentTime.value.format(DateTimeFormatter.ofPattern("HH:mm")),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = if (isCurrentlyAvailable) Color(0xFF10B981) else TextPrimary
+                    )
+                }
+            } else {
+                Text(
+                    text = "No schedule set for today",
+                    fontSize = 14.sp,
+                    color = TextSecondary,
+                    modifier = Modifier.align(Alignment.CenterHorizontally)
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Manage Schedule Button
+            Button(
+                onClick = {
+                    val doctorUid = Firebase.auth.currentUser?.uid ?: ""
+                    navController.navigate("edit_availability/$doctorUid")
+                },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = null,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text("Manage Availability", fontSize = 14.sp)
+            }
+        }
     }
 }
 

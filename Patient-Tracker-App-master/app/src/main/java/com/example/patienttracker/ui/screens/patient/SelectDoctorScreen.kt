@@ -23,6 +23,12 @@ import kotlinx.coroutines.tasks.await
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import com.example.patienttracker.data.PatientFavoritesRepository
+import kotlinx.coroutines.launch
 
 // Color scheme
 private val HeaderTopColor = Color(0xFFD4AF8C)
@@ -41,7 +47,15 @@ fun SelectDoctorScreen(navController: NavController, context: Context, specialty
         try {
             val allDoctors = fetchDoctorsFromFirestore()
             doctors = if (specialty.equals("General", ignoreCase = true)) {
-                allDoctors
+                // Only show doctors that don't match any defined specialty
+                val definedSpecialties = listOf(
+                    "General Physician", "Cardiologist", "Dermatologist", "Pediatrician",
+                    "Neurologist", "Psychiatrist", "ENT Specialist", "Orthopedic",
+                    "Gynecologist", "Dentist", "Urologist", "Oncologist", "Radiologist"
+                )
+                allDoctors.filter { doctor ->
+                    definedSpecialties.none { it.equals(doctor.speciality, ignoreCase = true) }
+                }
             } else {
                 allDoctors.filter { it.speciality.equals(specialty, ignoreCase = true) }
             }
@@ -68,13 +82,23 @@ fun SelectDoctorScreen(navController: NavController, context: Context, specialty
                             start = 16.dp,
                             end = 16.dp,
                             bottom = 16.dp
-                        ),
-                    contentAlignment = Alignment.Center
+                        )
                 ) {
+                    IconButton(
+                        onClick = { navController.navigateUp() },
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
                     Text(
                         text = "$specialty Doctors",
                         color = Color.White,
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
@@ -127,6 +151,14 @@ fun SelectDoctorScreen(navController: NavController, context: Context, specialty
 
 @Composable
 fun DoctorSelectionCard(doctor: DoctorFull, onViewSlots: () -> Unit) {
+    var isFavorite by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    // Check if doctor is favorited
+    LaunchedEffect(doctor.id) {
+        isFavorite = PatientFavoritesRepository.isDoctorFavorited(doctor.id)
+    }
+    
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
@@ -138,35 +170,82 @@ fun DoctorSelectionCard(doctor: DoctorFull, onViewSlots: () -> Unit) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = "Dr. ${doctor.firstName} ${doctor.lastName}",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = StatTextColor
-                )
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = doctor.speciality,
-                    fontSize = 14.sp,
-                    color = HeaderBottomColor,
-                    fontWeight = FontWeight.Medium
-                )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Dr. ${doctor.firstName} ${doctor.lastName}",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StatTextColor
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = doctor.speciality,
+                        fontSize = 14.sp,
+                        color = HeaderBottomColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                // Heart icon for favorites
+                IconButton(
+                    onClick = {
+                        scope.launch {
+                            PatientFavoritesRepository.toggleFavorite(doctor.id)
+                            isFavorite = !isFavorite
+                        }
+                    },
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                        tint = if (isFavorite) Color(0xFFE91E63) else StatTextColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
 
-            // Availability info
-            Surface(
-                shape = RoundedCornerShape(8.dp),
-                color = BackgroundColor
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Available: ${doctor.days} • ${doctor.timings}",
-                    fontSize = 13.sp,
-                    color = StatTextColor,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                )
+                // Availability info
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BackgroundColor,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = "Available: ${doctor.days} • ${doctor.timings}",
+                        fontSize = 13.sp,
+                        color = StatTextColor,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
+                
+                Spacer(modifier = Modifier.width(8.dp))
+                
+                // Price badge
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color(0xFF4CAF50)
+                ) {
+                    Text(
+                        text = "Rs. 1,500",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(12.dp))

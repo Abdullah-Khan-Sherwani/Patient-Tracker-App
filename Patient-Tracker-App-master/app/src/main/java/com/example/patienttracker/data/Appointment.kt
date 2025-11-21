@@ -10,6 +10,7 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class Appointment(
     val appointmentId: String = "",
+    val appointmentNumber: String = "", // Simple 3-digit number like 001, 002
     val patientUid: String = "",
     val patientName: String = "",
     val doctorUid: String = "",
@@ -18,7 +19,9 @@ data class Appointment(
     val appointmentDate: Timestamp = Timestamp.now(),
     val timeSlot: String = "", // e.g., "09:00 AM - 10:00 AM"
     val status: String = "scheduled", // scheduled, completed, cancelled
+    val cancelledBy: String = "", // patient, doctor, or admin - who cancelled the appointment
     val notes: String = "",
+    val price: Int = 1500, // Fixed price in PKR
     val createdAt: Timestamp = Timestamp.now(),
     val updatedAt: Timestamp = Timestamp.now()
 ) : Parcelable {
@@ -28,6 +31,7 @@ data class Appointment(
         fun fromFirestore(data: Map<String, Any>, appointmentId: String): Appointment {
             return Appointment(
                 appointmentId = appointmentId,
+                appointmentNumber = data["appointmentNumber"] as? String ?: "",
                 patientUid = data["patientUid"] as? String ?: "",
                 patientName = data["patientName"] as? String ?: "",
                 doctorUid = data["doctorUid"] as? String ?: "",
@@ -36,7 +40,9 @@ data class Appointment(
                 appointmentDate = data["appointmentDate"] as? Timestamp ?: Timestamp.now(),
                 timeSlot = data["timeSlot"] as? String ?: "",
                 status = data["status"] as? String ?: "scheduled",
+                cancelledBy = data["cancelledBy"] as? String ?: "",
                 notes = data["notes"] as? String ?: "",
+                price = (data["price"] as? Long)?.toInt() ?: 1500,
                 createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
                 updatedAt = data["updatedAt"] as? Timestamp ?: Timestamp.now()
             )
@@ -45,6 +51,7 @@ data class Appointment(
     
     fun toFirestore(): Map<String, Any> {
         return hashMapOf(
+            "appointmentNumber" to appointmentNumber,
             "patientUid" to patientUid,
             "patientName" to patientName,
             "doctorUid" to doctorUid,
@@ -53,7 +60,9 @@ data class Appointment(
             "appointmentDate" to appointmentDate,
             "timeSlot" to timeSlot,
             "status" to status,
+            "cancelledBy" to cancelledBy,
             "notes" to notes,
+            "price" to price,
             "createdAt" to createdAt,
             "updatedAt" to updatedAt
         )

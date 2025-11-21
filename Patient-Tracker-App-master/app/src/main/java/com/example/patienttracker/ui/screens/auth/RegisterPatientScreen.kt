@@ -1,5 +1,6 @@
 package com.example.patienttracker.ui.screens.auth
 
+import android.app.DatePickerDialog
 import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.clickable
@@ -8,12 +9,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
+import java.util.Calendar
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -42,12 +45,34 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var dateOfBirth by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    
+    // Password validation requirements
+    val hasMinLength = password.length >= 8
+    val hasUpperCase = password.any { it.isUpperCase() }
+    val hasLowerCase = password.any { it.isLowerCase() }
+    val hasDigit = password.any { it.isDigit() }
+    val hasSpecialChar = password.any { !it.isLetterOrDigit() }
+    val passwordsMatch = password.isNotEmpty() && password == confirmPassword
+    val isPasswordValid = hasMinLength && hasUpperCase && hasLowerCase && hasDigit && hasSpecialChar
+
+    // Date picker setup
+    val calendar = Calendar.getInstance()
+    val datePickerDialog = DatePickerDialog(
+        context,
+        { _, year, month, dayOfMonth ->
+            dateOfBirth = String.format("%02d/%02d/%04d", dayOfMonth, month + 1, year)
+        },
+        calendar.get(Calendar.YEAR) - 25, // Default to 25 years ago
+        calendar.get(Calendar.MONTH),
+        calendar.get(Calendar.DAY_OF_MONTH)
+    )
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -172,6 +197,41 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
 
             Spacer(Modifier.height(16.dp))
 
+            // Date of Birth field
+            OutlinedTextField(
+                value = dateOfBirth,
+                onValueChange = { dateOfBirth = it },
+                label = { Text("Date of Birth (DD/MM/YYYY)") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.DateRange,
+                        contentDescription = "Date icon",
+                        tint = Color(0xFF6B5B54)
+                    )
+                },
+                trailingIcon = {
+                    IconButton(onClick = { datePickerDialog.show() }) {
+                        Icon(
+                            imageVector = Icons.Default.DateRange,
+                            contentDescription = "Choose date",
+                            tint = Color(0xFFB36B3C)
+                        )
+                    }
+                },
+                placeholder = { Text("DD/MM/YYYY") },
+                singleLine = true,
+                shape = RoundedCornerShape(28.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFB36B3C),
+                    unfocusedBorderColor = Color(0xFF9E8B82),
+                    focusedContainerColor = Color(0xFFF7ECE8),
+                    unfocusedContainerColor = Color(0xFFF7ECE8)
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(16.dp))
+
             // Password field with toggle
             OutlinedTextField(
                 value = password,
@@ -204,6 +264,75 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
                 ),
                 modifier = Modifier.fillMaxWidth()
             )
+            
+            // Password requirements indicator
+            if (password.isNotEmpty()) {
+                Spacer(Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp)
+                ) {
+                    Text(
+                        text = "Password must contain:",
+                        fontSize = 12.sp,
+                        color = Color(0xFF6B5B54),
+                        fontWeight = FontWeight.Medium
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    PasswordRequirement("At least 8 characters", hasMinLength)
+                    PasswordRequirement("One uppercase letter", hasUpperCase)
+                    PasswordRequirement("One lowercase letter", hasLowerCase)
+                    PasswordRequirement("One number", hasDigit)
+                    PasswordRequirement("One special character (!@#$%^&*)", hasSpecialChar)
+                }
+            }
+            
+            Spacer(Modifier.height(16.dp))
+            
+            // Confirm Password field
+            OutlinedTextField(
+                value = confirmPassword,
+                onValueChange = { confirmPassword = it },
+                label = { Text("Confirm Password") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = "Password icon",
+                        tint = Color(0xFF6B5B54)
+                    )
+                },
+                trailingIcon = {
+                    IconButton(onClick = { confirmPasswordVisible = !confirmPasswordVisible }) {
+                        Icon(
+                            imageVector = if (confirmPasswordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                            contentDescription = if (confirmPasswordVisible) "Hide password" else "Show password",
+                            tint = Color(0xFF6B5B54)
+                        )
+                    }
+                },
+                singleLine = true,
+                visualTransformation = if (confirmPasswordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                shape = RoundedCornerShape(28.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = if (passwordsMatch) Color(0xFF4CAF50) else Color(0xFFB36B3C),
+                    unfocusedBorderColor = Color(0xFF9E8B82),
+                    focusedContainerColor = Color(0xFFF7ECE8),
+                    unfocusedContainerColor = Color(0xFFF7ECE8)
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                isError = confirmPassword.isNotEmpty() && !passwordsMatch
+            )
+            
+            if (confirmPassword.isNotEmpty() && !passwordsMatch) {
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Passwords do not match",
+                    fontSize = 12.sp,
+                    color = Color(0xFFD32F2F),
+                    modifier = Modifier.padding(horizontal = 8.dp)
+                )
+            }
 
             Spacer(Modifier.height(24.dp))
 
@@ -212,17 +341,25 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
                 onClick = {
                     scope.launch {
                         if (firstName.isBlank() || lastName.isBlank() || email.isBlank() ||
-                            password.isBlank()
+                            dateOfBirth.isBlank() || password.isBlank()
                         ) {
                             Toast.makeText(context, "Please fill all required fields", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
-                        if (password.length < 8 || !password.any { it.isDigit() } || !password.any { it.isUpperCase() }) {
+                        if (!dateOfBirth.matches(Regex("^\\d{2}/\\d{2}/\\d{4}$"))) {
+                            Toast.makeText(context, "Please enter date in DD/MM/YYYY format", Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        if (!isPasswordValid) {
                             Toast.makeText(
                                 context,
-                                "Password must be at least 8 characters, include a number and uppercase letter",
-                                Toast.LENGTH_LONG
+                                "Password does not meet all requirements",
+                                Toast.LENGTH_SHORT
                             ).show()
+                            return@launch
+                        }
+                        if (!passwordsMatch) {
+                            Toast.makeText(context, "Passwords do not match", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
 
@@ -241,7 +378,8 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
                                 lastName = lastName.trim(),
                                 email = email.trim(),
                                 phone = phone.trim(),
-                                humanId = humanId
+                                humanId = humanId,
+                                dateOfBirth = dateOfBirth.trim()
                             )
 
                             Toast.makeText(context, "Account created!", Toast.LENGTH_SHORT).show()
@@ -378,7 +516,8 @@ private suspend fun createUserProfile(
     lastName: String,
     email: String,
     phone: String,
-    humanId: String
+    humanId: String,
+    dateOfBirth: String
 ) {
     val db = Firebase.firestore
     val doc = mapOf(
@@ -388,7 +527,30 @@ private suspend fun createUserProfile(
         "email" to email,
         "phone" to phone,
         "humanId" to humanId,
+        "dateOfBirth" to dateOfBirth,
         "createdAt" to Timestamp.now()
     )
     db.collection("users").document(uid).set(doc).await()
+}
+
+@Composable
+private fun PasswordRequirement(text: String, isMet: Boolean) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.padding(vertical = 2.dp)
+    ) {
+        Text(
+            text = if (isMet) "✓" else "○",
+            fontSize = 14.sp,
+            color = if (isMet) Color(0xFF4CAF50) else Color(0xFF9E8B82),
+            fontWeight = if (isMet) FontWeight.Bold else FontWeight.Normal,
+            modifier = Modifier.width(16.dp)
+        )
+        Spacer(Modifier.width(4.dp))
+        Text(
+            text = text,
+            fontSize = 11.sp,
+            color = if (isMet) Color(0xFF4CAF50) else Color(0xFF6B5B54)
+        )
+    }
 }

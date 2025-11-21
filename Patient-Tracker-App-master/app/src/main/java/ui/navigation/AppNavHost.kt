@@ -15,6 +15,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.patienttracker.auth.AuthManager
 import com.example.patienttracker.ui.screens.common.SplashScreen
 import com.example.patienttracker.ui.screens.auth.RegisterPatientScreen
+import com.example.patienttracker.ui.screens.auth.ForgotPasswordScreen
 import com.example.patienttracker.ui.screens.patient.PatientHomeScreen
 import com.example.patienttracker.ui.screens.patient.PatientDashboard
 import com.example.patienttracker.ui.screens.auth.PatientAccountCreatedScreen
@@ -27,6 +28,8 @@ import com.example.patienttracker.ui.screens.admin.AdminAllAppointmentsScreen
 import com.example.patienttracker.ui.screens.admin.AdminAppointmentDetailsScreen
 import com.example.patienttracker.ui.screens.admin.AdminSystemReportsScreen
 import com.example.patienttracker.ui.screens.admin.AdminProfileScreen
+import com.example.patienttracker.ui.screens.admin.AdminSettingsScreen
+import com.example.patienttracker.ui.screens.admin.AdminAboutScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorHomeScreen
 import com.example.patienttracker.ui.screens.auth.UnifiedLoginScreen
 import com.example.patienttracker.ui.screens.auth.PatientWelcomeScreen
@@ -45,6 +48,7 @@ import com.example.patienttracker.ui.screens.patient.UploadHealthRecordScreen
 import com.example.patienttracker.ui.screens.patient.EnhancedUploadHealthRecordScreen
 import com.example.patienttracker.ui.screens.patient.MyRecordsScreen
 import com.example.patienttracker.ui.screens.patient.SimplifiedBookAppointmentScreen
+import com.example.patienttracker.ui.screens.patient.PatientNotificationsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorViewPatientRecordsScreen
 import com.example.patienttracker.ui.screens.doctor.EnhancedDoctorViewPatientRecordsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientListScreen
@@ -54,12 +58,22 @@ import com.example.patienttracker.ui.screens.doctor.DoctorAppointmentsFullScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorManageScheduleScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorViewRecordsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorSettingsScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorChangePasswordScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorTermsScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorPrivacyScreen
+import com.example.patienttracker.ui.screens.common.EditAvailabilityScreen
 import com.example.patienttracker.ui.viewmodel.ThemeViewModel
 import com.example.patienttracker.ui.screens.patient.SelectSpecialtyScreen
 import com.example.patienttracker.ui.screens.patient.SelectDoctorScreen
 import com.example.patienttracker.ui.screens.patient.SelectDateTimeScreen
 import com.example.patienttracker.ui.screens.patient.ConfirmAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.AppointmentSuccessScreen
+import com.example.patienttracker.ui.screens.guest.GuestHomeScreen
+import com.example.patienttracker.ui.screens.guest.GuestDoctorsScreen
+import com.example.patienttracker.ui.screens.guest.GuestDoctorDetailsScreen
+import com.example.patienttracker.ui.screens.guest.GuestAboutScreen
+import com.example.patienttracker.ui.screens.guest.GuestContactScreen
+import com.example.patienttracker.ui.screens.guest.GuestSettingsScreen
 
 private object Route {
     const val SPLASH = "splash"
@@ -163,8 +177,15 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
                         launchSingleTop = true
                         restoreState = true
                     }
+                },
+                onForgotPassword = {
+                    navController.navigate("forgot_password")
                 }
             )
+        }
+        
+        composable("forgot_password") {
+            ForgotPasswordScreen(navController, context)
         }
 
         composable(Route.REGISTER_PATIENT) {
@@ -222,6 +243,10 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             PatientProfileScreen(navController, first, last, themeViewModel)
         }
 
+        composable("patient_notifications") {
+            PatientNotificationsScreen(navController, context)
+        }
+
         composable("terms_and_conditions") {
             TermsAndConditionsScreen(navController)
         }
@@ -270,6 +295,16 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
 
         composable("upload_health_record") {
             UploadHealthRecordScreen(navController, context)
+        }
+
+        // Favorite Doctors Screen
+        composable("favorite_doctors") {
+            com.example.patienttracker.ui.screens.patient.FavoriteDoctorsScreen(navController, context)
+        }
+
+        // Doctor Catalogue Screen
+        composable("doctor_catalogue") {
+            com.example.patienttracker.ui.screens.patient.DoctorCatalogueScreen(navController, context)
         }
 
         // Enhanced Upload Health Record Screen with privacy, notes, medication
@@ -365,6 +400,14 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             AdminProfileScreen(navController, context)
         }
 
+        composable("admin_settings") {
+            AdminSettingsScreen(navController, context)
+        }
+
+        composable("admin_about") {
+            AdminAboutScreen(navController, context)
+        }
+
         // New Booking Flow Routes
         composable("select_specialty") {
             SelectSpecialtyScreen(navController, context)
@@ -392,17 +435,29 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             ConfirmAppointmentScreen(navController, context, doctorId, doctorName, specialty, date, timeSlot)
         }
 
-        composable("appointment_success/{appointmentId}/{doctorName}/{date}/{timeSlot}") { backStackEntry ->
-            val appointmentId = backStackEntry.arguments?.getString("appointmentId") ?: ""
+        composable("appointment_success/{appointmentNumber}/{doctorName}/{date}/{timeSlot}") { backStackEntry ->
+            val appointmentNumber = backStackEntry.arguments?.getString("appointmentNumber") ?: "000"
             val doctorName = backStackEntry.arguments?.getString("doctorName") ?: ""
             val date = backStackEntry.arguments?.getString("date") ?: ""
             val timeSlot = backStackEntry.arguments?.getString("timeSlot") ?: ""
-            AppointmentSuccessScreen(navController, context, appointmentId, doctorName, date, timeSlot)
+            AppointmentSuccessScreen(navController, context, appointmentNumber, doctorName, date, timeSlot)
         }
 
         // New Doctor Feature Routes
         composable("doctor_profile") {
             DoctorProfileScreen(navController, context)
+        }
+
+        composable("doctor_change_password") {
+            DoctorChangePasswordScreen(navController, context)
+        }
+
+        composable("doctor_terms") {
+            DoctorTermsScreen(navController, context)
+        }
+
+        composable("doctor_privacy") {
+            DoctorPrivacyScreen(navController, context)
         }
 
         composable("doctor_messages") {
@@ -423,6 +478,44 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
 
         composable("doctor_settings") {
             DoctorSettingsScreen(navController, context)
+        }
+
+        // Edit Availability Screen (used by both doctor and admin)
+        composable(
+            route = "edit_availability/{doctorUid}",
+            arguments = listOf(navArgument("doctorUid") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val doctorUid = backStackEntry.arguments?.getString("doctorUid") ?: ""
+            EditAvailabilityScreen(navController, context, doctorUid)
+        }
+
+        // Guest Mode Routes
+        composable("guest_home") {
+            GuestHomeScreen(navController, context)
+        }
+
+        composable("guest_doctors") {
+            GuestDoctorsScreen(navController, context)
+        }
+
+        composable(
+            route = "guest_doctor_details/{doctorUid}",
+            arguments = listOf(navArgument("doctorUid") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val doctorUid = backStackEntry.arguments?.getString("doctorUid") ?: ""
+            GuestDoctorDetailsScreen(navController, context, doctorUid)
+        }
+
+        composable("guest_about") {
+            GuestAboutScreen(navController, context)
+        }
+
+        composable("guest_contact") {
+            GuestContactScreen(navController, context)
+        }
+
+        composable("guest_settings") {
+            GuestSettingsScreen(navController, context)
         }
     }
 }

@@ -14,9 +14,11 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.material3.TabRowDefaults.tabIndicatorOffset
 import androidx.compose.runtime.*
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -26,12 +28,14 @@ import androidx.compose.foundation.layout.systemBars
 import androidx.navigation.NavController
 import com.example.patienttracker.data.Appointment
 import com.example.patienttracker.data.AppointmentRepository
+import com.example.patienttracker.data.NotificationRepository
 import com.google.firebase.auth.FirebaseAuth
 import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import kotlinx.coroutines.launch
 
 // Color scheme - light beige/beige gradient
 private val HeaderTopColor = Color(0xFFD4AF8C)
@@ -46,9 +50,10 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
     val currentUser = FirebaseAuth.getInstance().currentUser
     var appointments by remember { mutableStateOf<List<Appointment>>(emptyList()) }
     var selectedTabIndex by remember { mutableStateOf(0) }
+    var refreshTrigger by remember { mutableStateOf(0) }
     
-    // Refresh appointments when screen is displayed
-    LaunchedEffect(Unit) {
+    // Refresh appointments when screen is displayed or refreshTrigger changes
+    LaunchedEffect(refreshTrigger) {
         currentUser?.uid?.let { userId ->
             try {
                 println("DEBUG: Fetching appointments for user: $userId")
@@ -76,10 +81,10 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                 .toInstant()
                 .atZone(ZoneId.systemDefault())
                 .toLocalDate()
-            // Include appointments from today and future dates
+            // Include appointments from today and future dates, but exclude cancelled
             val isUpcoming = appointmentDate.isAfter(today) || appointmentDate.isEqual(today)
             println("DEBUG: Appointment on $appointmentDate - isUpcoming: $isUpcoming (today: $today)")
-            isUpcoming
+            isUpcoming && appointment.status != "cancelled"
         }
         .sortedBy { it.appointmentDate }
 
@@ -89,11 +94,17 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                 .toInstant()
                 .atZone(ZoneId.systemDefault())
                 .toLocalDate()
-            appointmentDate.isBefore(today)
+            appointmentDate.isBefore(today) && appointment.status != "cancelled"
         }
         .sortedByDescending { it.appointmentDate }
     
-    println("DEBUG: Upcoming: ${upcomingAppointments.size}, Past: ${pastAppointments.size}")
+    val cancelledAppointments = appointments
+        .filter { appointment ->
+            appointment.status == "cancelled"
+        }
+        .sortedByDescending { it.appointmentDate }
+    
+    println("DEBUG: Upcoming: ${upcomingAppointments.size}, Past: ${pastAppointments.size}, Cancelled: ${cancelledAppointments.size}")
 
     Scaffold(
         topBar = {
@@ -184,6 +195,17 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                         )
                     }
                 )
+                Tab(
+                    selected = selectedTabIndex == 2,
+                    onClick = { selectedTabIndex = 2 },
+                    text = {
+                        Text(
+                            "Cancelled",
+                            fontWeight = if (selectedTabIndex == 2) FontWeight.SemiBold else FontWeight.Normal,
+                            color = if (selectedTabIndex == 2) HeaderTopColor else StatTextColor
+                        )
+                    }
+                )
             }
 
             // Tab Content
@@ -195,11 +217,21 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
                 when (selectedTabIndex) {
                     0 -> AppointmentsList(
                         appointments = upcomingAppointments,
-                        emptyMessage = "No upcoming appointments"
+                        emptyMessage = "No upcoming appointments",
+                        context = context,
+                        onRefresh = { refreshTrigger++ }
                     )
                     1 -> AppointmentsList(
                         appointments = pastAppointments,
-                        emptyMessage = "No past appointments"
+                        emptyMessage = "No past appointments",
+                        context = context,
+                        onRefresh = { refreshTrigger++ }
+                    )
+                    2 -> AppointmentsList(
+                        appointments = cancelledAppointments,
+                        emptyMessage = "No cancelled appointments",
+                        context = context,
+                        onRefresh = { refreshTrigger++ }
                     )
                 }
             }
@@ -208,7 +240,12 @@ fun FullScheduleScreen(navController: NavController, context: Context) {
 }
 
 @Composable
-fun AppointmentsList(appointments: List<Appointment>, emptyMessage: String) {
+fun AppointmentsList(
+    appointments: List<Appointment>,
+    emptyMessage: String,
+    context: Context,
+    onRefresh: () -> Unit
+) {
     if (appointments.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -229,20 +266,38 @@ fun AppointmentsList(appointments: List<Appointment>, emptyMessage: String) {
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(appointments) { appointment ->
-                AppointmentCard(appointment)
+                AppointmentCard(
+                    appointment = appointment,
+                    context = context,
+                    onRefresh = onRefresh
+                )
             }
         }
     }
 }
 
 @Composable
-fun AppointmentCard(appointment: Appointment) {
+fun AppointmentCard(
+    appointment: Appointment,
+    context: Context,
+    onRefresh: () -> Unit
+) {
     val formatter = DateTimeFormatter.ofPattern("EEEE, MMM dd, yyyy", Locale.getDefault())
     val appointmentDateTime = appointment.appointmentDate.toDate()
         .toInstant()
         .atZone(ZoneId.systemDefault())
         .toLocalDate()
     val formattedDate = appointmentDateTime.format(formatter)
+    
+    val scope = rememberCoroutineScope()
+    var showCancelDialog by remember { mutableStateOf(false) }
+    var isCancelling by remember { mutableStateOf(false) }
+    
+    // Check if this is an upcoming appointment (can be cancelled)
+    val now = LocalDateTime.now(ZoneId.systemDefault())
+    val today = now.toLocalDate()
+    val isUpcoming = appointmentDateTime.isAfter(today) || appointmentDateTime.isEqual(today)
+    val isCancelled = appointment.status == "cancelled"
 
     Surface(
         shape = RoundedCornerShape(16.dp),
@@ -251,26 +306,141 @@ fun AppointmentCard(appointment: Appointment) {
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp)) {
-            Text(
-                text = formattedDate,
-                color = HeaderTopColor,
-                fontWeight = FontWeight.Bold
-            )
-            Spacer(Modifier.height(6.dp))
-            Text(
-                text = appointment.timeSlot,
-                color = StatTextColor,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = appointment.doctorName,
-                color = StatTextColor,
-                fontWeight = FontWeight.Bold
-            )
-            Text(
-                text = appointment.speciality,
-                color = HeaderBottomColor
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = formattedDate,
+                        color = HeaderTopColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = appointment.timeSlot,
+                        color = StatTextColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Text(
+                        text = appointment.doctorName,
+                        color = StatTextColor,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = appointment.speciality,
+                        color = HeaderBottomColor
+                    )
+                    
+                    // Show appointment number if available
+                    if (appointment.appointmentNumber.isNotEmpty()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Appointment #${appointment.appointmentNumber}",
+                            color = StatTextColor.copy(alpha = 0.7f),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
+                }
+                
+                // Status badge or cancel button
+                if (isCancelled) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFFEBEE)
+                    ) {
+                        Text(
+                            text = "Cancelled",
+                            color = Color(0xFFD32F2F),
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                } else if (isUpcoming && !isCancelling) {
+                    TextButton(
+                        onClick = { showCancelDialog = true },
+                        colors = ButtonDefaults.textButtonColors(
+                            contentColor = Color(0xFFD32F2F)
+                        )
+                    ) {
+                        Text("Cancel")
+                    }
+                } else if (isCancelling) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        color = HeaderTopColor,
+                        strokeWidth = 2.dp
+                    )
+                }
+            }
         }
+    }
+    
+    // Cancel confirmation dialog
+    if (showCancelDialog) {
+        AlertDialog(
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Cancel Appointment") },
+            text = { Text("Are you sure you want to cancel this appointment with ${appointment.doctorName}?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        scope.launch {
+                            isCancelling = true
+                            showCancelDialog = false
+                            try {
+                                // Cancel appointment
+                                AppointmentRepository.cancelAppointment(appointment.appointmentId, "patient").getOrThrow()
+                                
+                                // Create notification for patient
+                                try {
+                                    val notificationRepo = NotificationRepository()
+                                    notificationRepo.createNotification(
+                                        patientUid = appointment.patientUid,
+                                        title = "Appointment Cancelled",
+                                        message = "Your appointment with ${appointment.doctorName} on $formattedDate at ${appointment.timeSlot} has been cancelled.",
+                                        type = "appointment_cancelled",
+                                        appointmentId = appointment.appointmentId
+                                    )
+                                } catch (e: Exception) {
+                                    println("Failed to create notification: ${e.message}")
+                                }
+                                
+                                // Show success message
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Appointment cancelled successfully",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                                
+                                // Trigger refresh
+                                onRefresh()
+                            } catch (e: Exception) {
+                                println("Failed to cancel appointment: ${e.message}")
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Failed to cancel appointment: ${e.message}",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            } finally {
+                                isCancelling = false
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.textButtonColors(
+                        contentColor = Color(0xFFD32F2F)
+                    )
+                ) {
+                    Text("Yes, Cancel")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showCancelDialog = false }) {
+                    Text("No, Keep It")
+                }
+            }
+        )
     }
 }

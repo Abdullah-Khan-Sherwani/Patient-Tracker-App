@@ -69,8 +69,8 @@ fun PatientHealthRecordsScreen(navController: NavController, context: Context) {
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate("upload_health_record") },
-                containerColor = Color(0xFFC9956E),
+                onClick = { navController.navigate("upload_health_record_enhanced") },
+                containerColor = Color(0xFF4CAF50),
                 contentColor = Color.White
             ) {
                 Icon(Icons.Default.Add, "Upload Record")

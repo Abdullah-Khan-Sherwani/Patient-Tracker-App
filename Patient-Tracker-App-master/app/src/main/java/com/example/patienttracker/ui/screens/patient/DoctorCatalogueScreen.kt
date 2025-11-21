@@ -1,0 +1,604 @@
+package com.example.patienttracker.ui.screens.patient
+
+import android.content.Context
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.systemBars
+import com.example.patienttracker.data.PatientFavoritesRepository
+import androidx.compose.ui.graphics.vector.ImageVector
+
+// Color scheme
+private val HeaderTopColor = Color(0xFFD4AF8C)
+private val HeaderBottomColor = Color(0xFFC9956E)
+private val BackgroundColor = Color(0xFFF5F1ED)
+private val CardWhite = Color(0xFFFFFFFF)
+private val StatTextColor = Color(0xFF5C4A42)
+private val ButtonColor = Color(0xFFC9956E)
+private val AccentColor = Color(0xFFB8956A)
+
+// Dark mode colors
+private val DarkBackgroundColor = Color(0xFF0B0F12)
+private val DarkCardColor = Color(0xFF1A2228)
+private val DarkTextColor = Color(0xFFFFFFFF)
+private val DarkSecondaryTextColor = Color(0xFFC3CCD2)
+private val DarkIconTint = Color(0xFFFFFFFF)
+
+data class SpecialtyInfo(
+    val name: String,
+    val icon: ImageVector,
+    val description: String
+)
+
+// Complete list of all specializations (always displayed)
+private fun getAllSpecialties(): List<SpecialtyInfo> {
+    return listOf(
+        SpecialtyInfo("General", Icons.Default.MedicalServices, "All doctors and general specialists"),
+        SpecialtyInfo("General Physician", Icons.Default.MedicalServices, "Primary care for common medical concerns"),
+        SpecialtyInfo("Cardiologist", Icons.Default.Favorite, "Heart and blood circulation specialist"),
+        SpecialtyInfo("Dermatologist", Icons.Default.Face, "Skin, hair and nail treatments"),
+        SpecialtyInfo("Pediatrician", Icons.Default.ChildCare, "Care for babies and children"),
+        SpecialtyInfo("Neurologist", Icons.Default.Psychology, "Brain and nervous system specialist"),
+        SpecialtyInfo("Psychiatrist", Icons.Default.SelfImprovement, "Mental health and anxiety support"),
+        SpecialtyInfo("ENT Specialist", Icons.Default.Hearing, "Ear, nose and throat issues"),
+        SpecialtyInfo("Orthopedic", Icons.Default.Accessibility, "Bones, joints and muscle concerns"),
+        SpecialtyInfo("Gynecologist", Icons.Default.PregnantWoman, "Women's reproductive care"),
+        SpecialtyInfo("Dentist", Icons.Default.LocalHospital, "Teeth and oral health"),
+        SpecialtyInfo("Urologist", Icons.Default.WaterDrop, "Kidneys, bladder and urinary concerns"),
+        SpecialtyInfo("Oncologist", Icons.Default.HealthAndSafety, "Cancer diagnosis and treatment"),
+        SpecialtyInfo("Radiologist", Icons.Default.Scanner, "Medical imaging and scan analysis")
+    )
+}
+
+// Match doctor specialty to standardized name
+private fun normalizeSpecialty(specialty: String): String {
+    return when (specialty.lowercase().trim()) {
+        "general physician" -> "General Physician"
+        "cardiologist", "cardiology" -> "Cardiologist"
+        "dermatologist", "dermatology" -> "Dermatologist"
+        "pediatrician", "pediatrics" -> "Pediatrician"
+        "neurologist", "neurology" -> "Neurologist"
+        "psychiatrist", "psychiatry" -> "Psychiatrist"
+        "ent specialist", "ent", "otolaryngology" -> "ENT Specialist"
+        "orthopedic", "orthopedics" -> "Orthopedic"
+        "gynecologist", "gynecology" -> "Gynecologist"
+        "dentist", "dental" -> "Dentist"
+        "urologist", "urology" -> "Urologist"
+        "oncologist", "oncology" -> "Oncologist"
+        "radiologist", "radiology" -> "Radiologist"
+        else -> "General" // All unmatched doctors go to General category
+    }
+}
+
+@Composable
+fun DoctorCatalogueScreen(navController: NavController, context: Context) {
+    var allDoctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
+    var selectedSpecialty by remember { mutableStateOf<String?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    
+    // Always show all specialties
+    val allSpecialties = getAllSpecialties()
+    
+    // Normalize doctor specialties and group by standardized names
+    val doctorsBySpecialty = remember(allDoctors) {
+        allDoctors.groupBy { normalizeSpecialty(it.speciality) }
+    }
+    
+    // Filtered doctors based on selected specialty
+    val filteredDoctors = remember(selectedSpecialty, doctorsBySpecialty) {
+        if (selectedSpecialty == null) {
+            emptyList()
+        } else {
+            doctorsBySpecialty[selectedSpecialty] ?: emptyList()
+        }
+    }
+    
+    // Load all doctors
+    LaunchedEffect(Unit) {
+        try {
+            allDoctors = fetchDoctorsFromFirestore()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        } finally {
+            isLoading = false
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            Surface(color = Color.Transparent, tonalElevation = 0.dp) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(
+                            brush = Brush.verticalGradient(
+                                colors = listOf(HeaderTopColor, HeaderBottomColor)
+                            )
+                        )
+                        .padding(
+                            top = WindowInsets.systemBars.asPaddingValues().calculateTopPadding() + 16.dp,
+                            start = 16.dp,
+                            end = 16.dp,
+                            bottom = 16.dp
+                        )
+                ) {
+                    IconButton(
+                        onClick = { navController.navigateUp() },
+                        modifier = Modifier.align(Alignment.CenterStart)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ArrowBack,
+                            contentDescription = "Back",
+                            tint = Color.White
+                        )
+                    }
+                    Text(
+                        text = "Doctor Catalogue",
+                        color = Color.White,
+                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        modifier = Modifier.align(Alignment.Center)
+                    )
+                }
+            }
+        }
+    ) { innerPadding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(BackgroundColor)
+                .padding(innerPadding)
+        ) {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = HeaderTopColor)
+                }
+            } else if (selectedSpecialty == null) {
+                // Main catalogue view - 2 column grid of all specialties
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(BackgroundColor),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(allSpecialties) { specialtyInfo ->
+                        SpecialtyCategoryCard(
+                            specialtyInfo = specialtyInfo,
+                            doctorCount = doctorsBySpecialty[specialtyInfo.name]?.size ?: 0,
+                            onClick = { selectedSpecialty = specialtyInfo.name }
+                        )
+                    }
+                }
+            } else {
+                // Doctor list view for selected specialty
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(BackgroundColor)
+                ) {
+                    // Back to categories button
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        color = CardWhite,
+                        tonalElevation = 2.dp
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { selectedSpecialty = null }
+                                .padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.ArrowBack,
+                                contentDescription = "Back to categories",
+                                tint = AccentColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Text(
+                                text = "Back to all specializations",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = StatTextColor
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Doctors list
+                    if (filteredDoctors.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.PersonOff,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = StatTextColor.copy(alpha = 0.4f)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "No doctors are available for this specialty right now.",
+                                    fontSize = 16.sp,
+                                    color = StatTextColor.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            modifier = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(filteredDoctors) { doctor ->
+                                DoctorListCard(
+                                    doctor = doctor,
+                                    onBookAppointment = {
+                                        navController.navigate(
+                                            "select_datetime/${doctor.id}/${doctor.firstName}/${doctor.lastName}/${doctor.speciality}"
+                                        )
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun SpecialtyCategoryCard(
+    specialtyInfo: SpecialtyInfo,
+    doctorCount: Int,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .aspectRatio(1f)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = CardWhite,
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp
+    ) {
+        Box(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                // Icon
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    shape = CircleShape,
+                    color = AccentColor.copy(alpha = 0.15f)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = specialtyInfo.icon,
+                            contentDescription = specialtyInfo.name,
+                            modifier = Modifier.size(28.dp),
+                            tint = AccentColor
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Specialty name
+                Text(
+                    text = specialtyInfo.name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = StatTextColor,
+                    textAlign = TextAlign.Center,
+                    maxLines = 2
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // Description
+                Text(
+                    text = specialtyInfo.description,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = StatTextColor.copy(alpha = 0.7f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 2,
+                    lineHeight = 14.sp
+                )
+            }
+            
+            // Doctor count badge in top-right corner
+            if (doctorCount > 0) {
+                Surface(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(8.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = ButtonColor,
+                    tonalElevation = 2.dp
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = Color.White
+                        )
+                        Text(
+                            text = doctorCount.toString(),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DoctorListCard(
+    doctor: DoctorFull,
+    onBookAppointment: () -> Unit
+) {
+    var isFavorite by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    // Check favorite status
+    LaunchedEffect(doctor.id) {
+        try {
+            isFavorite = PatientFavoritesRepository.isDoctorFavorited(doctor.id)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+    
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        color = CardWhite,
+        tonalElevation = 2.dp,
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Doctor profile placeholder
+            Surface(
+                modifier = Modifier.size(64.dp),
+                shape = CircleShape,
+                color = AccentColor.copy(alpha = 0.2f)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "${doctor.firstName.firstOrNull() ?: "D"}${doctor.lastName.firstOrNull() ?: ""}",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = AccentColor
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            // Doctor info
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                // Name with heart icon
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Dr. ${doctor.firstName} ${doctor.lastName}",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StatTextColor,
+                        modifier = Modifier.weight(1f)
+                    )
+                    
+                    // Heart icon
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                PatientFavoritesRepository.toggleFavorite(doctor.id)
+                                isFavorite = !isFavorite
+                            }
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                            tint = if (isFavorite) Color(0xFFE91E63) else StatTextColor.copy(alpha = 0.5f),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
+                // Consultation fee
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.AccountBalanceWallet,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = ButtonColor
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "PKR 1500",
+                        fontSize = 13.sp,
+                        color = ButtonColor,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                // Availability - Days and Timings
+                if (doctor.days.isNotEmpty() || doctor.timings.isNotEmpty()) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BackgroundColor
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (doctor.days.isNotEmpty()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarToday,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(12.dp),
+                                        tint = AccentColor
+                                    )
+                                    Text(
+                                        text = doctor.days,
+                                        fontSize = 11.sp,
+                                        color = StatTextColor,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                            if (doctor.timings.isNotEmpty()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(12.dp),
+                                        tint = AccentColor
+                                    )
+                                    Text(
+                                        text = doctor.timings,
+                                        fontSize = 11.sp,
+                                        color = StatTextColor,
+                                        fontWeight = FontWeight.Medium,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = BackgroundColor
+                    ) {
+                        Text(
+                            text = "Availability not provided",
+                            fontSize = 11.sp,
+                            color = StatTextColor.copy(alpha = 0.6f),
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            // Book button
+            Surface(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clickable(onClick = onBookAppointment),
+                shape = CircleShape,
+                color = ButtonColor,
+                tonalElevation = 4.dp
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Add,
+                        contentDescription = "Book Appointment",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+            }
+        }
+    }
+}

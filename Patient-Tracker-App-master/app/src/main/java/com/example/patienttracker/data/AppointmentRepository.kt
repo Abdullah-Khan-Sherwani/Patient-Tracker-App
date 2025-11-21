@@ -18,6 +18,37 @@ object AppointmentRepository {
     private const val COLLECTION = "appointments"
     
     /**
+     * Generate next appointment number (001, 002, etc.)
+     */
+    private suspend fun getNextAppointmentNumber(): String {
+        val counterRef = db.collection("counters").document("appointments")
+        
+        return try {
+            // First, ensure counter document exists
+            val counterDoc = counterRef.get().await()
+            if (!counterDoc.exists()) {
+                counterRef.set(mapOf("count" to 0L)).await()
+            }
+            
+            // Then run transaction to increment
+            db.runTransaction { transaction ->
+                val snapshot = transaction.get(counterRef)
+                val currentCount = snapshot.getLong("count") ?: 0L
+                val nextCount = currentCount + 1
+                
+                transaction.update(counterRef, "count", nextCount)
+                
+                // Format as 3-digit number with leading zeros
+                String.format("%03d", nextCount)
+            }.await()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            // If counter fails, use timestamp-based number
+            String.format("%03d", (System.currentTimeMillis() % 1000))
+        }
+    }
+    
+    /**
      * Create a new appointment
      */
     suspend fun createAppointment(
@@ -38,10 +69,14 @@ object AppointmentRepository {
             val lastName = userDoc.getString("lastName") ?: ""
             val patientName = "$firstName $lastName"
             
+            // Generate appointment number
+            val appointmentNumber = getNextAppointmentNumber()
+            
             // Create appointment
             val appointmentId = UUID.randomUUID().toString()
             val appointment = Appointment(
                 appointmentId = appointmentId,
+                appointmentNumber = appointmentNumber,
                 patientUid = currentUser.uid,
                 patientName = patientName,
                 doctorUid = doctorUid,
@@ -51,6 +86,7 @@ object AppointmentRepository {
                 timeSlot = timeSlot,
                 status = "scheduled",
                 notes = notes,
+                price = 1500,
                 createdAt = Timestamp.now(),
                 updatedAt = Timestamp.now()
             )
@@ -64,6 +100,8 @@ object AppointmentRepository {
             Result.success(appointment)
             
         } catch (e: Exception) {
+            e.printStackTrace()
+            android.util.Log.e("AppointmentRepository", "Failed to create appointment: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -76,19 +114,32 @@ object AppointmentRepository {
             val currentUser = auth.currentUser
                 ?: return Result.failure(Exception("User not authenticated"))
             
+            android.util.Log.d("AppointmentRepository", "Fetching appointments for user: ${currentUser.uid}")
+            
             val snapshot = db.collection(COLLECTION)
                 .whereEqualTo("patientUid", currentUser.uid)
-                .orderBy("appointmentDate", Query.Direction.DESCENDING)
                 .get()
                 .await()
             
-            val appointments = snapshot.documents.mapNotNull { doc ->
-                Appointment.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
-            }
+            android.util.Log.d("AppointmentRepository", "Found ${snapshot.size()} appointments")
             
+            val appointments = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val appointment = Appointment.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
+                    android.util.Log.d("AppointmentRepository", "Parsed appointment: ${appointment.doctorName} on ${appointment.appointmentDate.toDate()}")
+                    appointment
+                } catch (e: Exception) {
+                    android.util.Log.e("AppointmentRepository", "Failed to parse appointment ${doc.id}: ${e.message}", e)
+                    null
+                }
+            }.sortedByDescending { it.appointmentDate }
+            
+            android.util.Log.d("AppointmentRepository", "Returning ${appointments.size} appointments")
             Result.success(appointments)
             
         } catch (e: Exception) {
+            android.util.Log.e("AppointmentRepository", "Error fetching appointments: ${e.message}", e)
+            e.printStackTrace()
             Result.failure(e)
         }
     }
@@ -165,8 +216,24 @@ object AppointmentRepository {
     /**
      * Cancel appointment
      */
-    suspend fun cancelAppointment(appointmentId: String): Result<Unit> {
-        return updateAppointmentStatus(appointmentId, "cancelled")
+    suspend fun cancelAppointment(appointmentId: String, cancelledBy: String = "patient"): Result<Unit> {
+        return try {
+            db.collection(COLLECTION)
+                .document(appointmentId)
+                .update(
+                    mapOf(
+                        "status" to "cancelled",
+                        "cancelledBy" to cancelledBy,
+                        "updatedAt" to Timestamp.now()
+                    )
+                )
+                .await()
+            
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
     }
     
     /**

@@ -42,15 +42,18 @@ private val CardSubtitleColor = Color(0xFF757575)
 private val ButtonGreen = Color(0xFFC9956E)
 private val IconBgTeal = Color(0xFFE8D9CC)
 
-// Dark mode colors
-private val DarkHeaderTopColor = Color(0xFF2C2C2C)
-private val DarkHeaderBottomColor = Color(0xFF1F1F1F)
-private val DarkBackgroundColor = Color(0xFF121212)
-private val DarkCardColor = Color(0xFF1E1E1E)
-private val DarkTextColor = Color(0xFFE0E0E0)
-private val DarkSecondaryTextColor = Color(0xFFB0B0B0)
-private val DarkButtonColor = Color(0xFF8B7355)
-private val DarkIconBgColor = Color(0xFF2C2C2C)
+// Dark mode colors - required spec
+private val DarkBackgroundColor = Color(0xFF0B0F12)  // very dark charcoal
+private val DarkCardColor = Color(0xFF1A2228)  // dark slate with soft contrast
+private val DarkDividerColor = Color(0xFF2A343C)  // card border/divider
+private val DarkTextColor = Color(0xFFFFFFFF)  // primary text white
+private val DarkSecondaryTextColor = Color(0xFFC3CCD2)  // secondary text
+private val DarkIconTint = Color(0xFFFFFFFF)  // icon tint white
+private val DarkDisabledIcon = Color(0xFF6F7A80)  // disabled icons
+private val DarkAccentColor = Color(0xFF4CCFD3)  // accent for highlights
+private val DarkBottomBarBg = Color(0xFF1A2228)  // bottom bar background
+private val DarkBottomBarActive = Color(0xFF4CCFD3)  // bottom bar active
+private val DarkBottomBarInactive = Color(0xFF849098)  // bottom bar inactive
 
 data class FeatureCardData(
     val title: String,
@@ -78,8 +81,8 @@ fun PatientDashboard(navController: NavController, context: Context, isDarkMode:
 
     // Select colors based on dark mode
     val bgColor = if (isDarkMode) DarkBackgroundColor else BackgroundColor
-    val headerTopCol = if (isDarkMode) DarkHeaderTopColor else HeaderTopColor
-    val headerBotCol = if (isDarkMode) DarkHeaderBottomColor else HeaderBottomColor
+    val headerTopCol = if (isDarkMode) DarkCardColor else HeaderTopColor
+    val headerBotCol = if (isDarkMode) DarkBackgroundColor else HeaderBottomColor
     val cardCol = if (isDarkMode) DarkCardColor else CardWhite
     val textCol = if (isDarkMode) DarkTextColor else CardTitleColor
     val secondaryTextCol = if (isDarkMode) DarkSecondaryTextColor else CardSubtitleColor
@@ -150,8 +153,8 @@ fun DashboardTopAppBar(
     drawerState: DrawerState? = null
 ) {
     val scope = rememberCoroutineScope()
-    val headerTopCol = if (isDarkMode) DarkHeaderTopColor else HeaderTopColor
-    val cardCol = if (isDarkMode) DarkCardColor else CardWhite
+    val headerBgCol = if (isDarkMode) DarkBottomBarBg else HeaderTopColor
+    val textIconCol = if (isDarkMode) DarkIconTint else CardWhite
     
     Box(
         modifier = Modifier
@@ -162,7 +165,7 @@ fun DashboardTopAppBar(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
-            color = headerTopCol,
+            color = headerBgCol,
             tonalElevation = 4.dp
         ) {
             Row(
@@ -178,26 +181,37 @@ fun DashboardTopAppBar(
                 Icon(
                     imageVector = Icons.Default.Menu,
                     contentDescription = "Menu",
-                    tint = cardCol,
+                    tint = textIconCol,
                     modifier = Modifier.size(24.dp)
                 )
             }
 
-            Text(
-                text = "Dashboard",
-                fontSize = 22.sp,
-                fontWeight = FontWeight.Bold,
-                color = cardCol
-            )
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Text(
+                    text = "Welcome,",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = textIconCol.copy(alpha = 0.9f)
+                )
+                Text(
+                    text = if (userLastName.isNotEmpty()) "$userName $userLastName" else userName,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textIconCol
+                )
+            }
 
             IconButton(
-                onClick = { /* Show notifications */ }
+                onClick = { navController.navigate("patient_notifications") }
             ) {
                 Surface(
                     modifier = Modifier
                         .size(36.dp)
                         .clip(RoundedCornerShape(8.dp)),
-                    color = cardCol
+                    color = if (isDarkMode) DarkCardColor else CardWhite
                 ) {
                     Box(
                         modifier = Modifier.fillMaxSize(),
@@ -206,7 +220,7 @@ fun DashboardTopAppBar(
                         Icon(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = "Notifications",
-                            tint = headerTopCol,
+                            tint = if (isDarkMode) DarkIconTint else HeaderTopColor,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -226,23 +240,23 @@ fun DashboardBottomNavigationBar(
     userLastName: String,
     isDarkMode: Boolean = false
 ) {
-    val navBarColor = if (isDarkMode) DarkCardColor else CardWhite
-    val headerTopCol = if (isDarkMode) DarkHeaderTopColor else HeaderTopColor
-    val bgColor = if (isDarkMode) DarkBackgroundColor else BackgroundColor
-    val statTextCol = if (isDarkMode) DarkTextColor else StatTextColor
+    val navBarColor = if (isDarkMode) DarkBottomBarBg else CardWhite
+    val activeColor = if (isDarkMode) DarkBottomBarActive else HeaderTopColor
+    val inactiveColor = if (isDarkMode) DarkBottomBarInactive else StatTextColor.copy(alpha = 0.5f)
+    val indicatorColor = if (isDarkMode) DarkBackgroundColor else BackgroundColor
     
     NavigationBar(
         modifier = Modifier
             .fillMaxWidth()
             .height(72.dp),
         containerColor = navBarColor,
-        contentColor = statTextCol,
+        contentColor = inactiveColor,
         tonalElevation = 8.dp
     ) {
         val tabs = listOf(
             Triple("Home", Icons.Default.Home, { /* Stay on dashboard */ }),
+            Triple("Favorites", Icons.Default.Favorite, { navController.navigate("favorite_doctors") }),
             Triple("Reports", Icons.Default.Assessment, { navController.navigate("patient_health_records") }),
-            Triple("Appointments", Icons.Default.DateRange, { navController.navigate("full_schedule") }),
             Triple("Profile", Icons.Default.Person, { navController.navigate("patient_profile/$userName/$userLastName") })
         )
 
@@ -268,11 +282,11 @@ fun DashboardBottomNavigationBar(
                     if (index != 0) action()
                 },
                 colors = NavigationBarItemDefaults.colors(
-                    selectedIconColor = headerTopCol,
-                    selectedTextColor = headerTopCol,
-                    indicatorColor = bgColor,
-                    unselectedIconColor = statTextCol.copy(alpha = 0.5f),
-                    unselectedTextColor = statTextCol.copy(alpha = 0.5f)
+                    selectedIconColor = activeColor,
+                    selectedTextColor = activeColor,
+                    indicatorColor = indicatorColor,
+                    unselectedIconColor = inactiveColor,
+                    unselectedTextColor = inactiveColor
                 ),
                 alwaysShowLabel = true
             )
@@ -282,8 +296,8 @@ fun DashboardBottomNavigationBar(
 
 @Composable
 fun HeaderWithStats(fullName: String, navController: NavController, isDarkMode: Boolean = false) {
-    val headerTopCol = if (isDarkMode) DarkHeaderTopColor else HeaderTopColor
-    val headerBotCol = if (isDarkMode) DarkHeaderBottomColor else HeaderBottomColor
+    val headerTopCol = if (isDarkMode) DarkCardColor else HeaderTopColor
+    val headerBotCol = if (isDarkMode) DarkBackgroundColor else HeaderBottomColor
     val statTextCol = if (isDarkMode) DarkTextColor else StatTextColor
     val cardCol = if (isDarkMode) DarkCardColor else CardWhite
     
@@ -333,12 +347,12 @@ fun HeaderWithStats(fullName: String, navController: NavController, isDarkMode: 
                     modifier = Modifier.weight(1f)
                 )
 
-                // White circular bell button
+                // Notification bell button
                 Surface(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(RoundedCornerShape(12.dp)),
-                    color = cardCol
+                    color = if (isDarkMode) DarkBackgroundColor else CardWhite
                 ) {
                     Box(
                         modifier = Modifier
@@ -353,7 +367,7 @@ fun HeaderWithStats(fullName: String, navController: NavController, isDarkMode: 
                         Icon(
                             imageVector = Icons.Default.Notifications,
                             contentDescription = "Notifications",
-                            tint = headerTopCol,
+                            tint = if (isDarkMode) DarkIconTint else HeaderTopColor,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -495,7 +509,13 @@ fun FloatingCardGrid(navController: NavController, fullName: String = "Patient",
             route = "patient_health_records"
         ),
         FeatureCardData(
-            title = "Recent Appointments",
+            title = "Doctor Catalogue",
+            subtitle = "Browse specialists",
+            icon = Icons.Default.LocalHospital,
+            route = "doctor_catalogue"
+        ),
+        FeatureCardData(
+            title = "My Appointments",
             subtitle = "Latest checkups",
             icon = Icons.Default.DateRange,
             route = "full_schedule"
@@ -570,6 +590,19 @@ fun FloatingCardGrid(navController: NavController, fullName: String = "Patient",
             )
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Third row - Full width Book Appointment card
+        FloatingCard(
+            cardData = cards[4],
+            navController = navController,
+            fullName = fullName,
+            isDarkMode = isDarkMode,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(140.dp)
+        )
+
         Spacer(modifier = Modifier.height(40.dp))
     }
 }
@@ -585,16 +618,20 @@ fun FloatingCard(
     val cardCol = if (isDarkMode) DarkCardColor else CardWhite
     val titleCol = if (isDarkMode) DarkTextColor else CardTitleColor
     val subtitleCol = if (isDarkMode) DarkSecondaryTextColor else CardSubtitleColor
-    val headerTopCol = if (isDarkMode) DarkHeaderTopColor else HeaderTopColor
-    val iconBgCol = if (isDarkMode) DarkIconBgColor else IconBgTeal
+    val iconTintCol = if (isDarkMode) DarkIconTint else HeaderTopColor
+    val iconBgCol = if (isDarkMode) DarkDividerColor else IconBgTeal
     
     Surface(
         modifier = modifier
-            .shadow(
-                elevation = 12.dp,
-                shape = RoundedCornerShape(24.dp),
-                ambientColor = Color.Black.copy(alpha = 0.1f),
-                spotColor = Color.Black.copy(alpha = 0.2f)
+            .then(
+                if (!isDarkMode) {
+                    Modifier.shadow(
+                        elevation = 12.dp,
+                        shape = RoundedCornerShape(24.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.1f),
+                        spotColor = Color.Black.copy(alpha = 0.2f)
+                    )
+                } else Modifier
             )
             .clip(RoundedCornerShape(24.dp))
             .clickable(
@@ -603,7 +640,8 @@ fun FloatingCard(
                 onClick = { navController.navigate(cardData.route) }
             ),
         color = cardCol,
-        shape = RoundedCornerShape(24.dp)
+        shape = RoundedCornerShape(24.dp),
+        tonalElevation = if (isDarkMode) 2.dp else 0.dp
     ) {
         Column(
             modifier = Modifier
@@ -627,7 +665,7 @@ fun FloatingCard(
                         imageVector = cardData.icon,
                         contentDescription = cardData.title,
                         modifier = Modifier.size(26.dp),
-                        tint = headerTopCol
+                        tint = iconTintCol
                     )
                 }
             }

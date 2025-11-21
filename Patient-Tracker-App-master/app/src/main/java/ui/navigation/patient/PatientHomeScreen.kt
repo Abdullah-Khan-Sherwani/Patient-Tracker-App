@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
@@ -49,11 +50,13 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.snapshotFlow
 import com.example.patienttracker.data.Appointment
 import com.example.patienttracker.data.AppointmentRepository
+import com.example.patienttracker.data.NotificationRepository
 import com.google.firebase.auth.FirebaseAuth
 import java.time.format.DateTimeFormatter
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.tasks.await
 import java.time.Instant
+import kotlinx.coroutines.launch
 
 // Data class for date selection chips - must be defined before use
 data class DayChip(val date: LocalDate, val day: String, val dow: String)
@@ -135,6 +138,24 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
 
 @Composable
 private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, navController: NavController) {
+    var unreadCount by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+    val notificationRepo = remember { NotificationRepository() }
+    val currentUser = FirebaseAuth.getInstance().currentUser
+    
+    // Load unread notification count
+    LaunchedEffect(Unit) {
+        currentUser?.uid?.let { uid ->
+            scope.launch {
+                try {
+                    unreadCount = notificationRepo.getUnreadCount(uid)
+                } catch (e: Exception) {
+                    // Handle error silently
+                }
+            }
+        }
+    }
+    
     Surface(
         color = Color(0xFFF6F8FC),
         modifier = Modifier.fillMaxWidth()
@@ -144,11 +165,14 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                // Quick actions (placeholders)
+                // Quick actions
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IconBubble(R.drawable.ic_notifications) { /* TODO: handle notification click */ }
-                    IconBubble(R.drawable.ic_settings) { /* TODO: handle notification click */ }
-                    IconBubble(R.drawable.ic_search) { /* TODO: handle notification click */ }
+                    NotificationIconWithBadge(
+                        unreadCount = unreadCount,
+                        onClick = { navController.navigate("patient_notifications") }
+                    )
+                    IconBubble(R.drawable.ic_settings) { /* TODO: handle settings click */ }
+                    IconBubble(R.drawable.ic_search) { /* TODO: handle search click */ }
                 }
                 Spacer(Modifier.weight(1f))
                 Column(horizontalAlignment = Alignment.End) {
@@ -209,6 +233,50 @@ private fun IconBubble(
             contentDescription = null,
             modifier = Modifier.size(20.dp)
         )
+    }
+}
+
+@Composable
+private fun NotificationIconWithBadge(
+    unreadCount: Int,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier.size(36.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(Color(0xFFE9F3F6))
+                .clickable { onClick() },
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = R.drawable.ic_notifications),
+                contentDescription = "Notifications",
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        
+        // Badge
+        if (unreadCount > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .size(16.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFFF5252)),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (unreadCount > 9) "9+" else unreadCount.toString(),
+                    color = Color.White,
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
     }
 }
 

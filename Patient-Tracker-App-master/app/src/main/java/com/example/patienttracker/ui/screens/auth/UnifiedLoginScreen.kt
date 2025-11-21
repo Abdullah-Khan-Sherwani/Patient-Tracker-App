@@ -167,8 +167,26 @@ fun UnifiedLoginScreen(
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
+                
+                // Forgot Password link
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    TextButton(
+                        onClick = { onForgotPassword() },
+                        modifier = Modifier.padding(top = 4.dp)
+                    ) {
+                        Text(
+                            text = "Forgot Password?",
+                            fontSize = 13.sp,
+                            color = Color(0xFFA8653A),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
 
-                Spacer(Modifier.height(24.dp))
+                Spacer(Modifier.height(16.dp))
 
                 // Sign In button
                 Button(
@@ -266,6 +284,32 @@ fun UnifiedLoginScreen(
                 ) {
                     Text(
                         text = "Sign In with Google",
+                        fontSize = 16.sp,
+                        color = Color(0xFF2F2019),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                Spacer(Modifier.height(16.dp))
+
+                // Continue as Guest button
+                OutlinedButton(
+                    onClick = {
+                        navController.navigate("guest_home") {
+                            popUpTo("unified_login") { inclusive = false }
+                        }
+                    },
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        containerColor = Color.Transparent,
+                        contentColor = Color(0xFF2F2019)
+                    ),
+                    shape = RoundedCornerShape(28.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                ) {
+                    Text(
+                        text = "Continue as Guest",
                         fontSize = 16.sp,
                         color = Color(0xFF2F2019),
                         fontWeight = FontWeight.Medium

@@ -164,6 +164,15 @@ fun DoctorProfileScreen(
                 Spacer(Modifier.height(12.dp))
 
                 ProfileMenuItem(
+                    icon = Icons.Default.DateRange,
+                    title = "Manage Availability",
+                    subtitle = "Set your working hours",
+                    onClick = {
+                        val doctorUid = Firebase.auth.currentUser?.uid ?: ""
+                        navController.navigate("edit_availability/$doctorUid")
+                    }
+                )
+                ProfileMenuItem(
                     icon = Icons.Default.Lock,
                     title = "Change Password",
                     onClick = { navController.navigate("doctor_change_password") }
@@ -182,12 +191,11 @@ fun DoctorProfileScreen(
                 Spacer(Modifier.height(32.dp))
 
                 // Logout Button
+                var showLogoutDialog by remember { mutableStateOf(false) }
+                
                 Button(
                     onClick = {
-                        Firebase.auth.signOut()
-                        navController.navigate("login") {
-                            popUpTo(0) { inclusive = true }
-                        }
+                        showLogoutDialog = true
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -198,6 +206,36 @@ fun DoctorProfileScreen(
                     Icon(Icons.Default.ExitToApp, contentDescription = null)
                     Spacer(Modifier.width(8.dp))
                     Text("Logout", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                }
+                
+                // Logout confirmation dialog
+                if (showLogoutDialog) {
+                    AlertDialog(
+                        onDismissRequest = { showLogoutDialog = false },
+                        title = { Text("Confirm Logout") },
+                        text = { Text("Are you sure you want to log out?") },
+                        confirmButton = {
+                            TextButton(
+                                onClick = {
+                                    showLogoutDialog = false
+                                    Firebase.auth.signOut()
+                                    navController.navigate("login") {
+                                        popUpTo(0) { inclusive = true }
+                                    }
+                                },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = Color(0xFFEF4444)
+                                )
+                            ) {
+                                Text("Logout")
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = { showLogoutDialog = false }) {
+                                Text("Cancel")
+                            }
+                        }
+                    )
                 }
             }
         }
@@ -249,6 +287,7 @@ private fun ProfileInfoCard(
 private fun ProfileMenuItem(
     icon: ImageVector,
     title: String,
+    subtitle: String? = null,
     onClick: () -> Unit
 ) {
     Surface(
@@ -265,7 +304,10 @@ private fun ProfileMenuItem(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
@@ -273,12 +315,22 @@ private fun ProfileMenuItem(
                     modifier = Modifier.size(24.dp)
                 )
                 Spacer(Modifier.width(16.dp))
-                Text(
-                    text = title,
-                    fontSize = 16.sp,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Medium
-                )
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        color = TextPrimary,
+                        fontWeight = FontWeight.Medium
+                    )
+                    subtitle?.let {
+                        Text(
+                            text = it,
+                            fontSize = 12.sp,
+                            color = TextSecondary,
+                            modifier = Modifier.padding(top = 2.dp)
+                        )
+                    }
+                }
             }
             Icon(
                 imageVector = Icons.Default.ArrowForward,

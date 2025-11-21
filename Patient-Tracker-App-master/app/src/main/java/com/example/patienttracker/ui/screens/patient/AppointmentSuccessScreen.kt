@@ -34,7 +34,7 @@ private val SuccessGreen = Color(0xFF4CAF50)
 fun AppointmentSuccessScreen(
     navController: NavController,
     context: Context,
-    appointmentId: String,
+    appointmentNumber: String,
     doctorName: String,
     date: String,
     timeSlot: String
@@ -112,7 +112,54 @@ fun AppointmentSuccessScreen(
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
                     SummaryItem(label = "Time", value = timeSlot)
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
-                    SummaryItem(label = "Appointment ID", value = appointmentId.take(8).uppercase())
+                    
+                    // Highlighted Appointment Number
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Appointment No.",
+                            fontSize = 15.sp,
+                            color = Color.Gray,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = SuccessGreen.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "#$appointmentNumber",
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = SuccessGreen,
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                    
+                    Divider(color = Color.LightGray.copy(alpha = 0.5f))
+                    
+                    // Price
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Consultation Fee",
+                            fontSize = 15.sp,
+                            color = Color.Gray,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = "Rs. 1,500",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = StatTextColor
+                        )
+                    }
                 }
             }
 

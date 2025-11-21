@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -45,7 +46,6 @@ fun AdminHomeScreen(nav: NavController, ctx: Context) {
     var totalPatients by remember { mutableStateOf(0) }
     var activeAppointments by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
-    var showProfileMenu by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
@@ -101,15 +101,15 @@ fun AdminHomeScreen(nav: NavController, ctx: Context) {
     ) {
         Scaffold(
             topBar = {
-                ModernAdminTopBar(
+                PremiumAdminTopBar(
                     onMenuClick = {
                         scope.launch { drawerState.open() }
                     },
                     onProfileClick = {
-                        showProfileMenu = true
+                        nav.navigate("admin_profile") {
+                            launchSingleTop = true
+                        }
                     },
-                    showProfileMenu = showProfileMenu,
-                    onDismissMenu = { showProfileMenu = false },
                     navController = nav
                 )
             },
@@ -121,55 +121,45 @@ fun AdminHomeScreen(nav: NavController, ctx: Context) {
                     .padding(padding)
                     .verticalScroll(rememberScrollState())
             ) {
-                // Greeting Section
-                GreetingSection(adminName = adminName)
-                
-                Spacer(Modifier.height(24.dp))
-                
-                // Action Hub - 2x2 Grid
-                Text(
-                    text = "Admin Action Hub",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
-                
-                Spacer(Modifier.height(16.dp))
-                
-                AdminActionGrid(navController = nav)
-                
-                Spacer(Modifier.height(32.dp))
-                
-                // System Analytics Glance
-                Text(
-                    text = "System Overview",
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary,
-                    modifier = Modifier.padding(horizontal = 20.dp)
-                )
-                
-                Spacer(Modifier.height(16.dp))
-                
+                // Summary Strip
                 if (isLoading) {
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 32.dp),
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = AccentColor)
+                        CircularProgressIndicator(color = AccentColor, modifier = Modifier.size(24.dp))
                     }
                 } else {
-                    SystemMetrics(
-                        totalDoctors = totalDoctors,
+                    QuickSummaryStrip(
                         totalPatients = totalPatients,
-                        activeAppointments = activeAppointments
+                        totalDoctors = totalDoctors,
+                        totalAppointments = activeAppointments
                     )
                 }
                 
-                Spacer(Modifier.height(32.dp))
+                Spacer(Modifier.height(24.dp))
+                
+                // Action Hub Section
+                Text(
+                    text = "Quick Actions",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    modifier = Modifier.padding(horizontal = 20.dp)
+                )
+                
+                Spacer(Modifier.height(16.dp))
+                
+                PremiumActionGrid(navController = nav)
+                
+                Spacer(Modifier.height(24.dp))
+                
+                // Footer Banner
+                FooterBanner()
+                
+                Spacer(Modifier.height(24.dp))
             }
         }
     }
@@ -180,8 +170,6 @@ fun AdminHomeScreen(nav: NavController, ctx: Context) {
 private fun ModernAdminTopBar(
     onMenuClick: () -> Unit,
     onProfileClick: () -> Unit,
-    showProfileMenu: Boolean,
-    onDismissMenu: () -> Unit,
     navController: NavController
 ) {
     TopAppBar(
@@ -203,89 +191,19 @@ private fun ModernAdminTopBar(
             }
         },
         actions = {
-            Box {
-                IconButton(onClick = onProfileClick) {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clip(CircleShape)
-                            .background(AccentColor),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = "Profile",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
-                
-                DropdownMenu(
-                    expanded = showProfileMenu,
-                    onDismissRequest = onDismissMenu,
-                    modifier = Modifier.background(Color.White)
+            IconButton(onClick = onProfileClick) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .background(AccentColor),
+                    contentAlignment = Alignment.Center
                 ) {
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Person,
-                                    contentDescription = null,
-                                    tint = AccentColor,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text("My Profile", color = TextPrimary, fontSize = 14.sp)
-                            }
-                        },
-                        onClick = {
-                            onDismissMenu()
-                            navController.navigate("admin_profile") {
-                                launchSingleTop = true
-                            }
-                        }
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.Settings,
-                                    contentDescription = null,
-                                    tint = AccentColor,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text("Settings", color = TextPrimary, fontSize = 14.sp)
-                            }
-                        },
-                        onClick = {
-                            onDismissMenu()
-                            // Navigate to settings when implemented
-                        }
-                    )
-                    HorizontalDivider()
-                    DropdownMenuItem(
-                        text = {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    Icons.Default.ExitToApp,
-                                    contentDescription = null,
-                                    tint = Color(0xFFEF4444),
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(Modifier.width(12.dp))
-                                Text("Sign Out", color = Color(0xFFEF4444), fontSize = 14.sp)
-                            }
-                        },
-                        onClick = {
-                            onDismissMenu()
-                            Firebase.auth.signOut()
-                            navController.navigate("unified_login") {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        }
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = "Profile",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -659,6 +577,7 @@ private fun AdminNavigationDrawer(
                 icon = Icons.Default.Info,
                 label = "System Reports",
                 onClick = {
+                    navController.navigate("admin_system_reports")
                     onItemClick()
                 }
             )
@@ -719,6 +638,366 @@ private fun DrawerMenuItem(
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 color = if (isDestructive) Color(0xFFEF4444) else TextPrimary
+            )
+        }
+    }
+}
+
+// ===== NEW PREMIUM COMPONENTS =====
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PremiumAdminTopBar(
+    onMenuClick: () -> Unit,
+    onProfileClick: () -> Unit,
+    navController: NavController
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        color = CardColor,
+        shadowElevation = 4.dp
+    ) {
+        Column {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 20.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Menu Icon
+                IconButton(onClick = onMenuClick) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = "Menu",
+                        tint = TextPrimary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
+
+                // Admin Dashboard Title - Centered
+                Text(
+                    text = "Admin Dashboard",
+                    fontSize = 22.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary,
+                    letterSpacing = 0.5.sp
+                )
+
+                // Profile Icon
+                IconButton(onClick = onProfileClick) {
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(AccentColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Profile",
+                            tint = Color.White,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickSummaryStrip(
+    totalPatients: Int,
+    totalDoctors: Int,
+    totalAppointments: Int
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        SummaryPill(
+            label = "Patients",
+            count = totalPatients,
+            modifier = Modifier.weight(1f)
+        )
+        SummaryPill(
+            label = "Doctors",
+            count = totalDoctors,
+            modifier = Modifier.weight(1f)
+        )
+        SummaryPill(
+            label = "Appointments",
+            count = totalAppointments,
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun SummaryPill(
+    label: String,
+    count: Int,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(20.dp),
+        color = CardColor,
+        shadowElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 12.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = count.toString(),
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentColor
+            )
+            Text(
+                text = label,
+                fontSize = 11.sp,
+                color = TextSecondary,
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
+private fun PremiumActionGrid(navController: NavController) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Row 1
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            PremiumActionCard(
+                title = "Create Appointment",
+                subtitle = "Schedule new patient visits",
+                icon = Icons.Default.CalendarToday,
+                onClick = { navController.navigate("admin_create_appointment") },
+                modifier = Modifier.weight(1f)
+            )
+            PremiumActionCard(
+                title = "Add Doctor",
+                subtitle = "Register healthcare providers",
+                icon = Icons.Default.PersonAdd,
+                onClick = { navController.navigate("admin_add_doctor") },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        // Row 2
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            PremiumActionCard(
+                title = "Add Patient",
+                subtitle = "Enroll new patients",
+                icon = Icons.Default.PersonAdd,
+                onClick = { navController.navigate("admin_add_patient") },
+                modifier = Modifier.weight(1f)
+            )
+            PremiumActionCard(
+                title = "Manage Users",
+                subtitle = "View and edit user records",
+                icon = Icons.Default.People,
+                onClick = { navController.navigate("admin_manage_users") },
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        // Full Width Card
+        PremiumFullWidthActionCard(
+            title = "System Reports",
+            subtitle = "Analytics and performance insights",
+            icon = Icons.Default.BarChart,
+            onClick = { navController.navigate("admin_system_reports") }
+        )
+    }
+}
+
+@Composable
+private fun PremiumActionCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier
+            .aspectRatio(1.1f)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        color = CardColor,
+        shadowElevation = 6.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(AccentColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = AccentColor,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = TextPrimary,
+                textAlign = TextAlign.Center,
+                lineHeight = 18.sp
+            )
+
+            Spacer(Modifier.height(4.dp))
+
+            Text(
+                text = subtitle,
+                fontSize = 11.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center,
+                lineHeight = 14.sp
+            )
+        }
+    }
+}
+
+@Composable
+private fun PremiumFullWidthActionCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(24.dp),
+        color = CardColor,
+        shadowElevation = 6.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(20.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(64.dp)
+                    .clip(CircleShape)
+                    .background(AccentColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = AccentColor,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = title,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+
+                Spacer(Modifier.height(4.dp))
+
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    color = TextSecondary,
+                    lineHeight = 16.sp
+                )
+            }
+
+            Icon(
+                imageVector = Icons.Default.ArrowForward,
+                contentDescription = null,
+                tint = AccentColor,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun FooterBanner() {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp),
+        shape = RoundedCornerShape(20.dp),
+        color = CardColor,
+        shadowElevation = 3.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(AccentColor.copy(alpha = 0.15f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Security,
+                    contentDescription = null,
+                    tint = AccentColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Text(
+                text = "Manage the entire healthcare platform seamlessly from your dashboard.",
+                fontSize = 13.sp,
+                color = TextSecondary,
+                lineHeight = 18.sp,
+                modifier = Modifier.weight(1f)
             )
         }
     }

@@ -72,6 +72,9 @@ object AppointmentRepository {
             // Generate appointment number
             val appointmentNumber = getNextAppointmentNumber()
             
+            // Fetch consultation fee from configuration (admin-editable)
+            val consultationFee = ConsultationFeeRepository.getDoctorFee(doctorUid)
+            
             // Create appointment
             val appointmentId = UUID.randomUUID().toString()
             val appointment = Appointment(
@@ -86,7 +89,7 @@ object AppointmentRepository {
                 timeSlot = timeSlot,
                 status = "scheduled",
                 notes = notes,
-                price = 1500,
+                price = consultationFee,
                 createdAt = Timestamp.now(),
                 updatedAt = Timestamp.now()
             )

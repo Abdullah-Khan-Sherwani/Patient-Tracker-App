@@ -24,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.patienttracker.data.AppointmentRepository
+import com.example.patienttracker.ui.components.AMPMTimePicker
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
@@ -231,7 +232,7 @@ fun SimplifiedBookAppointmentScreen(
                 }
             }
 
-            // Select Time Section
+            // Select Time Section (with improved AM/PM picker)
             if (selectedDate != null) {
                 item {
                     Text(
@@ -243,25 +244,14 @@ fun SimplifiedBookAppointmentScreen(
                 }
 
                 item {
-                    Column(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        timeSlots.chunked(2).forEach { rowSlots ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                rowSlots.forEach { slot ->
-                                    TimeSlotChip(
-                                        timeSlot = slot,
-                                        isSelected = selectedTimeSlot == slot,
-                                        onClick = { selectedTimeSlot = slot },
-                                        modifier = Modifier.weight(1f)
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    AMPMTimePicker(
+                        initialTime = selectedTimeSlot ?: "09:00 AM",
+                        onTimeSelected = { time ->
+                            selectedTimeSlot = time
+                        },
+                        primaryColor = AccentColor,
+                        backgroundColor = SurfaceColor
+                    )
                 }
 
                 // Optional Notes

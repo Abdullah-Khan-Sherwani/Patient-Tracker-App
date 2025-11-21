@@ -6,12 +6,16 @@ import android.content.pm.ApplicationInfo
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.runtime.mutableStateOf
+import androidx.lifecycle.lifecycleScope
+import com.example.patienttracker.data.NotificationRepository
 import com.example.patienttracker.ui.navigation.AppNavHost
 import com.example.patienttracker.ui.theme.PatientTrackerTheme
 import com.example.patienttracker.ui.viewmodel.ThemeViewModel
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -31,6 +35,18 @@ class MainActivity : ComponentActivity() {
                 )
                 .addOnSuccessListener { Log.d(TAG, "✅ Firestore write OK") }
                 .addOnFailureListener { e -> Log.e(TAG, "❌ Firestore write failed", e) }
+        }
+
+        // Initialize FCM token when user is authenticated
+        lifecycleScope.launch {
+            if (Firebase.auth.currentUser != null) {
+                try {
+                    NotificationRepository().initializeFCMToken()
+                    Log.d(TAG, "FCM token initialized successfully")
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to initialize FCM token", e)
+                }
+            }
         }
 
         // Initialize ThemeViewModel with app context

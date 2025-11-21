@@ -1,12 +1,64 @@
 package com.example.patienttracker.data
 
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.messaging.ktx.messaging
 import kotlinx.coroutines.tasks.await
 
 class NotificationRepository {
     private val db = FirebaseFirestore.getInstance()
+    
+    /**
+     * Request FCM token and save to user profile.
+     * Call this once during app initialization.
+     */
+    suspend fun initializeFCMToken() {
+        try {
+            android.util.Log.d("NotificationRepo", "Initializing FCM token")
+            
+            val token = Firebase.messaging.token.await()
+            android.util.Log.d("NotificationRepo", "FCM Token obtained: $token")
+            
+            val currentUser = Firebase.auth.currentUser
+            if (currentUser != null) {
+                db.collection("users")
+                    .document(currentUser.uid)
+                    .update("fcmToken", token)
+                    .await()
+                android.util.Log.d("NotificationRepo", "FCM token saved to user profile")
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationRepo", "Failed to initialize FCM token: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Subscribe user to a notification topic (for group notifications).
+     * Topics allow sending notifications to groups of users.
+     */
+    suspend fun subscribeToTopic(topic: String) {
+        try {
+            Firebase.messaging.subscribeToTopic(topic).await()
+            android.util.Log.d("NotificationRepo", "Subscribed to topic: $topic")
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationRepo", "Failed to subscribe to topic: ${e.message}", e)
+        }
+    }
+    
+    /**
+     * Unsubscribe user from a notification topic.
+     */
+    suspend fun unsubscribeFromTopic(topic: String) {
+        try {
+            Firebase.messaging.unsubscribeFromTopic(topic).await()
+            android.util.Log.d("NotificationRepo", "Unsubscribed from topic: $topic")
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationRepo", "Failed to unsubscribe from topic: ${e.message}", e)
+        }
+    }
     
     /**
      * Create a notification for a patient

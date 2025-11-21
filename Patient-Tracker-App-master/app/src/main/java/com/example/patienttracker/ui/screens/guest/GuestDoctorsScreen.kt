@@ -23,6 +23,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.patienttracker.data.SearchRepository
+import com.example.patienttracker.ui.components.SearchBar
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
@@ -50,6 +52,7 @@ fun GuestDoctorsScreen(navController: NavController, context: Context) {
     var doctors by remember { mutableStateOf<List<GuestDoctorItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
+    var isSearching by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -80,6 +83,19 @@ fun GuestDoctorsScreen(navController: NavController, context: Context) {
                 // Handle error silently
             } finally {
                 isLoading = false
+            }
+        }
+    }
+
+    // Filter doctors based on search query
+    val filteredDoctors = remember(doctors, searchQuery) {
+        if (searchQuery.isEmpty()) {
+            doctors
+        } else {
+            doctors.filter {
+                it.name.contains(searchQuery, ignoreCase = true) ||
+                it.specialization.contains(searchQuery, ignoreCase = true) ||
+                it.phone.contains(searchQuery, ignoreCase = true)
             }
         }
     }
@@ -140,30 +156,97 @@ fun GuestDoctorsScreen(navController: NavController, context: Context) {
                     }
                 }
                 doctors.isEmpty() -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        Text(
-                            text = "No doctors available",
-                            color = StatTextColor,
-                            fontSize = 16.sp
+                        SearchBar(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = "Search doctors...",
+                            backgroundColor = CardWhite
                         )
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "No doctors available",
+                                color = StatTextColor,
+                                fontSize = 16.sp
+                            )
+                        }
                     }
                 }
                 else -> {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    Column(
+                        modifier = Modifier.fillMaxSize()
                     ) {
-                        items(doctors.filter {
-                            searchQuery.isEmpty() ||
-                            it.name.contains(searchQuery, ignoreCase = true) ||
-                            it.specialization.contains(searchQuery, ignoreCase = true)
-                        }) { doctor ->
-                            GuestDoctorCard(doctor = doctor) {
-                                navController.navigate("guest_doctor_details/${doctor.uid}")
+                        // Search bar
+                        SearchBar(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            placeholder = "Search by name or specialization...",
+                            backgroundColor = CardWhite,
+                            modifier = Modifier.padding(16.dp)
+                        )
+
+                        // Doctor count
+                        if (filteredDoctors.isNotEmpty()) {
+                            Text(
+                                text = "${filteredDoctors.size} doctor${if (filteredDoctors.size != 1) "s" else ""} found",
+                                fontSize = 13.sp,
+                                color = StatTextColor.copy(alpha = 0.7f),
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                            )
+                        }
+
+                        // Doctors list
+                        if (filteredDoctors.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.SearchOff,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(48.dp),
+                                        tint = StatTextColor.copy(alpha = 0.4f)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = "No doctors found",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = StatTextColor
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Try searching by name or specialization",
+                                        fontSize = 13.sp,
+                                        color = StatTextColor.copy(alpha = 0.7f)
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxSize(),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(filteredDoctors) { doctor ->
+                                    GuestDoctorCard(doctor = doctor) {
+                                        navController.navigate("guest_doctor_details/${doctor.uid}")
+                                    }
+                                }
                             }
                         }
                     }

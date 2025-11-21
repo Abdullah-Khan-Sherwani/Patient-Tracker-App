@@ -165,7 +165,7 @@ object NotificationDebugRepository {
 
         val log = StringBuilder()
         log.append("=== Recent Notifications ===\n")
-        log.append("Total found: ${snapshot.size}\n\n")
+        log.append("Total found: ${snapshot.documents.size}\n\n")
 
         snapshot.documents.forEach { doc ->
             log.append("ID: ${doc.id}\n")

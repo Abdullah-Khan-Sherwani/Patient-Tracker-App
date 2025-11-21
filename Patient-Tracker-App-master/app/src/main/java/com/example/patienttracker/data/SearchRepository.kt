@@ -21,39 +21,41 @@ object SearchRepository {
      * @param query Search query string (name, specialization, or qualification)
      * @return List of matching doctors
      */
-    suspend fun searchDoctors(query: String): Result<List<DoctorFull>> = try {
-        if (query.isBlank()) {
-            return Result.success(emptyList())
+    suspend fun searchDoctors(query: String): Result<List<DoctorFull>> {
+        return try {
+            if (query.isBlank()) {
+                return Result.success(emptyList())
+            }
+
+            val lowerQuery = query.lowercase().trim()
+            val allDoctors = db.collection("users")
+                .whereEqualTo("userType", "doctor")
+                .get()
+                .await()
+                .toObjects(DoctorFull::class.java)
+
+            // Filter doctors based on multiple criteria
+            val results = allDoctors.filter { doctor ->
+                val firstName = doctor.firstName.lowercase()
+                val lastName = doctor.lastName.lowercase()
+                val fullName = "$firstName ${lastName}"
+                val speciality = doctor.speciality.lowercase()
+                val email = doctor.email?.lowercase() ?: ""
+
+                // Match query against multiple fields with partial matching
+                firstName.contains(lowerQuery) ||
+                lastName.contains(lowerQuery) ||
+                fullName.contains(lowerQuery) ||
+                speciality.contains(lowerQuery) ||
+                email.contains(lowerQuery)
+            }
+
+            Log.d(TAG, "Search for '$query' found ${results.size} doctors")
+            Result.success(results)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error searching doctors: ${e.message}", e)
+            Result.failure(e)
         }
-
-        val lowerQuery = query.lowercase().trim()
-        val allDoctors = db.collection("users")
-            .whereEqualTo("userType", "doctor")
-            .get()
-            .await()
-            .toObjects(DoctorFull::class.java)
-
-        // Filter doctors based on multiple criteria
-        val results = allDoctors.filter { doctor ->
-            val firstName = doctor.firstName.lowercase()
-            val lastName = doctor.lastName.lowercase()
-            val fullName = "$firstName ${lastName}"
-            val speciality = doctor.speciality.lowercase()
-            val email = doctor.email?.lowercase() ?: ""
-
-            // Match query against multiple fields with partial matching
-            firstName.contains(lowerQuery) ||
-            lastName.contains(lowerQuery) ||
-            fullName.contains(lowerQuery) ||
-            speciality.contains(lowerQuery) ||
-            email.contains(lowerQuery)
-        }
-
-        Log.d(TAG, "Search for '$query' found ${results.size} doctors")
-        Result.success(results)
-    } catch (e: Exception) {
-        Log.e(TAG, "Error searching doctors: ${e.message}", e)
-        Result.failure(e)
     }
 
     /**
@@ -62,27 +64,29 @@ object SearchRepository {
      * @param specialization The medical specialty to search for
      * @return List of doctors in that specialty
      */
-    suspend fun searchBySpecialization(specialization: String): Result<List<DoctorFull>> = try {
-        if (specialization.isBlank()) {
-            return Result.success(emptyList())
+    suspend fun searchBySpecialization(specialization: String): Result<List<DoctorFull>> {
+        return try {
+            if (specialization.isBlank()) {
+                return Result.success(emptyList())
+            }
+
+            val lowerSpec = specialization.lowercase().trim()
+            val allDoctors = db.collection("users")
+                .whereEqualTo("userType", "doctor")
+                .get()
+                .await()
+                .toObjects(DoctorFull::class.java)
+
+            val results = allDoctors.filter { doctor ->
+                doctor.speciality.lowercase().contains(lowerSpec)
+            }
+
+            Log.d(TAG, "Specialization search for '$specialization' found ${results.size} doctors")
+            Result.success(results)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error searching by specialization: ${e.message}", e)
+            Result.failure(e)
         }
-
-        val lowerSpec = specialization.lowercase().trim()
-        val allDoctors = db.collection("users")
-            .whereEqualTo("userType", "doctor")
-            .get()
-            .await()
-            .toObjects(DoctorFull::class.java)
-
-        val results = allDoctors.filter { doctor ->
-            doctor.speciality.lowercase().contains(lowerSpec)
-        }
-
-        Log.d(TAG, "Specialization search for '$specialization' found ${results.size} doctors")
-        Result.success(results)
-    } catch (e: Exception) {
-        Log.e(TAG, "Error searching by specialization: ${e.message}", e)
-        Result.failure(e)
     }
 
     /**
@@ -91,28 +95,30 @@ object SearchRepository {
      * @param name The doctor's name to search for
      * @return List of doctors with matching names
      */
-    suspend fun searchByName(name: String): Result<List<DoctorFull>> = try {
-        if (name.isBlank()) {
-            return Result.success(emptyList())
+    suspend fun searchByName(name: String): Result<List<DoctorFull>> {
+        return try {
+            if (name.isBlank()) {
+                return Result.success(emptyList())
+            }
+
+            val lowerName = name.lowercase().trim()
+            val allDoctors = db.collection("users")
+                .whereEqualTo("userType", "doctor")
+                .get()
+                .await()
+                .toObjects(DoctorFull::class.java)
+
+            val results = allDoctors.filter { doctor ->
+                doctor.firstName.lowercase().contains(lowerName) ||
+                doctor.lastName.lowercase().contains(lowerName)
+            }
+
+            Log.d(TAG, "Name search for '$name' found ${results.size} doctors")
+            Result.success(results)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error searching by name: ${e.message}", e)
+            Result.failure(e)
         }
-
-        val lowerName = name.lowercase().trim()
-        val allDoctors = db.collection("users")
-            .whereEqualTo("userType", "doctor")
-            .get()
-            .await()
-            .toObjects(DoctorFull::class.java)
-
-        val results = allDoctors.filter { doctor ->
-            doctor.firstName.lowercase().contains(lowerName) ||
-            doctor.lastName.lowercase().contains(lowerName)
-        }
-
-        Log.d(TAG, "Name search for '$name' found ${results.size} doctors")
-        Result.success(results)
-    } catch (e: Exception) {
-        Log.e(TAG, "Error searching by name: ${e.message}", e)
-        Result.failure(e)
     }
 
     /**
@@ -122,35 +128,37 @@ object SearchRepository {
      * @param query Search query (name or email)
      * @return List of matching patient data
      */
-    suspend fun searchPatients(query: String): Result<List<Map<String, Any>>> = try {
-        if (query.isBlank()) {
-            return Result.success(emptyList())
+    suspend fun searchPatients(query: String): Result<List<Map<String, Any>>> {
+        return try {
+            if (query.isBlank()) {
+                return Result.success(emptyList())
+            }
+
+            val lowerQuery = query.lowercase().trim()
+            val allPatients = db.collection("users")
+                .whereEqualTo("userType", "patient")
+                .get()
+                .await()
+                .documents
+
+            val results = allPatients.filter { doc ->
+                val firstName = doc.getString("firstName")?.lowercase() ?: ""
+                val lastName = doc.getString("lastName")?.lowercase() ?: ""
+                val fullName = "$firstName $lastName"
+                val email = doc.getString("email")?.lowercase() ?: ""
+
+                firstName.contains(lowerQuery) ||
+                lastName.contains(lowerQuery) ||
+                fullName.contains(lowerQuery) ||
+                email.contains(lowerQuery)
+            }.map { it.data ?: emptyMap() }
+
+            Log.d(TAG, "Patient search for '$query' found ${results.size} patients")
+            Result.success(results)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error searching patients: ${e.message}", e)
+            Result.failure(e)
         }
-
-        val lowerQuery = query.lowercase().trim()
-        val allPatients = db.collection("users")
-            .whereEqualTo("userType", "patient")
-            .get()
-            .await()
-            .documents
-
-        val results = allPatients.filter { doc ->
-            val firstName = doc.getString("firstName")?.lowercase() ?: ""
-            val lastName = doc.getString("lastName")?.lowercase() ?: ""
-            val fullName = "$firstName $lastName"
-            val email = doc.getString("email")?.lowercase() ?: ""
-
-            firstName.contains(lowerQuery) ||
-            lastName.contains(lowerQuery) ||
-            fullName.contains(lowerQuery) ||
-            email.contains(lowerQuery)
-        }.map { it.data ?: emptyMap() }
-
-        Log.d(TAG, "Patient search for '$query' found ${results.size} patients")
-        Result.success(results)
-    } catch (e: Exception) {
-        Log.e(TAG, "Error searching patients: ${e.message}", e)
-        Result.failure(e)
     }
 
     /**
@@ -204,38 +212,40 @@ object SearchRepository {
      * @param prefix The search prefix
      * @return List of suggested search terms
      */
-    suspend fun getSearchSuggestions(prefix: String): Result<List<String>> = try {
-        if (prefix.isBlank()) {
-            return Result.success(emptyList())
+    suspend fun getSearchSuggestions(prefix: String): Result<List<String>> {
+        return try {
+            if (prefix.isBlank()) {
+                return Result.success(emptyList())
+            }
+
+            val lowerPrefix = prefix.lowercase().trim()
+            val allDoctors = db.collection("users")
+                .whereEqualTo("userType", "doctor")
+                .get()
+                .await()
+                .toObjects(DoctorFull::class.java)
+
+            val suggestions = mutableSetOf<String>()
+
+            allDoctors.forEach { doctor ->
+                // Add doctor name suggestions
+                if (doctor.firstName.lowercase().startsWith(lowerPrefix)) {
+                    suggestions.add(doctor.firstName)
+                }
+                if (doctor.lastName.lowercase().startsWith(lowerPrefix)) {
+                    suggestions.add(doctor.lastName)
+                }
+                // Add specialization suggestions
+                if (doctor.speciality.lowercase().startsWith(lowerPrefix)) {
+                    suggestions.add(doctor.speciality)
+                }
+            }
+
+            Log.d(TAG, "Generated ${suggestions.size} search suggestions for '$prefix'")
+            Result.success(suggestions.toList().sorted())
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating search suggestions: ${e.message}", e)
+            Result.failure(e)
         }
-
-        val lowerPrefix = prefix.lowercase().trim()
-        val allDoctors = db.collection("users")
-            .whereEqualTo("userType", "doctor")
-            .get()
-            .await()
-            .toObjects(DoctorFull::class.java)
-
-        val suggestions = mutableSetOf<String>()
-
-        allDoctors.forEach { doctor ->
-            // Add doctor name suggestions
-            if (doctor.firstName.lowercase().startsWith(lowerPrefix)) {
-                suggestions.add(doctor.firstName)
-            }
-            if (doctor.lastName.lowercase().startsWith(lowerPrefix)) {
-                suggestions.add(doctor.lastName)
-            }
-            // Add specialization suggestions
-            if (doctor.speciality.lowercase().startsWith(lowerPrefix)) {
-                suggestions.add(doctor.speciality)
-            }
-        }
-
-        Log.d(TAG, "Generated ${suggestions.size} search suggestions for '$prefix'")
-        Result.success(suggestions.toList().sorted())
-    } catch (e: Exception) {
-        Log.e(TAG, "Error generating search suggestions: ${e.message}", e)
-        Result.failure(e)
     }
 }

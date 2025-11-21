@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import java.text.SimpleDateFormat
 import java.util.*
-import java.util.Calendar
 
 /**
  * Date picker for Date of Birth with both visual picker and manual text input.

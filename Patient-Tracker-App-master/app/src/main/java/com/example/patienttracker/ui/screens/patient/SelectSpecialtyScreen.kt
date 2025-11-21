@@ -26,13 +26,12 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
 
-// Color scheme
-private val HeaderTopColor = Color(0xFFD4AF8C)
-private val HeaderBottomColor = Color(0xFFC9956E)
-private val BackgroundColor = Color(0xFFF5F1ED)
-private val CardWhite = Color(0xFFFFFFFF)
-private val StatTextColor = Color(0xFF5C4A42)
-private val AccentColor = Color(0xFFB8956A)
+/**
+ * Select Specialty Screen
+ * 
+ * THEME FIX: Removed all hardcoded colors, now uses MaterialTheme.colorScheme
+ * for proper dark mode support
+ */
 
 data class SpecialtyCategory(
     val name: String,
@@ -70,9 +69,13 @@ fun SelectSpecialtyScreen(navController: NavController, context: Context) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        // THEME FIX: Use theme colors for gradient
                         .background(
                             brush = Brush.verticalGradient(
-                                colors = listOf(HeaderTopColor, HeaderBottomColor)
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primary,
+                                    MaterialTheme.colorScheme.primaryContainer
+                                )
                             )
                         )
                         .padding(
@@ -89,23 +92,25 @@ fun SelectSpecialtyScreen(navController: NavController, context: Context) {
                         Icon(
                             imageVector = Icons.Default.ArrowBack,
                             contentDescription = "Back",
-                            tint = Color.White
+                            // THEME FIX: Use onPrimary for icon on primary background
+                            tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
                     Text(
                         text = "Select Specialty",
-                        color = Color.White,
+                        color = MaterialTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                         modifier = Modifier.align(Alignment.Center)
                     )
                 }
             }
-        }
+        },
+        // THEME FIX: Use background color from theme
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(BackgroundColor)
                 .padding(innerPadding)
         ) {
             LazyVerticalGrid(
@@ -125,6 +130,10 @@ fun SelectSpecialtyScreen(navController: NavController, context: Context) {
     }
 }
 
+/**
+ * Booking Specialty Card Component
+ * THEME FIX: Now uses MaterialTheme.colorScheme
+ */
 @Composable
 fun BookingSpecialtyCard(specialty: SpecialtyCategory, onClick: () -> Unit) {
     Surface(
@@ -133,7 +142,8 @@ fun BookingSpecialtyCard(specialty: SpecialtyCategory, onClick: () -> Unit) {
             .aspectRatio(1f)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        color = CardWhite,
+        // THEME FIX: Use surface color from theme
+        color = MaterialTheme.colorScheme.surface,
         tonalElevation = 2.dp,
         shadowElevation = 4.dp
     ) {
@@ -148,7 +158,8 @@ fun BookingSpecialtyCard(specialty: SpecialtyCategory, onClick: () -> Unit) {
             Surface(
                 modifier = Modifier.size(56.dp),
                 shape = androidx.compose.foundation.shape.CircleShape,
-                color = AccentColor.copy(alpha = 0.15f)
+                // THEME FIX: Use primaryContainer for icon background
+                color = MaterialTheme.colorScheme.primaryContainer
             ) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -158,7 +169,8 @@ fun BookingSpecialtyCard(specialty: SpecialtyCategory, onClick: () -> Unit) {
                         imageVector = specialty.icon,
                         contentDescription = specialty.name,
                         modifier = Modifier.size(28.dp),
-                        tint = AccentColor
+                        // THEME FIX: Use onPrimaryContainer
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
                     )
                 }
             }
@@ -170,7 +182,8 @@ fun BookingSpecialtyCard(specialty: SpecialtyCategory, onClick: () -> Unit) {
                 text = specialty.name,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = StatTextColor,
+                // THEME FIX: Use onSurface
+                color = MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center,
                 maxLines = 2
             )
@@ -182,7 +195,8 @@ fun BookingSpecialtyCard(specialty: SpecialtyCategory, onClick: () -> Unit) {
                 text = specialty.description,
                 fontSize = 11.sp,
                 fontWeight = FontWeight.Normal,
-                color = StatTextColor.copy(alpha = 0.7f),
+                // THEME FIX: Use onSurfaceVariant
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 lineHeight = 14.sp

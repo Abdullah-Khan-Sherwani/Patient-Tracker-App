@@ -5,6 +5,8 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -27,6 +29,7 @@ import kotlinx.coroutines.tasks.await
  * Admin screen to add a new doctor to the system.
  * Admin provides doctor details and creates credentials.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddDoctorScreen(navController: NavController, context: Context) {
     var firstName by remember { mutableStateOf("") }
@@ -39,25 +42,32 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
-    Surface(
-        modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFFAF8F3)
-    ) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Add Doctor", fontWeight = FontWeight.Bold) },
+                navigationIcon = {
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFFFAF8F3),
+                    titleContentColor = Color(0xFFB8956A),
+                    navigationIconContentColor = Color(0xFFB8956A)
+                )
+            )
+        },
+        containerColor = Color(0xFFFAF8F3)
+    ) { paddingValues ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(paddingValues)
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Header
-            Text(
-                text = "Add Doctor",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color(0xFFB8956A),
-                modifier = Modifier.padding(vertical = 16.dp)
-            )
 
             Text(
                 text = "Register a new doctor in the system",

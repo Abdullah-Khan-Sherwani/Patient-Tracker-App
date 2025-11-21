@@ -22,6 +22,11 @@ import com.example.patienttracker.ui.screens.admin.AdminHomeScreen
 import com.example.patienttracker.ui.screens.admin.AddDoctorScreen
 import com.example.patienttracker.ui.screens.admin.AddPatientScreen
 import com.example.patienttracker.ui.screens.admin.ManageUsersScreen
+import com.example.patienttracker.ui.screens.admin.AdminCreateAppointmentScreen
+import com.example.patienttracker.ui.screens.admin.AdminAllAppointmentsScreen
+import com.example.patienttracker.ui.screens.admin.AdminAppointmentDetailsScreen
+import com.example.patienttracker.ui.screens.admin.AdminSystemReportsScreen
+import com.example.patienttracker.ui.screens.admin.AdminProfileScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorHomeScreen
 import com.example.patienttracker.ui.screens.auth.UnifiedLoginScreen
 import com.example.patienttracker.ui.screens.auth.PatientWelcomeScreen
@@ -337,6 +342,27 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
 
         composable("admin_manage_users") {
             ManageUsersScreen(navController, context)
+        }
+
+        composable("admin_create_appointment") {
+            AdminCreateAppointmentScreen(navController, context)
+        }
+
+        composable("admin_all_appointments") {
+            AdminAllAppointmentsScreen(navController, context)
+        }
+
+        composable("admin_appointment_details/{appointmentId}") { backStackEntry ->
+            val appointmentId = backStackEntry.arguments?.getString("appointmentId") ?: ""
+            AdminAppointmentDetailsScreen(navController, context, appointmentId)
+        }
+
+        composable("admin_system_reports") {
+            AdminSystemReportsScreen(navController, context)
+        }
+
+        composable("admin_profile") {
+            AdminProfileScreen(navController, context)
         }
 
         // New Booking Flow Routes

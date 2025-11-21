@@ -45,6 +45,7 @@ fun AdminHomeScreen(nav: NavController, ctx: Context) {
     var totalPatients by remember { mutableStateOf(0) }
     var activeAppointments by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
+    var showProfileMenu by remember { mutableStateOf(false) }
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
@@ -105,8 +106,11 @@ fun AdminHomeScreen(nav: NavController, ctx: Context) {
                         scope.launch { drawerState.open() }
                     },
                     onProfileClick = {
-                        // Navigate to admin profile
-                    }
+                        showProfileMenu = true
+                    },
+                    showProfileMenu = showProfileMenu,
+                    onDismissMenu = { showProfileMenu = false },
+                    navController = nav
                 )
             },
             containerColor = BgColor
@@ -175,7 +179,10 @@ fun AdminHomeScreen(nav: NavController, ctx: Context) {
 @Composable
 private fun ModernAdminTopBar(
     onMenuClick: () -> Unit,
-    onProfileClick: () -> Unit
+    onProfileClick: () -> Unit,
+    showProfileMenu: Boolean,
+    onDismissMenu: () -> Unit,
+    navController: NavController
 ) {
     TopAppBar(
         title = {
@@ -196,19 +203,89 @@ private fun ModernAdminTopBar(
             }
         },
         actions = {
-            IconButton(onClick = onProfileClick) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(CircleShape)
-                        .background(AccentColor),
-                    contentAlignment = Alignment.Center
+            Box {
+                IconButton(onClick = onProfileClick) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .background(AccentColor),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Profile",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                
+                DropdownMenu(
+                    expanded = showProfileMenu,
+                    onDismissRequest = onDismissMenu,
+                    modifier = Modifier.background(Color.White)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Person,
-                        contentDescription = "Profile",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Person,
+                                    contentDescription = null,
+                                    tint = AccentColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text("My Profile", color = TextPrimary, fontSize = 14.sp)
+                            }
+                        },
+                        onClick = {
+                            onDismissMenu()
+                            navController.navigate("admin_profile") {
+                                launchSingleTop = true
+                            }
+                        }
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Settings,
+                                    contentDescription = null,
+                                    tint = AccentColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text("Settings", color = TextPrimary, fontSize = 14.sp)
+                            }
+                        },
+                        onClick = {
+                            onDismissMenu()
+                            // Navigate to settings when implemented
+                        }
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.ExitToApp,
+                                    contentDescription = null,
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(12.dp))
+                                Text("Sign Out", color = Color(0xFFEF4444), fontSize = 14.sp)
+                            }
+                        },
+                        onClick = {
+                            onDismissMenu()
+                            Firebase.auth.signOut()
+                            navController.navigate("unified_login") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                        }
                     )
                 }
             }
@@ -294,11 +371,41 @@ private fun AdminActionGrid(navController: NavController) {
             )
             
             ActionCard(
+                icon = Icons.Default.Add,
+                title = "Create Appointment",
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    navController.navigate("admin_create_appointment") {
+                        launchSingleTop = true
+                    }
+                }
+            )
+        }
+        
+        // Third Row
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            ActionCard(
                 icon = Icons.Default.Info,
                 title = "System Reports",
                 modifier = Modifier.weight(1f),
                 onClick = {
-                    // Navigate to reports when implemented
+                    navController.navigate("admin_system_reports") {
+                        launchSingleTop = true
+                    }
+                }
+            )
+            
+            ActionCard(
+                icon = Icons.Default.DateRange,
+                title = "All Appointments",
+                modifier = Modifier.weight(1f),
+                onClick = {
+                    navController.navigate("admin_all_appointments") {
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -377,12 +484,6 @@ private fun SystemMetrics(
             icon = Icons.Default.AccountBox,
             label = "Total Patients",
             value = totalPatients.toString()
-        )
-        
-        MetricCard(
-            icon = Icons.Default.DateRange,
-            label = "Active Appointments Today",
-            value = activeAppointments.toString()
         )
     }
 }
@@ -532,6 +633,24 @@ private fun AdminNavigationDrawer(
                 label = "Manage Users",
                 onClick = {
                     navController.navigate("admin_manage_users")
+                    onItemClick()
+                }
+            )
+            
+            DrawerMenuItem(
+                icon = Icons.Default.Add,
+                label = "Create Appointment",
+                onClick = {
+                    navController.navigate("admin_create_appointment")
+                    onItemClick()
+                }
+            )
+            
+            DrawerMenuItem(
+                icon = Icons.Default.DateRange,
+                label = "All Appointments",
+                onClick = {
+                    navController.navigate("admin_all_appointments")
                     onItemClick()
                 }
             )

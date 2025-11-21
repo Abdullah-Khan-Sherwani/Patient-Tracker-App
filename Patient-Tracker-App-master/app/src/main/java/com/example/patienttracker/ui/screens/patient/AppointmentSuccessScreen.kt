@@ -1,12 +1,19 @@
 package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,6 +27,9 @@ import androidx.navigation.NavController
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.launch
 
 // Color scheme
 private val HeaderTopColor = Color(0xFFD4AF8C)
@@ -39,6 +49,59 @@ fun AppointmentSuccessScreen(
     date: String,
     timeSlot: String
 ) {
+    var uploadedFiles by remember { mutableStateOf<List<UploadedFile>>(emptyList()) }
+    var isUploading by remember { mutableStateOf(false) }
+    var showUploadSection by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    
+    // File picker for multiple files
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetMultipleContents()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            scope.launch {
+                isUploading = true
+                try {
+                    uris.forEach { uri ->
+                        val fileName = uri.lastPathSegment ?: "document"
+                        val mimeType = context.contentResolver.getType(uri) ?: "application/octet-stream"
+                        val fileSize = try {
+                            context.contentResolver.openInputStream(uri)?.available() ?: 0
+                        } catch (e: Exception) {
+                            0
+                        }
+                        
+                        // Validate file
+                        if (fileSize > 10 * 1024 * 1024) { // 10MB limit
+                            Toast.makeText(context, "File too large: $fileName (max 10MB)", Toast.LENGTH_SHORT).show()
+                            return@forEach
+                        }
+                        
+                        val validMimeTypes = listOf("application/pdf", "image/jpeg", "image/png", "image/jpg")
+                        if (!validMimeTypes.contains(mimeType)) {
+                            Toast.makeText(context, "Unsupported file type: $fileName", Toast.LENGTH_SHORT).show()
+                            return@forEach
+                        }
+                        
+                        // Add to uploaded files list
+                        uploadedFiles = uploadedFiles + UploadedFile(
+                            name = fileName,
+                            uri = uri.toString(),
+                            mimeType = mimeType,
+                            size = fileSize
+                        )
+                    }
+                    Toast.makeText(context, "Files added successfully", Toast.LENGTH_SHORT).show()
+                } catch (e: Exception) {
+                    android.util.Log.e("FileUpload", "Error processing files: ${e.message}", e)
+                    Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                } finally {
+                    isUploading = false
+                }
+            }
+        }
+    }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -48,9 +111,10 @@ fun AppointmentSuccessScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(24.dp),
+                .padding(24.dp)
+                .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            verticalArrangement = Arrangement.Top
         ) {
             // Success Icon
             Surface(
@@ -163,6 +227,120 @@ fun AppointmentSuccessScreen(
                 }
             }
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Upload Records Section
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(16.dp),
+                color = CardWhite,
+                tonalElevation = 4.dp
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text(
+                            text = "Attach Medical Records",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = StatTextColor
+                        )
+                        Icon(
+                            imageVector = Icons.Default.FileUpload,
+                            contentDescription = "Upload",
+                            tint = ButtonColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                    
+                    Text(
+                        text = "Optionally upload lab reports, prescriptions, or medical documents",
+                        fontSize = 13.sp,
+                        color = Color.Gray
+                    )
+                    
+                    // Display uploaded files
+                    if (uploadedFiles.isNotEmpty()) {
+                        Divider(color = Color.LightGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 8.dp))
+                        
+                        uploadedFiles.forEachIndexed { index, file ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(8.dp),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        text = file.name.take(30),
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        color = StatTextColor,
+                                        maxLines = 1
+                                    )
+                                    Text(
+                                        text = "${file.size / 1024}KB",
+                                        fontSize = 11.sp,
+                                        color = Color.Gray
+                                    )
+                                }
+                                IconButton(
+                                    onClick = {
+                                        uploadedFiles = uploadedFiles.filterIndexed { i, _ -> i != index }
+                                    },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove",
+                                        tint = Color.Red,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    
+                    Button(
+                        onClick = {
+                            filePickerLauncher.launch("*/*")
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(44.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = ButtonColor.copy(alpha = 0.1f),
+                            contentColor = ButtonColor
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        enabled = !isUploading
+                    ) {
+                        if (isUploading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = ButtonColor
+                            )
+                        } else {
+                            Text(
+                                text = if (uploadedFiles.isEmpty()) "Choose Files" else "Add More Files",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(32.dp))
 
             // Action Buttons
@@ -224,6 +402,8 @@ fun AppointmentSuccessScreen(
                     )
                 }
             }
+            
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -248,3 +428,12 @@ fun SummaryItem(label: String, value: String) {
         )
     }
 }
+
+// Data class for uploaded files
+data class UploadedFile(
+    val name: String,
+    val uri: String,
+    val mimeType: String,
+    val size: Int
+)
+

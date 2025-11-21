@@ -3,8 +3,11 @@ package com.example.patienttracker.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.BorderStroke
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Remove
@@ -220,14 +223,14 @@ private fun TimeSpinner(
             color = primaryColor.copy(alpha = 0.1f),
             modifier = Modifier
                 .width(60.dp)
-                .height(48.dp),
-            contentAlignment = Alignment.Center
+                .height(48.dp)
         ) {
             Text(
                 text = String.format("%02d", value),
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = primaryColor
+                color = primaryColor,
+                modifier = Modifier.fillMaxSize().wrapContentWidth().wrapContentHeight()
             )
         }
 
@@ -268,5 +271,3 @@ private fun formatTime(hour: Int, minute: Int, isPM: Boolean): String {
     val period = if (isPM) "PM" else "AM"
     return String.format("%02d:%02d %s", hour, minute, period)
 }
-
-private val rememberScrollState = { androidx.compose.foundation.rememberScrollState() }

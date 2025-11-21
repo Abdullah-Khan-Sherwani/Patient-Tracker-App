@@ -1,6 +1,7 @@
 package com.example.patienttracker.data
 
 import android.util.Log
+import com.example.patienttracker.ui.screens.patient.DoctorFull
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.tasks.await
@@ -38,7 +39,6 @@ object SearchRepository {
             val lastName = doctor.lastName.lowercase()
             val fullName = "$firstName ${lastName}"
             val speciality = doctor.speciality.lowercase()
-            val qualification = doctor.qualification?.lowercase() ?: ""
             val email = doctor.email?.lowercase() ?: ""
 
             // Match query against multiple fields with partial matching
@@ -46,7 +46,6 @@ object SearchRepository {
             lastName.contains(lowerQuery) ||
             fullName.contains(lowerQuery) ||
             speciality.contains(lowerQuery) ||
-            qualification.contains(lowerQuery) ||
             email.contains(lowerQuery)
         }
 
@@ -121,9 +120,9 @@ object SearchRepository {
      * Used in admin management screens.
      *
      * @param query Search query (name or email)
-     * @return List of matching patients
+     * @return List of matching patient data
      */
-    suspend fun searchPatients(query: String): Result<List<User>> = try {
+    suspend fun searchPatients(query: String): Result<List<Map<String, Any>>> = try {
         if (query.isBlank()) {
             return Result.success(emptyList())
         }
@@ -133,19 +132,19 @@ object SearchRepository {
             .whereEqualTo("userType", "patient")
             .get()
             .await()
-            .toObjects(User::class.java)
+            .documents
 
-        val results = allPatients.filter { patient ->
-            val firstName = patient.firstName?.lowercase() ?: ""
-            val lastName = patient.lastName?.lowercase() ?: ""
+        val results = allPatients.filter { doc ->
+            val firstName = doc.getString("firstName")?.lowercase() ?: ""
+            val lastName = doc.getString("lastName")?.lowercase() ?: ""
             val fullName = "$firstName $lastName"
-            val email = patient.email?.lowercase() ?: ""
+            val email = doc.getString("email")?.lowercase() ?: ""
 
             firstName.contains(lowerQuery) ||
             lastName.contains(lowerQuery) ||
             fullName.contains(lowerQuery) ||
             email.contains(lowerQuery)
-        }
+        }.map { it.data ?: emptyMap() }
 
         Log.d(TAG, "Patient search for '$query' found ${results.size} patients")
         Result.success(results)

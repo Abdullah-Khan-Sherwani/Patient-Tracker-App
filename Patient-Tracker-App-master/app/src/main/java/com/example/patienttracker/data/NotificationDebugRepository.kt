@@ -61,32 +61,29 @@ object NotificationDebugRepository {
      * Log diagnostic information about FCM setup.
      * Useful for debugging why notifications aren't working.
      */
-    suspend fun logFCMDiagnostics(): Result<String> {
+    suspend fun logFCMDiagnostics(): Result<String> = try {
         val diagnostics = StringBuilder()
         diagnostics.append("=== FCM Diagnostics ===\n")
 
-        return try {
-            // Get token
-            val token = getCurrentFCMToken().getOrNull()
-            diagnostics.append("FCM Token: ${token ?: "NOT AVAILABLE"}\n")
+        // Get token
+        val token = getCurrentFCMToken().getOrNull()
+        diagnostics.append("FCM Token: ${token ?: "NOT AVAILABLE"}\n")
 
-            // Check if messaging is available
-            diagnostics.append("Firebase Messaging Available: true\n")
+        // Check if messaging is available
+        diagnostics.append("Firebase Messaging Available: true\n")
 
-            // Check notification permissions
-            diagnostics.append("Notifications Enabled: ${messaging.isAutoInitEnabled}\n")
+        // Check notification permissions
+        diagnostics.append("Notifications Enabled: ${messaging.isAutoInitEnabled}\n")
 
-            // Get device info
-            diagnostics.append("Android Version: ${android.os.Build.VERSION.SDK_INT}\n")
-            diagnostics.append("Device: ${android.os.Build.MODEL}\n")
+        // Get device info
+        diagnostics.append("Android Version: ${android.os.Build.VERSION.SDK_INT}\n")
+        diagnostics.append("Device: ${android.os.Build.MODEL}\n")
 
-            Log.d(TAG, diagnostics.toString())
-            Result.success(diagnostics.toString())
-        } catch (e: Exception) {
-            diagnostics.append("ERROR: ${e.message}\n")
-            Log.e(TAG, "Diagnostics error: ${e.message}", e)
-            Result.failure(e)
-        }
+        Log.d(TAG, diagnostics.toString())
+        Result.success(diagnostics.toString())
+    } catch (e: Exception) {
+        Log.e(TAG, "Diagnostics error: ${e.message}", e)
+        Result.failure(e)
     }
 
     /**

@@ -1,76 +1,51 @@
 package com.example.patienttracker.ui.screens.doctor
 
 import android.content.Context
-import androidx.annotation.DrawableRes
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Divider
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.dp
-import androidx.navigation.NavController
-import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.coerceAtLeast
-import androidx.compose.ui.window.PopupProperties
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.shape.ZeroCornerSize
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
-import androidx.compose.ui.unit.lerp
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.text.style.TextDecoration
-import androidx.compose.ui.unit.IntSize
-import androidx.compose.ui.unit.Constraints
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.asPaddingValues
-import com.example.patienttracker.R
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
 import com.example.patienttracker.data.Appointment as FirebaseAppointment
 import com.example.patienttracker.data.AppointmentRepository
-import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.launch
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-// ---------- Public entry ----------
+// ========== THEME COLORS ==========
+private val BgColor = Color(0xFFFAF8F3)
+private val CardColor = Color(0xFFF5F0E8)
+private val AccentColor = Color(0xFFB8956A)
+private val TextPrimary = Color(0xFF2F2019)
+private val TextSecondary = Color(0xFF6B7280)
+
+// ========== PUBLIC ENTRY ==========
 @Composable
 fun DoctorHomeScreen(
     navController: NavController,
@@ -79,7 +54,6 @@ fun DoctorHomeScreen(
     lastName: String? = null,
     doctorId: String? = null
 ) {
-    // Resolve name/ID from explicit params, then savedStateHandle, then route args, else fallback
     val resolvedFirst = firstName
         ?: navController.previousBackStackEntry?.savedStateHandle?.get<String>("firstName")
         ?: navController.currentBackStackEntry?.arguments?.getString("firstName")
@@ -90,438 +64,704 @@ fun DoctorHomeScreen(
         ?: navController.currentBackStackEntry?.arguments?.getString("lastName")
         ?: ""
 
-    val resolvedId = doctorId
-        ?: navController.previousBackStackEntry?.savedStateHandle?.get<String>("doctorId")
-        ?: navController.currentBackStackEntry?.arguments?.getString("doctorId")
-        ?: ""
-
+    val fullName = "Dr. $resolvedFirst $resolvedLast"
     val initials = buildString {
         if (resolvedFirst.isNotBlank()) append(resolvedFirst.first().uppercaseChar())
         if (resolvedLast.isNotBlank()) append(resolvedLast.first().uppercaseChar())
     }.ifBlank { "DR" }
 
-    val gradient = Brush.verticalGradient(
-        listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD))
-    )
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
 
-    Scaffold(
-        bottomBar = { DoctorBottomBar() },
-        contentWindowInsets = WindowInsets.systemBars.only(
-            WindowInsetsSides.Top + WindowInsetsSides.Horizontal
-        )
-    ) { inner ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(inner)
-        ) {
-            DoctorHeader(
-                gradient = gradient,
-                greeting = "Hi, welcome back",
-                name = "Dr. $resolvedFirst $resolvedLast",
-                initials = initials,
-                onBell = { /* TODO: open notifications */ },
-                onSettings = { /* TODO: open settings */ },
-                onSearch = { navController.navigate("doctor_patient_list") }
+    var selectedTab by remember { mutableIntStateOf(0) }
+
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            DoctorNavigationDrawer(
+                navController = navController,
+                doctorName = fullName,
+                onClose = { scope.launch { drawerState.close() } }
             )
-
-            Spacer(Modifier.height(12.dp))
-
-            DoctorSchedule(gradient = gradient, context = context)
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                ModernDoctorTopBar(
+                    doctorName = fullName,
+                    initials = initials,
+                    onMenuClick = { scope.launch { drawerState.open() } },
+                    onProfileClick = { /* TODO: Navigate to profile */ }
+                )
+            },
+            bottomBar = {
+                ModernDoctorBottomBar(
+                    selectedTab = selectedTab,
+                    onTabSelected = { selectedTab = it },
+                    navController = navController
+                )
+            },
+            containerColor = BgColor
+        ) { padding ->
+            ModernDoctorDashboard(
+                modifier = Modifier.padding(padding),
+                navController = navController,
+                doctorLastName = resolvedLast.ifBlank { "Doctor" }
+            )
         }
     }
 }
 
-// ---------- Header ----------
+// ========== TOP BAR ==========
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DoctorHeader(
-    gradient: Brush,
-    greeting: String,
-    name: String,
+private fun ModernDoctorTopBar(
+    doctorName: String,
     initials: String,
-    onBell: () -> Unit,
-    onSettings: () -> Unit,
-    onSearch: () -> Unit,
+    onMenuClick: () -> Unit,
+    onProfileClick: () -> Unit
+) {
+    TopAppBar(
+        title = {
+            Text(
+                text = doctorName,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary,
+                modifier = Modifier.fillMaxWidth(),
+                textAlign = TextAlign.Center
+            )
+        },
+        navigationIcon = {
+            IconButton(onClick = onMenuClick) {
+                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = AccentColor)
+            }
+        },
+        actions = {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(AccentColor)
+                    .clickable(onClick = onProfileClick),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = initials,
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+        },
+        colors = TopAppBarDefaults.topAppBarColors(containerColor = BgColor)
+    )
+}
+
+// ========== MAIN DASHBOARD ==========
+@Composable
+private fun ModernDoctorDashboard(
+    modifier: Modifier = Modifier,
+    navController: NavController,
+    doctorLastName: String
+) {
+    var todayAppointments by remember { mutableStateOf<List<DoctorAppointment>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    val scope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        scope.launch {
+            todayAppointments = fetchTodayAppointments()
+            isLoading = false
+        }
+    }
+
+    val currentDate = LocalDateTime.now()
+    val dateFormatter = DateTimeFormatter.ofPattern("EEEE, dd MMMM yyyy", Locale.ENGLISH)
+    val formattedDate = currentDate.format(dateFormatter)
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+    ) {
+        // GREETING
+        Text(
+            text = "Welcome back, Dr. $doctorLastName",
+            fontSize = 24.sp,
+            fontWeight = FontWeight.Bold,
+            color = TextPrimary
+        )
+        Text(
+            text = formattedDate,
+            fontSize = 14.sp,
+            color = TextSecondary,
+            modifier = Modifier.padding(top = 4.dp)
+        )
+
+        Spacer(Modifier.height(24.dp))
+
+        // SECTION 1: TODAY AT A GLANCE
+        Text(
+            text = "Today at a Glance",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            MetricCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.DateRange,
+                title = "Appointments",
+                value = todayAppointments.size.toString(),
+                onClick = { navController.navigate("doctor_appointments_full") }
+            )
+            MetricCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Email,
+                title = "New Messages",
+                value = "0",
+                onClick = { navController.navigate("doctor_messages") }
+            )
+            MetricCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Add,
+                title = "Pending",
+                value = todayAppointments.filter { it.status == "pending" }.size.toString(),
+                onClick = { navController.navigate("doctor_appointments_full") }
+            )
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        // SECTION 2: TODAY'S APPOINTMENTS
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Today's Appointments",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = TextPrimary
+            )
+            Text(
+                text = "View All",
+                fontSize = 14.sp,
+                color = AccentColor,
+                fontWeight = FontWeight.Medium,
+                modifier = Modifier.clickable { navController.navigate("doctor_appointments_full") }
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        if (isLoading) {
+            CircularProgressIndicator(
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(32.dp),
+                color = AccentColor
+            )
+        } else if (todayAppointments.isEmpty()) {
+            EmptyAppointmentCard()
+        } else {
+            todayAppointments.forEach { appointment ->
+                AppointmentListCard(
+                    appointment = appointment,
+                    onClick = { 
+                        // Navigate to appointment details with appointment ID if available
+                        navController.navigate("doctor_appointment_details/${appointment.patientName}")
+                    }
+                )
+                Spacer(Modifier.height(12.dp))
+            }
+        }
+
+        Spacer(Modifier.height(28.dp))
+
+        // SECTION 3: QUICK ACTIONS
+        Text(
+            text = "Quick Actions",
+            fontSize = 18.sp,
+            fontWeight = FontWeight.SemiBold,
+            color = TextPrimary
+        )
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickActionCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Person,
+                title = "View Patients",
+                onClick = { navController.navigate("doctor_patient_list") }
+            )
+            QuickActionCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.DateRange,
+                title = "Manage Schedule",
+                onClick = { navController.navigate("doctor_manage_schedule") }
+            )
+        }
+
+        Spacer(Modifier.height(12.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            QuickActionCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Email,
+                title = "Messages",
+                onClick = { navController.navigate("doctor_messages") }
+            )
+            QuickActionCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Folder,
+                title = "View Records",
+                onClick = { navController.navigate("doctor_view_records") }
+            )
+        }
+
+        Spacer(Modifier.height(20.dp))
+    }
+}
+
+// ========== NAVIGATION DRAWER ==========
+@Composable
+private fun DoctorNavigationDrawer(
+    navController: NavController,
+    doctorName: String,
+    onClose: () -> Unit
+) {
+    ModalDrawerSheet(drawerContainerColor = BgColor) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "Menu",
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = AccentColor,
+                modifier = Modifier.padding(vertical = 16.dp)
+            )
+            Text(
+                text = doctorName,
+                fontSize = 16.sp,
+                color = TextSecondary,
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
+            Divider(color = Color(0xFFD4C4B0), modifier = Modifier.padding(bottom = 16.dp))
+
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.Person, contentDescription = null) },
+                label = { Text("My Profile") },
+                selected = false,
+                onClick = { 
+                    onClose()
+                    navController.navigate("doctor_profile")
+                },
+                colors = NavigationDrawerItemDefaults.colors(
+                    unselectedContainerColor = Color.Transparent,
+                    unselectedIconColor = AccentColor,
+                    unselectedTextColor = TextPrimary
+                )
+            )
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
+                label = { Text("My Schedule") },
+                selected = false,
+                onClick = { 
+                    onClose()
+                    navController.navigate("doctor_manage_schedule")
+                },
+                colors = NavigationDrawerItemDefaults.colors(
+                    unselectedContainerColor = Color.Transparent,
+                    unselectedIconColor = AccentColor,
+                    unselectedTextColor = TextPrimary
+                )
+            )
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.Person, contentDescription = null) },
+                label = { Text("Patient List") },
+                selected = false,
+                onClick = {
+                    onClose()
+                    navController.navigate("doctor_patient_list")
+                },
+                colors = NavigationDrawerItemDefaults.colors(
+                    unselectedContainerColor = Color.Transparent,
+                    unselectedIconColor = AccentColor,
+                    unselectedTextColor = TextPrimary
+                )
+            )
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                label = { Text("Settings") },
+                selected = false,
+                onClick = { 
+                    onClose()
+                    navController.navigate("doctor_settings")
+                },
+                colors = NavigationDrawerItemDefaults.colors(
+                    unselectedContainerColor = Color.Transparent,
+                    unselectedIconColor = AccentColor,
+                    unselectedTextColor = TextPrimary
+                )
+            )
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.Folder, contentDescription = null) },
+                label = { Text("View Patient Records") },
+                selected = false,
+                onClick = { 
+                    onClose()
+                    navController.navigate("doctor_view_records")
+                },
+                colors = NavigationDrawerItemDefaults.colors(
+                    unselectedContainerColor = Color.Transparent,
+                    unselectedIconColor = AccentColor,
+                    unselectedTextColor = TextPrimary
+                )
+            )
+
+            Spacer(Modifier.weight(1f))
+
+            Divider(color = Color(0xFFD4C4B0), modifier = Modifier.padding(vertical = 16.dp))
+
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.ExitToApp, contentDescription = null) },
+                label = { Text("Logout") },
+                selected = false,
+                onClick = {
+                    Firebase.auth.signOut()
+                    navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                },
+                colors = NavigationDrawerItemDefaults.colors(
+                    unselectedContainerColor = Color.Transparent,
+                    unselectedIconColor = Color(0xFFEF4444),
+                    unselectedTextColor = Color(0xFFEF4444)
+                )
+            )
+        }
+    }
+}
+
+// ========== METRIC CARD (TODAY AT A GLANCE) ==========
+@Composable
+private fun MetricCard(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    title: String,
+    value: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .height(100.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = CardColor,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = AccentColor,
+                modifier = Modifier.size(28.dp)
+            )
+            Column {
+                Text(
+                    text = value,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextPrimary
+                )
+                Text(
+                    text = title,
+                    fontSize = 12.sp,
+                    color = TextSecondary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+}
+
+// ========== APPOINTMENT CARD ==========
+@Composable
+private fun AppointmentListCard(
+    appointment: DoctorAppointment,
+    onClick: () -> Unit = {}
 ) {
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp),
-        color = Color(0xFFF7F9FC),
-        shape = RoundedCornerShape(16.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(12.dp),
+        color = CardColor,
+        tonalElevation = 1.dp
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // LEFT: circular icon bubbles
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconBubble(iconRes = R.drawable.ic_notifications, onClick = onBell)
-                IconBubble(iconRes = R.drawable.ic_settings, onClick = onSettings)
-                IconBubble(iconRes = R.drawable.ic_search, onClick = onSearch)
-            }
-
-            Spacer(Modifier.weight(1f))
-
-            // RIGHT: greeting + name + avatar
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    greeting,
-                    color = Color(0xFF5AA8AC),
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    name,
-                    color = Color(0xFF1C3D5A),
-                    style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
-                )
-            }
-            Spacer(Modifier.width(12.dp))
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFDBE6EF)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(initials, color = Color(0xFF1C3D5A), fontWeight = FontWeight.SemiBold)
-            }
-        }
-    }
-}
-
-@Composable
-private fun IconBubble(@DrawableRes iconRes: Int, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .background(Color(0xFFE9F3F9))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Image(
-            painter = painterResource(id = iconRes),
-            contentDescription = null,
-            modifier = Modifier.size(18.dp)
-        )
-    }
-}
-
-// ---------- Schedule (day scroller + list) ----------
-data class DayChip(val date: LocalDate, val day: String, val dow: String)
-
-private fun monthLabel(date: LocalDate, locale: Locale = Locale.getDefault()): String =
-    date.month.getDisplayName(TextStyle.FULL, locale)
-
-private fun generateDateChipsAroundToday(
-    pastDays: Int = 15,
-    futureDays: Int = 15,
-    locale: Locale = Locale.getDefault()
-): Pair<List<DayChip>, Int> {
-    val today = LocalDate.now()
-    val start = today.minusDays(pastDays.toLong())
-    val total = pastDays + futureDays + 1
-    val list = (0 until total).map { offset ->
-        val d = start.plusDays(offset.toLong())
-        DayChip(
-            date = d,
-            day = d.dayOfMonth.toString(),
-            dow = d.dayOfWeek.getDisplayName(TextStyle.SHORT, locale).uppercase(locale)
-        )
-    }
-    val todayIndex = list.indexOfFirst { it.date == today }.coerceAtLeast(0)
-    return list to todayIndex
-}
-
-@Composable
-private fun DoctorSchedule(gradient: Brush, context: Context) {
-    val locale = Locale.getDefault()
-    val (dates, todayIndex) = remember { generateDateChipsAroundToday(15, 15, locale) }
-    var selected by rememberSaveable { mutableIntStateOf(todayIndex) }
-    var displayedMonth by remember { mutableStateOf(monthLabel(dates[todayIndex].date, locale)) }
-    
-    val currentUser = FirebaseAuth.getInstance().currentUser
-    var appts by remember { mutableStateOf<List<com.example.patienttracker.ui.screens.doctor.Appointment>>(emptyList()) }
-
-    // Header (title + month)
-    Surface(color = Color.Transparent) {
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .background(gradient)
-                .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Upcoming Schedule",
-                color = Color.White,
-                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
-            )
-            Text(
-                displayedMonth,
-                color = Color.White.copy(alpha = 0.9f),
-                style = MaterialTheme.typography.labelLarge
-            )
-        }
-    }
-
-    // Day scroller
-    val listState = rememberLazyListState()
-    LaunchedEffect(dates) {
-        val startIndex = (todayIndex - 2).coerceAtLeast(0)
-        listState.scrollToItem(startIndex)
-    }
-    // update month label while scrolling
-    LaunchedEffect(listState, dates) {
-        snapshotFlow { listState.firstVisibleItemIndex }.collect { idx ->
-            val probe = (idx + 2).coerceIn(0, dates.lastIndex)
-            displayedMonth = monthLabel(dates[probe].date, locale)
-        }
-    }
-
-    LazyRow(
-        state = listState,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 12.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(horizontal = 16.dp)
-    ) {
-        items(dates.size) { i ->
-            DayPill(
-                chip = dates[i],
-                selected = i == selected,
-                onClick = {
-                    selected = i
-                    displayedMonth = monthLabel(dates[i].date, locale)
-                }
-            )
-        }
-    }
-
-    // Appointments list for selected day
-    LaunchedEffect(selected, currentUser?.uid) {
-        currentUser?.uid?.let { uid ->
-            appts = appointmentsFor(uid, dates[selected].date)
-        }
-    }
-
-    Surface(
-        modifier = Modifier
-            .padding(horizontal = 16.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(Color(0xFFEFF7F9))
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    "Appointments",
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = Color(0xFF2B6F75)
+                    text = appointment.patientName,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = TextPrimary
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
-                    "See all",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF2B6F75)
+                    text = appointment.time,
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = appointment.type,
+                    fontSize = 12.sp,
+                    color = AccentColor
                 )
             }
-
-            Spacer(Modifier.height(8.dp))
-
-            if (appts.isEmpty()) {
-                Text(
-                    "No appointments for this day.",
-                    color = Color(0xFF5F6970),
-                    style = MaterialTheme.typography.bodyMedium
-                )
-            } else {
-                LazyColumn(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    contentPadding = PaddingValues(vertical = 8.dp)
-                ) {
-                    items(appts) { item ->
-                        AppointmentCard(item = item)
-                    }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = when (appointment.status) {
+                    "confirmed" -> Color(0xFF10B981).copy(alpha = 0.1f)
+                    "pending" -> Color(0xFFF59E0B).copy(alpha = 0.1f)
+                    else -> Color(0xFFEF4444).copy(alpha = 0.1f)
                 }
+            ) {
+                Text(
+                    text = appointment.status.replaceFirstChar { it.uppercase() },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = when (appointment.status) {
+                        "confirmed" -> Color(0xFF10B981)
+                        "pending" -> Color(0xFFF59E0B)
+                        else -> Color(0xFFEF4444)
+                    },
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                )
             }
         }
     }
 }
 
 @Composable
-private fun DayPill(chip: DayChip, selected: Boolean, onClick: () -> Unit) {
-    val bg by animateColorAsState(
-        if (selected) Color(0xFF4FC2C9) else Color(0xFFEFF7F9),
-        label = "pill-bg"
-    )
-    val fg = if (selected) Color.White else Color(0xFF295B62)
-
-    Column(
-        modifier = Modifier
-            .width(86.dp)
-            .clip(RoundedCornerShape(40.dp))
-            .background(bg)
-            .clickable { onClick() }
-            .padding(vertical = 10.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally
+private fun EmptyAppointmentCard() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = CardColor,
+        tonalElevation = 1.dp
     ) {
-        Text(chip.day, color = fg, style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-        Spacer(Modifier.height(2.dp))
-        Text(chip.dow, color = fg.copy(alpha = 0.9f), style = MaterialTheme.typography.labelMedium)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(32.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "No appointments today",
+                fontSize = 14.sp,
+                color = TextSecondary,
+                textAlign = TextAlign.Center
+            )
+        }
     }
 }
 
-// ---------- Appointments ----------
-data class Appointment(
-    val time: String,
+// ========== QUICK ACTION CARD ==========
+@Composable
+private fun QuickActionCard(
+    modifier: Modifier = Modifier,
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = modifier
+            .height(110.dp)
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = CardColor,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = AccentColor,
+                modifier = Modifier.size(32.dp)
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = TextPrimary,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+// ========== BOTTOM NAVIGATION BAR ==========
+@Composable
+private fun ModernDoctorBottomBar(
+    selectedTab: Int,
+    onTabSelected: (Int) -> Unit,
+    navController: NavController
+) {
+    NavigationBar(
+        containerColor = CardColor,
+        tonalElevation = 8.dp
+    ) {
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Home, contentDescription = "Home") },
+            label = { Text("Home", fontSize = 11.sp) },
+            selected = selectedTab == 0,
+            onClick = { onTabSelected(0) },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = AccentColor,
+                selectedTextColor = AccentColor,
+                unselectedIconColor = TextSecondary,
+                unselectedTextColor = TextSecondary,
+                indicatorColor = AccentColor.copy(alpha = 0.1f)
+            )
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Email, contentDescription = "Messages") },
+            label = { Text("Messages", fontSize = 11.sp) },
+            selected = selectedTab == 1,
+            onClick = { 
+                onTabSelected(1)
+                navController.navigate("doctor_messages")
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = AccentColor,
+                selectedTextColor = AccentColor,
+                unselectedIconColor = TextSecondary,
+                unselectedTextColor = TextSecondary,
+                indicatorColor = AccentColor.copy(alpha = 0.1f)
+            )
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.Person, contentDescription = "Patients") },
+            label = { Text("Patients", fontSize = 11.sp) },
+            selected = selectedTab == 2,
+            onClick = { 
+                onTabSelected(2)
+                navController.navigate("doctor_patient_list")
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = AccentColor,
+                selectedTextColor = AccentColor,
+                unselectedIconColor = TextSecondary,
+                unselectedTextColor = TextSecondary,
+                indicatorColor = AccentColor.copy(alpha = 0.1f)
+            )
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.DateRange, contentDescription = "Appointments") },
+            label = { Text("Appointments", fontSize = 11.sp) },
+            selected = selectedTab == 3,
+            onClick = { 
+                onTabSelected(3)
+                navController.navigate("doctor_appointments_full")
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = AccentColor,
+                selectedTextColor = AccentColor,
+                unselectedIconColor = TextSecondary,
+                unselectedTextColor = TextSecondary,
+                indicatorColor = AccentColor.copy(alpha = 0.1f)
+            )
+        )
+        NavigationBarItem(
+            icon = { Icon(Icons.Default.AccountCircle, contentDescription = "Profile") },
+            label = { Text("Profile", fontSize = 11.sp) },
+            selected = selectedTab == 4,
+            onClick = { 
+                onTabSelected(4)
+                navController.navigate("doctor_profile")
+            },
+            colors = NavigationBarItemDefaults.colors(
+                selectedIconColor = AccentColor,
+                selectedTextColor = AccentColor,
+                unselectedIconColor = TextSecondary,
+                unselectedTextColor = TextSecondary,
+                indicatorColor = AccentColor.copy(alpha = 0.1f)
+            )
+        )
+    }
+}
+
+// ========== DATA MODELS ==========
+data class DoctorAppointment(
     val patientName: String,
-    val reason: String,
-    val report: String? = null
+    val time: String,
+    val type: String,
+    val status: String
 )
 
-private suspend fun appointmentsFor(doctorUid: String, date: LocalDate): List<com.example.patienttracker.ui.screens.doctor.Appointment> {
+// ========== DATA FETCHING ==========
+private suspend fun fetchTodayAppointments(): List<DoctorAppointment> {
     return try {
         val result = AppointmentRepository.getDoctorAppointments()
         val allAppointments: List<FirebaseAppointment> = result.getOrElse { emptyList() }
-        
+        val today = LocalDate.now()
+
         allAppointments.filter { appointment ->
             try {
                 val appointmentDate = Instant.ofEpochSecond(appointment.appointmentDate.seconds)
                     .atZone(ZoneId.systemDefault())
                     .toLocalDate()
-                appointmentDate == date
+                appointmentDate == today
             } catch (e: Exception) {
                 false
             }
         }.map { appointment ->
-            com.example.patienttracker.ui.screens.doctor.Appointment(
-                time = appointment.timeSlot,
+            DoctorAppointment(
                 patientName = appointment.patientName,
-                reason = appointment.speciality,
-                report = if (appointment.notes.isNotEmpty()) appointment.notes else null
+                time = appointment.timeSlot,
+                type = appointment.speciality,
+                status = appointment.status.lowercase()
             )
         }
     } catch (e: Exception) {
         emptyList()
-    }
-}
-
-@Composable
-private fun AppointmentCard(item: Appointment) {
-    Surface(
-        color = Color.White,
-        shape = RoundedCornerShape(16.dp),
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(modifier = Modifier.padding(14.dp)) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(
-                    item.time,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                    color = Color(0xFF0D3B40)
-                )
-                Text(
-                    item.reason,
-                    style = MaterialTheme.typography.labelLarge,
-                    color = Color(0xFF2B6F75)
-                )
-            }
-            Spacer(Modifier.height(6.dp))
-            Divider(color = Color(0x1A000000))
-            Spacer(Modifier.height(6.dp))
-            Text(
-                "Patient • ${item.patientName}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color(0xFF0D3B40)
-            )
-            if (item.report != null) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    "Report: ${item.report}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Color(0xFF0D3B40)
-                )
-            }
-        }
-    }
-}
-
-// ---------- Bottom bar ----------
-@Composable
-private fun DoctorBottomBar() {
-    val bottomInset = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
-    Surface(
-        tonalElevation = 0.dp,
-        shadowElevation = 0.dp,
-        color = Color(0xFFF6F8FC)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(50.dp + bottomInset)
-                .padding(bottom = bottomInset.coerceAtMost(6.dp))
-        ) {
-            Divider(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth(),
-                color = Color(0x14000000)
-            )
-            Row(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                BottomItem(R.drawable.ic_home, "Home", selected = true)
-                BottomItem(R.drawable.ic_messages, "Chat")
-                BottomItem(R.drawable.ic_user_profile, "Patients") // reuse user icon
-                BottomItem(R.drawable.ic_booking, "Schedule")
-            }
-        }
-    }
-}
-
-@Composable
-private fun BottomItem(@DrawableRes iconRes: Int, label: String, selected: Boolean = false) {
-    Column(
-        modifier = Modifier
-            .width(72.dp)
-            .clickable { /* TODO: hook up navigation */ },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Image(
-            painter = painterResource(id = iconRes),
-            contentDescription = label,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) MaterialTheme.colorScheme.primary else Color(0xFF5F6970)
-        )
     }
 }

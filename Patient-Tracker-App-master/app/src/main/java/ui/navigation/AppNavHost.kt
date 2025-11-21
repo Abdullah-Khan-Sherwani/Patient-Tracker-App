@@ -31,6 +31,10 @@ import com.example.patienttracker.ui.screens.patient.DoctorFull
 import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
+import com.example.patienttracker.ui.screens.patient.TermsAndConditionsScreen
+import com.example.patienttracker.ui.screens.patient.PrivacyPolicyScreen
+import com.example.patienttracker.ui.screens.patient.ChangePasswordScreen
+import com.example.patienttracker.ui.screens.patient.drawer.*
 import com.example.patienttracker.ui.screens.patient.PatientHealthRecordsScreen
 import com.example.patienttracker.ui.screens.patient.UploadHealthRecordScreen
 import com.example.patienttracker.ui.screens.patient.EnhancedUploadHealthRecordScreen
@@ -39,6 +43,12 @@ import com.example.patienttracker.ui.screens.patient.SimplifiedBookAppointmentSc
 import com.example.patienttracker.ui.screens.doctor.DoctorViewPatientRecordsScreen
 import com.example.patienttracker.ui.screens.doctor.EnhancedDoctorViewPatientRecordsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorPatientListScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorProfileScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorMessagesScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorAppointmentsFullScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorManageScheduleScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorViewRecordsScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorSettingsScreen
 import com.example.patienttracker.ui.viewmodel.ThemeViewModel
 import com.example.patienttracker.ui.screens.patient.SelectSpecialtyScreen
 import com.example.patienttracker.ui.screens.patient.SelectDoctorScreen
@@ -207,6 +217,47 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             PatientProfileScreen(navController, first, last, themeViewModel)
         }
 
+        composable("terms_and_conditions") {
+            TermsAndConditionsScreen(navController)
+        }
+
+        composable("privacy_policy") {
+            PrivacyPolicyScreen(navController)
+        }
+
+        composable("change_password") {
+            ChangePasswordScreen(navController)
+        }
+
+        // Drawer Navigation Routes
+        composable("help_center") {
+            HelpCenterScreen(navController)
+        }
+
+        composable("help_book_appointment") {
+            HelpBookAppointmentScreen(navController)
+        }
+
+        composable("help_upload_reports") {
+            HelpUploadReportsScreen(navController)
+        }
+
+        composable("help_view_history") {
+            HelpViewHistoryScreen(navController)
+        }
+
+        composable("faqs") {
+            FAQsScreen(navController)
+        }
+
+        composable("about_medify") {
+            AboutMedifyScreen(navController)
+        }
+
+        composable("contact_support") {
+            ContactSupportScreen(navController)
+        }
+
         // Health Records Routes
         composable("patient_health_records") {
             PatientHealthRecordsScreen(navController, context)
@@ -321,6 +372,31 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             val date = backStackEntry.arguments?.getString("date") ?: ""
             val timeSlot = backStackEntry.arguments?.getString("timeSlot") ?: ""
             AppointmentSuccessScreen(navController, context, appointmentId, doctorName, date, timeSlot)
+        }
+
+        // New Doctor Feature Routes
+        composable("doctor_profile") {
+            DoctorProfileScreen(navController, context)
+        }
+
+        composable("doctor_messages") {
+            DoctorMessagesScreen(navController, context)
+        }
+
+        composable("doctor_appointments_full") {
+            DoctorAppointmentsFullScreen(navController, context)
+        }
+
+        composable("doctor_manage_schedule") {
+            DoctorManageScheduleScreen(navController, context)
+        }
+
+        composable("doctor_view_records") {
+            DoctorViewRecordsScreen(navController, context)
+        }
+
+        composable("doctor_settings") {
+            DoctorSettingsScreen(navController, context)
         }
     }
 }

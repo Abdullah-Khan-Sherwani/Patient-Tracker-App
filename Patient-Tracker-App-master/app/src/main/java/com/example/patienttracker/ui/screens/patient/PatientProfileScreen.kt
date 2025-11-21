@@ -162,7 +162,7 @@ fun PatientProfileScreen(
             SettingItem(
                 title = "Terms & Conditions",
                 icon = Icons.Default.Description,
-                onClick = { navController.navigate("terms_conditions") },
+                onClick = { navController.navigate("terms_and_conditions") },
                 isDarkMode = isDarkMode
             )
         }

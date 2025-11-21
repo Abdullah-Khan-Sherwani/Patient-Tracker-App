@@ -23,11 +23,11 @@ import com.example.patienttracker.data.AppointmentRepository
 import kotlinx.coroutines.launch
 
 // Design Colors
-private val BackgroundColor = Color(0xFFDDD2CE)
-private val SurfaceColor = Color(0xFFF7ECE8)
+private val BackgroundColor = Color(0xFFFAF8F3)
+private val SurfaceColor = Color(0xFFF5F0E8)
 private val PrimaryColor = Color(0xFF2F2019)
-private val AccentColor = Color(0xFFB36B3C)
-private val BorderColor = Color(0xFF9E8B82)
+private val AccentColor = Color(0xFFB8956A)
+private val BorderColor = Color(0xFFD4C4B0)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

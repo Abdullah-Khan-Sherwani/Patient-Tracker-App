@@ -25,6 +25,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.navigation.NavController
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
@@ -61,6 +62,8 @@ data class FeatureCardData(
 @Composable
 fun PatientDashboard(navController: NavController, context: Context, isDarkMode: Boolean = false) {
     var selectedTab by remember { mutableStateOf(0) }
+    val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+    val scope = rememberCoroutineScope()
     
     // Get user name from saved state or default
     val userName = navController.previousBackStackEntry?.savedStateHandle?.get<String>("firstName")
@@ -81,10 +84,25 @@ fun PatientDashboard(navController: NavController, context: Context, isDarkMode:
     val textCol = if (isDarkMode) DarkTextColor else CardTitleColor
     val secondaryTextCol = if (isDarkMode) DarkSecondaryTextColor else CardSubtitleColor
 
-    Scaffold(
-        topBar = {
-            DashboardTopAppBar(navController = navController, userName = userName, userLastName = userLastName, isDarkMode = isDarkMode)
-        },
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            NavigationDrawerContent(
+                navController = navController,
+                drawerState = drawerState
+            )
+        }
+    ) {
+        Scaffold(
+            topBar = {
+                DashboardTopAppBar(
+                    navController = navController, 
+                    userName = userName, 
+                    userLastName = userLastName, 
+                    isDarkMode = isDarkMode,
+                    drawerState = drawerState
+                )
+            },
         bottomBar = {
             DashboardBottomNavigationBar(
                 selectedTab = selectedTab,
@@ -95,9 +113,9 @@ fun PatientDashboard(navController: NavController, context: Context, isDarkMode:
                 isDarkMode = isDarkMode
             )
         },
-        containerColor = bgColor,
-        contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)
-    ) { innerPadding ->
+            containerColor = bgColor,
+            contentWindowInsets = WindowInsets(0.dp, 0.dp, 0.dp, 0.dp)
+        ) { innerPadding ->
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -119,11 +137,19 @@ fun PatientDashboard(navController: NavController, context: Context, isDarkMode:
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }
+        }
     }
 }
 
 @Composable
-fun DashboardTopAppBar(navController: NavController, userName: String, userLastName: String, isDarkMode: Boolean = false) {
+fun DashboardTopAppBar(
+    navController: NavController, 
+    userName: String, 
+    userLastName: String, 
+    isDarkMode: Boolean = false,
+    drawerState: DrawerState? = null
+) {
+    val scope = rememberCoroutineScope()
     val headerTopCol = if (isDarkMode) DarkHeaderTopColor else HeaderTopColor
     val cardCol = if (isDarkMode) DarkCardColor else CardWhite
     
@@ -146,7 +172,9 @@ fun DashboardTopAppBar(navController: NavController, userName: String, userLastN
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-            IconButton(onClick = { /* Menu action */ }) {
+            IconButton(onClick = { 
+                drawerState?.let { scope.launch { it.open() } }
+            }) {
                 Icon(
                     imageVector = Icons.Default.Menu,
                     contentDescription = "Menu",
@@ -638,5 +666,148 @@ fun getCurrentDateFormatted(): String {
     val month = today.format(DateTimeFormatter.ofPattern("MMM"))
     val year = today.year
     return "$dayOfWeek, $dayOfMonth $month $year"
+}
+
+@Composable
+fun NavigationDrawerContent(
+    navController: NavController,
+    drawerState: DrawerState
+) {
+    val scope = rememberCoroutineScope()
+    
+    ModalDrawerSheet(
+        drawerContainerColor = Color.White,
+        modifier = Modifier.width(280.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(vertical = 16.dp)
+        ) {
+            // Header
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 24.dp)
+            ) {
+                Text(
+                    text = "MEDIFY",
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = HeaderTopColor
+                )
+            }
+            
+            Divider(color = Color(0xFFE0E0E0))
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Drawer Items
+            DrawerMenuItem(
+                icon = Icons.Default.Help,
+                title = "Help Center",
+                onClick = {
+                    scope.launch {
+                        drawerState.close()
+                        navController.navigate("help_center")
+                    }
+                }
+            )
+            
+            DrawerMenuItem(
+                icon = Icons.Default.QuestionAnswer,
+                title = "FAQs",
+                onClick = {
+                    scope.launch {
+                        drawerState.close()
+                        navController.navigate("faqs")
+                    }
+                }
+            )
+            
+            DrawerMenuItem(
+                icon = Icons.Default.Info,
+                title = "About Medify",
+                onClick = {
+                    scope.launch {
+                        drawerState.close()
+                        navController.navigate("about_medify")
+                    }
+                }
+            )
+            
+            DrawerMenuItem(
+                icon = Icons.Default.ContactSupport,
+                title = "Contact Support",
+                onClick = {
+                    scope.launch {
+                        drawerState.close()
+                        navController.navigate("contact_support")
+                    }
+                }
+            )
+            
+            Spacer(modifier = Modifier.weight(1f))
+            
+            // App Version at bottom
+            Divider(color = Color(0xFFE0E0E0))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Version 1.0.0",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DrawerMenuItem(
+    icon: ImageVector,
+    title: String,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        color = Color.Transparent
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = HeaderTopColor,
+                modifier = Modifier.size(24.dp)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Text(
+                text = title,
+                fontSize = 15.sp,
+                color = Color(0xFF333333),
+                modifier = Modifier.weight(1f)
+            )
+            
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color.Gray,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
 }
 

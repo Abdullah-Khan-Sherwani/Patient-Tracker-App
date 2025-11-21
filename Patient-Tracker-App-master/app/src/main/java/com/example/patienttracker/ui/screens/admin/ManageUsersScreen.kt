@@ -41,7 +41,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFF9FEFF)
+        color = Color(0xFFFAF8F3)
     ) {
         Column(
             modifier = Modifier
@@ -54,7 +54,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                 text = "Manage Users",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF05B8C7),
+                color = Color(0xFFB8956A),
                 modifier = Modifier.padding(vertical = 16.dp)
             )
 
@@ -81,7 +81,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                         .fillMaxSize()
                         .wrapContentSize(Alignment.Center)
                 ) {
-                    CircularProgressIndicator(color = Color(0xFF05B8C7))
+                    CircularProgressIndicator(color = Color(0xFFB8956A))
                 }
             } else if (users.isEmpty()) {
                 Box(

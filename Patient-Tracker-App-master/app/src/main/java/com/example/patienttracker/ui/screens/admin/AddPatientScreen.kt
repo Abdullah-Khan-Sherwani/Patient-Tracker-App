@@ -40,7 +40,7 @@ fun AddPatientScreen(navController: NavController, context: Context) {
 
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFF9FEFF)
+        color = Color(0xFFFAF8F3)
     ) {
         Column(
             modifier = Modifier
@@ -54,7 +54,7 @@ fun AddPatientScreen(navController: NavController, context: Context) {
                 text = "Add Patient",
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF05B8C7),
+                color = Color(0xFFB8956A),
                 modifier = Modifier.padding(vertical = 16.dp)
             )
 
@@ -180,7 +180,7 @@ fun AddPatientScreen(navController: NavController, context: Context) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF05B8C7)),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB8956A)),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
                 enabled = !isLoading
             ) {

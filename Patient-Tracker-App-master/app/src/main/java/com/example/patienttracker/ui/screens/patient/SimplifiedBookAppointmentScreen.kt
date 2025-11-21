@@ -30,12 +30,12 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-// Design Colors
-private val BackgroundColor = Color(0xFFDDD2CE)
-private val SurfaceColor = Color(0xFFF7ECE8)
-private val PrimaryColor = Color(0xFF2F2019)
-private val AccentColor = Color(0xFFB36B3C)
-private val BorderColor = Color(0xFF9E8B82)
+/**
+ * Simplified Book Appointment Screen
+ * 
+ * THEME FIX: Removed all hardcoded colors, now uses MaterialTheme.colorScheme
+ * for proper dark mode support across all components
+ */
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,13 +94,15 @@ fun SimplifiedBookAppointmentScreen(
                         Icon(Icons.Default.ArrowBack, "Back")
                     }
                 },
+                // THEME FIX: Use theme colors instead of hardcoded
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceColor,
-                    titleContentColor = PrimaryColor
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    titleContentColor = MaterialTheme.colorScheme.onSurface
                 )
             )
         },
-        containerColor = BackgroundColor
+        // THEME FIX: Use background color from theme
+        containerColor = MaterialTheme.colorScheme.background
     ) { padding ->
         
         if (showSuccess) {
@@ -114,13 +116,14 @@ fun SimplifiedBookAppointmentScreen(
                     Text(
                         "Success!", 
                         fontWeight = FontWeight.Bold,
-                        color = PrimaryColor
+                        // THEME FIX: Use theme color
+                        color = MaterialTheme.colorScheme.onSurface
                     ) 
                 },
                 text = { 
                     Text(
                         "Your appointment has been booked successfully!",
-                        color = PrimaryColor
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
                     ) 
                 },
                 confirmButton = {
@@ -130,14 +133,16 @@ fun SimplifiedBookAppointmentScreen(
                             navController.popBackStack()
                         },
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryColor
+                            // THEME FIX: Use primary color
+                            containerColor = MaterialTheme.colorScheme.primary
                         ),
                         shape = RoundedCornerShape(28.dp)
                     ) {
-                        Text("OK", color = Color.White)
+                        Text("OK", color = MaterialTheme.colorScheme.onPrimary)
                     }
                 },
-                containerColor = SurfaceColor,
+                // THEME FIX: Use surface color from theme
+                containerColor = MaterialTheme.colorScheme.surface,
                 shape = RoundedCornerShape(28.dp)
             )
         }
@@ -153,7 +158,10 @@ fun SimplifiedBookAppointmentScreen(
             item {
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = SurfaceColor),
+                    // THEME FIX: Use surface color from theme
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surface
+                    ),
                     shape = RoundedCornerShape(28.dp),
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
@@ -167,13 +175,14 @@ fun SimplifiedBookAppointmentScreen(
                         Surface(
                             modifier = Modifier.size(60.dp),
                             shape = RoundedCornerShape(30.dp),
-                            color = AccentColor
+                            // THEME FIX: Use primary color
+                            color = MaterialTheme.colorScheme.primary
                         ) {
                             Box(contentAlignment = Alignment.Center) {
                                 Text(
                                     text = doctorName.split(" ").mapNotNull { it.firstOrNull() }
                                         .take(2).joinToString(""),
-                                    color = Color.White,
+                                    color = MaterialTheme.colorScheme.onPrimary,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 20.sp
                                 )
@@ -187,12 +196,12 @@ fun SimplifiedBookAppointmentScreen(
                                 text = doctorName,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 18.sp,
-                                color = PrimaryColor
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 text = speciality,
                                 fontSize = 14.sp,
-                                color = AccentColor
+                                color = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
@@ -205,7 +214,7 @@ fun SimplifiedBookAppointmentScreen(
                     text = "Select Date",
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp,
-                    color = PrimaryColor
+                    color = MaterialTheme.colorScheme.onBackground
                 )
             }
 
@@ -239,7 +248,7 @@ fun SimplifiedBookAppointmentScreen(
                         text = "Select Time Slot",
                         fontWeight = FontWeight.Bold,
                         fontSize = 18.sp,
-                        color = PrimaryColor
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
 
@@ -249,8 +258,9 @@ fun SimplifiedBookAppointmentScreen(
                         onTimeSelected = { time ->
                             selectedTimeSlot = time
                         },
-                        primaryColor = AccentColor,
-                        backgroundColor = SurfaceColor
+                        // THEME FIX: Use theme colors
+                        primaryColor = MaterialTheme.colorScheme.primary,
+                        backgroundColor = MaterialTheme.colorScheme.surface
                     )
                 }
 
@@ -260,7 +270,7 @@ fun SimplifiedBookAppointmentScreen(
                         text = "Notes (Optional)",
                         fontWeight = FontWeight.Bold,
                         fontSize = 16.sp,
-                        color = PrimaryColor
+                        color = MaterialTheme.colorScheme.onBackground
                     )
                 }
 
@@ -273,11 +283,12 @@ fun SimplifiedBookAppointmentScreen(
                             .height(120.dp),
                         placeholder = { Text("Add any notes for the doctor...") },
                         shape = RoundedCornerShape(28.dp),
+                        // THEME FIX: Use theme colors
                         colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedContainerColor = SurfaceColor,
-                            focusedContainerColor = SurfaceColor,
-                            unfocusedBorderColor = BorderColor,
-                            focusedBorderColor = AccentColor
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surface,
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                            focusedBorderColor = MaterialTheme.colorScheme.primary
                         )
                     )
                 }
@@ -315,23 +326,24 @@ fun SimplifiedBookAppointmentScreen(
                             .fillMaxWidth()
                             .height(56.dp),
                         enabled = selectedDate != null && selectedTimeSlot != null && !isLoading,
+                        // THEME FIX: Use theme colors
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = PrimaryColor,
-                            disabledContainerColor = BorderColor
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant
                         ),
                         shape = RoundedCornerShape(28.dp)
                     ) {
                         if (isLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                         } else {
                             Text(
                                 "Confirm Booking",
                                 fontSize = 16.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = MaterialTheme.colorScheme.onPrimary
                             )
                         }
                     }
@@ -341,7 +353,7 @@ fun SimplifiedBookAppointmentScreen(
                     item {
                         Text(
                             text = errorMessage!!,
-                            color = Color.Red,
+                            color = MaterialTheme.colorScheme.error,
                             fontSize = 14.sp,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Center
@@ -353,6 +365,10 @@ fun SimplifiedBookAppointmentScreen(
     }
 }
 
+/**
+ * Date Cell Component  
+ * THEME FIX: Now uses MaterialTheme colors
+ */
 @Composable
 fun DateCell(
     date: Date,
@@ -370,8 +386,15 @@ fun DateCell(
             .aspectRatio(1f)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
-        color = if (isSelected) PrimaryColor else SurfaceColor,
-        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, BorderColor)
+        // THEME FIX: Use theme colors
+        color = if (isSelected) 
+            MaterialTheme.colorScheme.primary 
+        else 
+            MaterialTheme.colorScheme.surface,
+        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(
+            1.dp, 
+            MaterialTheme.colorScheme.outline
+        )
     ) {
         Column(
             modifier = Modifier
@@ -384,17 +407,27 @@ fun DateCell(
                 text = dayOfMonth.toString(),
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
-                color = if (isSelected) Color.White else PrimaryColor
+                color = if (isSelected) 
+                    MaterialTheme.colorScheme.onPrimary 
+                else 
+                    MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = dayOfWeek,
                 fontSize = 10.sp,
-                color = if (isSelected) Color.White else AccentColor
+                color = if (isSelected) 
+                    MaterialTheme.colorScheme.onPrimary 
+                else 
+                    MaterialTheme.colorScheme.primary
             )
         }
     }
 }
 
+/**
+ * Time Slot Chip Component
+ * THEME FIX: Now uses MaterialTheme colors
+ */
 @Composable
 fun TimeSlotChip(
     timeSlot: String,
@@ -407,8 +440,15 @@ fun TimeSlotChip(
             .height(48.dp)
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(28.dp),
-        color = if (isSelected) PrimaryColor else SurfaceColor,
-        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(1.dp, BorderColor)
+        // THEME FIX: Use theme colors
+        color = if (isSelected) 
+            MaterialTheme.colorScheme.primary 
+        else 
+            MaterialTheme.colorScheme.surface,
+        border = if (isSelected) null else androidx.compose.foundation.BorderStroke(
+            1.dp, 
+            MaterialTheme.colorScheme.outline
+        )
     ) {
         Box(
             contentAlignment = Alignment.Center,
@@ -418,7 +458,10 @@ fun TimeSlotChip(
                 text = timeSlot,
                 fontSize = 13.sp,
                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) Color.White else PrimaryColor,
+                color = if (isSelected) 
+                    MaterialTheme.colorScheme.onPrimary 
+                else 
+                    MaterialTheme.colorScheme.onSurface,
                 textAlign = TextAlign.Center
             )
         }

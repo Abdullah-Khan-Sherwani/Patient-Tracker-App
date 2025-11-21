@@ -42,9 +42,20 @@ data class DoctorFull(
     val timings: String
 ) : Parcelable
 
+/**
+ * Doctor List Screen - Search Specialists
+ * 
+ * THEME FIX: Now uses MaterialTheme.colorScheme for proper dark mode support
+ * - Primary colors for gradient header
+ * - Surface/background colors for cards and list background
+ * - All colors now respect system/app theme setting
+ */
 @Composable
 fun DoctorListScreen(navController: NavController, context: Context, specialityFilter: String?) {
-    val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
+    // THEME FIX: Use MaterialTheme colors instead of hardcoded values
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
+    val gradient = Brush.verticalGradient(listOf(primaryColor, primaryContainer))
 
     var doctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
 
@@ -73,7 +84,8 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
                 ) {
                     Text(
                         text = specialityFilter?.ifBlank { "All Doctors" } ?: "All Doctors",
-                        color = Color.White,
+                        // THEME FIX: Use onPrimary for text on primary background
+                        color = MaterialTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -84,7 +96,8 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
             modifier = Modifier
                 .fillMaxSize()
                 .padding(inner)
-                .background(Color(0xFFF6F8FC)),
+                // THEME FIX: Use background color from theme
+                .background(MaterialTheme.colorScheme.background),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(16.dp)
         ) {
@@ -99,41 +112,62 @@ fun DoctorListScreen(navController: NavController, context: Context, specialityF
     }
 }
 
+/**
+ * Doctor Card Component
+ * 
+ * THEME FIX: Now uses MaterialTheme.colorScheme for all colors
+ * - surface/surfaceVariant for card background
+ * - onSurface/onSurfaceVariant for text
+ * - primary for buttons
+ * Properly supports dark mode
+ */
 @Composable
 fun DoctorCard(doctor: DoctorFull, onBookClick: () -> Unit) {
     Surface(
         shape = RoundedCornerShape(20.dp),
         tonalElevation = 2.dp,
-        color = Color.White,
+        // THEME FIX: Use surface color from theme
+        color = MaterialTheme.colorScheme.surface,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
                 text = "Dr. ${doctor.firstName} ${doctor.lastName}",
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                color = Color(0xFF1C3D5A)
+                // THEME FIX: Use onSurface color
+                color = MaterialTheme.colorScheme.onSurface
             )
             Text(
                 text = doctor.speciality,
-                color = Color(0xFF4CB7C2),
+                // THEME FIX: Use primary color for specialty
+                color = MaterialTheme.colorScheme.primary,
                 style = MaterialTheme.typography.bodyMedium
             )
             Spacer(Modifier.height(4.dp))
-            Text("Days: ${doctor.days}", color = Color(0xFF2A6C74))
-            Text("Timings: ${doctor.timings}", color = Color(0xFF2A6C74))
+            Text(
+                "Days: ${doctor.days}", 
+                // THEME FIX: Use onSurfaceVariant for secondary text
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Text(
+                "Timings: ${doctor.timings}", 
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Spacer(Modifier.height(8.dp))
             
             // Price badge
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = Color(0xFF4CAF50),
+                // THEME FIX: Use secondaryContainer for badge
+                color = MaterialTheme.colorScheme.secondaryContainer,
                 modifier = Modifier.align(Alignment.Start)
             ) {
                 Text(
                     text = "Rs. 1,500",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White,
+                    // THEME FIX: Use onSecondaryContainer
+                    color = MaterialTheme.colorScheme.onSecondaryContainer,
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 )
             }
@@ -141,11 +175,17 @@ fun DoctorCard(doctor: DoctorFull, onBookClick: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             Button(
                 onClick = onBookClick,
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3CC7CD)),
+                // THEME FIX: Use primary color from theme
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
                 shape = RoundedCornerShape(12.dp),
                 modifier = Modifier.align(Alignment.End)
             ) {
-                Text("Book Appointment", color = Color.White)
+                Text(
+                    "Book Appointment", 
+                    color = MaterialTheme.colorScheme.onPrimary
+                )
             }
 
         }

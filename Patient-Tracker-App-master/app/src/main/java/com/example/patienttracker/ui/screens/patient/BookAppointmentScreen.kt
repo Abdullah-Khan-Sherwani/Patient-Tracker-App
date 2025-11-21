@@ -19,14 +19,24 @@ import java.time.format.DateTimeFormatter
 import java.util.*
 import androidx.compose.foundation.clickable
 
-
+/**
+ * Book Appointment Screen
+ * 
+ * THEME FIX: Now uses MaterialTheme.colorScheme for proper dark mode support
+ * - Primary colors for header gradient and buttons
+ * - Surface/background colors for proper contrast
+ * - All text colors use theme-aware values
+ */
 @Composable
 fun BookAppointmentScreen(
     navController: NavController,
     context: Context,
     doctor: DoctorFull
 ) {
-    val gradient = Brush.verticalGradient(listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD)))
+    // THEME FIX: Use MaterialTheme colors instead of hardcoded gradient
+    val primaryColor = MaterialTheme.colorScheme.primary
+    val primaryContainer = MaterialTheme.colorScheme.primaryContainer
+    val gradient = Brush.verticalGradient(listOf(primaryColor, primaryContainer))
 
     val availableDays = doctor.days.split(",").map { it.trim().lowercase(Locale.ROOT) }
     val timing = doctor.timings
@@ -48,12 +58,15 @@ fun BookAppointmentScreen(
                 ) {
                     Text(
                         text = "Book Appointment",
-                        color = Color.White,
+                        // THEME FIX: Use onPrimary for text on primary background
+                        color = MaterialTheme.colorScheme.onPrimary,
                         style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 }
             }
-        }
+        },
+        // THEME FIX: Use background color from theme
+        containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
         Column(
             modifier = Modifier
@@ -63,10 +76,25 @@ fun BookAppointmentScreen(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text("Dr. ${doctor.firstName} ${doctor.lastName}", fontWeight = FontWeight.Bold)
-            Text("Speciality: ${doctor.speciality}", color = Color(0xFF4CB7C2))
-            Text("Available Days: ${doctor.days}")
-            Text("Timings: ${doctor.timings}")
+            Text(
+                "Dr. ${doctor.firstName} ${doctor.lastName}", 
+                fontWeight = FontWeight.Bold,
+                // THEME FIX: Use onBackground color
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                "Speciality: ${doctor.speciality}", 
+                // THEME FIX: Use primary color for specialty
+                color = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                "Available Days: ${doctor.days}",
+                color = MaterialTheme.colorScheme.onBackground
+            )
+            Text(
+                "Timings: ${doctor.timings}",
+                color = MaterialTheme.colorScheme.onBackground
+            )
 
             Spacer(Modifier.height(12.dp))
 
@@ -78,10 +106,16 @@ fun BookAppointmentScreen(
 
             Button(
                 onClick = { /* TODO: Implement file picker */ },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEAF7F8)),
+                // THEME FIX: Use surfaceVariant for secondary button
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text(if (selectedReport == null) "Attach Report" else "Report Attached: $selectedReport", color = Color(0xFF2A6C74))
+                Text(
+                    if (selectedReport == null) "Attach Report" else "Report Attached: $selectedReport", 
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             val dayName = selectedDate.dayOfWeek.name.lowercase(Locale.ROOT)
@@ -102,19 +136,33 @@ fun BookAppointmentScreen(
                         message = "Doctor not available on this day."
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF3CC7CD)),
+                // THEME FIX: Use primary color from theme
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Confirm Booking", color = Color.White)
+                Text("Confirm Booking", color = MaterialTheme.colorScheme.onPrimary)
             }
 
             if (message.isNotEmpty()) {
-                Text(message, color = if (message.contains("success")) Color(0xFF2A6C74) else Color.Red)
+                Text(
+                    message, 
+                    color = if (message.contains("success")) 
+                        MaterialTheme.colorScheme.primary 
+                    else 
+                        MaterialTheme.colorScheme.error
+                )
             }
         }
     }
 }
 
+/**
+ * Date Picker Component
+ * 
+ * THEME FIX: Now uses MaterialTheme colors for proper dark mode support
+ */
 @Composable
 fun DatePicker(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
     Row(horizontalArrangement = Arrangement.SpaceEvenly, modifier = Modifier.fillMaxWidth()) {
@@ -124,7 +172,11 @@ fun DatePicker(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
             val isSelected = date == selectedDate
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = if (isSelected) Color(0xFF3CC7CD) else Color(0xFFEAF7F8),
+                // THEME FIX: Use primary for selected, surfaceVariant for unselected
+                color = if (isSelected) 
+                    MaterialTheme.colorScheme.primary 
+                else 
+                    MaterialTheme.colorScheme.surfaceVariant,
                 modifier = Modifier
                     .padding(4.dp)
                     .clickable { onDateSelected(date) }
@@ -133,8 +185,20 @@ fun DatePicker(selectedDate: LocalDate, onDateSelected: (LocalDate) -> Unit) {
                     modifier = Modifier.padding(8.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(date.dayOfMonth.toString(), color = if (isSelected) Color.White else Color(0xFF2A6C74))
-                    Text(date.dayOfWeek.name.take(3), color = if (isSelected) Color.White else Color(0xFF2A6C74))
+                    Text(
+                        date.dayOfMonth.toString(), 
+                        color = if (isSelected) 
+                            MaterialTheme.colorScheme.onPrimary 
+                        else 
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        date.dayOfWeek.name.take(3), 
+                        color = if (isSelected) 
+                            MaterialTheme.colorScheme.onPrimary 
+                        else 
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
         }

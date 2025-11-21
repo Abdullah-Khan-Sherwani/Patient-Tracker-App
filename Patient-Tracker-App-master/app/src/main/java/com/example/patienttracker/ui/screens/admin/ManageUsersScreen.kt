@@ -159,6 +159,9 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                             onViewDetails = {
                                 // Navigate to user details if needed
                             },
+                            onEditDoctor = {
+                                navController.navigate("edit_doctor/${user.uid}")
+                            },
                             onEditAvailability = {
                                 navController.navigate("edit_availability/${user.uid}")
                             },
@@ -252,6 +255,7 @@ private fun UserListCard(
     isDoctor: Boolean,
     onMoreClick: () -> Unit,
     onViewDetails: () -> Unit,
+    onEditDoctor: () -> Unit = {},
     onEditAvailability: () -> Unit,
     onRemove: () -> Unit
 ) {
@@ -328,6 +332,28 @@ private fun UserListCard(
                             onViewDetails()
                         }
                     )
+                    
+                    if (isDoctor) {
+                        HorizontalDivider()
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = null,
+                                        tint = Color(0xFFB8956A),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Edit Details", color = Color(0xFF2F2019))
+                                }
+                            },
+                            onClick = {
+                                showMenu = false
+                                onEditDoctor()
+                            }
+                        )
+                    }
                     
                     if (isDoctor) {
                         HorizontalDivider()

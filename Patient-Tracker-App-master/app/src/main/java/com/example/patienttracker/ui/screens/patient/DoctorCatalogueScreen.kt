@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
 import com.example.patienttracker.data.PatientFavoritesRepository
+import com.example.patienttracker.data.SearchRepository
+import com.example.patienttracker.ui.components.SearchBar
 import androidx.compose.ui.graphics.vector.ImageVector
 
 // Color scheme
@@ -102,6 +104,9 @@ fun DoctorCatalogueScreen(navController: NavController, context: Context) {
     var allDoctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
     var selectedSpecialty by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(true) }
+    var searchQuery by remember { mutableStateOf("") }
+    var searchResults by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
+    var isSearching by remember { mutableStateOf(false) }
     
     // Always show all specialties
     val allSpecialties = getAllSpecialties()
@@ -128,6 +133,28 @@ fun DoctorCatalogueScreen(navController: NavController, context: Context) {
             e.printStackTrace()
         } finally {
             isLoading = false
+        }
+    }
+    
+    // Handle search
+    val scope = rememberCoroutineScope()
+    LaunchedEffect(searchQuery) {
+        if (searchQuery.isNotEmpty()) {
+            isSearching = true
+            scope.launch {
+                try {
+                    val result = SearchRepository.searchDoctors(searchQuery)
+                    searchResults = result.getOrNull() ?: emptyList()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    searchResults = emptyList()
+                } finally {
+                    isSearching = false
+                }
+            }
+        } else {
+            searchResults = emptyList()
+            isSearching = false
         }
     }
 
@@ -182,23 +209,117 @@ fun DoctorCatalogueScreen(navController: NavController, context: Context) {
                 ) {
                     CircularProgressIndicator(color = HeaderTopColor)
                 }
-            } else if (selectedSpecialty == null) {
-                // Main catalogue view - 2 column grid of all specialties
-                LazyVerticalGrid(
-                    columns = GridCells.Fixed(2),
+            } else if (searchQuery.isNotEmpty() && searchResults.isNotEmpty()) {
+                // Search results view
+                Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(BackgroundColor),
-                    contentPadding = PaddingValues(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .background(BackgroundColor)
                 ) {
-                    items(allSpecialties) { specialtyInfo ->
-                        SpecialtyCategoryCard(
-                            specialtyInfo = specialtyInfo,
-                            doctorCount = doctorsBySpecialty[specialtyInfo.name]?.size ?: 0,
-                            onClick = { selectedSpecialty = specialtyInfo.name }
-                        )
+                    // Search bar
+                    SearchBar(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = "Search doctors by name, specialty...",
+                        backgroundColor = CardWhite,
+                        modifier = Modifier.padding(16.dp)
+                    )
+
+                    // Search results
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        items(searchResults) { doctor ->
+                            DoctorListCard(
+                                doctor = doctor,
+                                onBookAppointment = {
+                                    navController.navigate(
+                                        "select_datetime/${doctor.id}/${doctor.firstName}/${doctor.lastName}/${doctor.speciality}"
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
+            } else if (selectedSpecialty == null) {
+                // Main catalogue view - 2 column grid of all specialties
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(BackgroundColor)
+                ) {
+                    // Search bar on main catalogue
+                    SearchBar(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = "Search doctors by name, specialty...",
+                        backgroundColor = CardWhite,
+                        modifier = Modifier.padding(16.dp)
+                    )
+
+                    if (searchQuery.isEmpty()) {
+                        // Specialties grid
+                        LazyVerticalGrid(
+                            columns = GridCells.Fixed(2),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(BackgroundColor),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(allSpecialties) { specialtyInfo ->
+                                SpecialtyCategoryCard(
+                                    specialtyInfo = specialtyInfo,
+                                    doctorCount = doctorsBySpecialty[specialtyInfo.name]?.size ?: 0,
+                                    onClick = { selectedSpecialty = specialtyInfo.name }
+                                )
+                            }
+                        }
+                    } else if (isSearching) {
+                        // Loading indicator while searching
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(color = HeaderTopColor)
+                        }
+                    } else if (searchResults.isEmpty()) {
+                        // No results found
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(32.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.SearchOff,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(48.dp),
+                                    tint = StatTextColor.copy(alpha = 0.4f)
+                                )
+                                Spacer(modifier = Modifier.height(16.dp))
+                                Text(
+                                    text = "No doctors found",
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = StatTextColor
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Try searching by name or specialization",
+                                    fontSize = 14.sp,
+                                    color = StatTextColor.copy(alpha = 0.7f),
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                     }
                 }
             } else {
@@ -208,6 +329,15 @@ fun DoctorCatalogueScreen(navController: NavController, context: Context) {
                         .fillMaxSize()
                         .background(BackgroundColor)
                 ) {
+                    // Search bar in specialty view
+                    SearchBar(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        placeholder = "Search in ${selectedSpecialty}...",
+                        backgroundColor = CardWhite,
+                        modifier = Modifier.padding(16.dp)
+                    )
+
                     // Back to categories button
                     Surface(
                         modifier = Modifier.fillMaxWidth(),

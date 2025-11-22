@@ -29,7 +29,7 @@ object SearchRepository {
 
             val lowerQuery = query.lowercase().trim()
             val allDoctors = db.collection("users")
-                .whereEqualTo("userType", "doctor")
+                .whereEqualTo("role", "doctor")
                 .get()
                 .await()
                 .toObjects(DoctorFull::class.java)
@@ -72,7 +72,7 @@ object SearchRepository {
 
             val lowerSpec = specialization.lowercase().trim()
             val allDoctors = db.collection("users")
-                .whereEqualTo("userType", "doctor")
+                .whereEqualTo("role", "doctor")
                 .get()
                 .await()
                 .toObjects(DoctorFull::class.java)
@@ -103,7 +103,7 @@ object SearchRepository {
 
             val lowerName = name.lowercase().trim()
             val allDoctors = db.collection("users")
-                .whereEqualTo("userType", "doctor")
+                .whereEqualTo("role", "doctor")
                 .get()
                 .await()
                 .toObjects(DoctorFull::class.java)
@@ -136,7 +136,7 @@ object SearchRepository {
 
             val lowerQuery = query.lowercase().trim()
             val allPatients = db.collection("users")
-                .whereEqualTo("userType", "patient")
+                .whereEqualTo("role", "patient")
                 .get()
                 .await()
                 .documents
@@ -169,7 +169,7 @@ object SearchRepository {
      */
     suspend fun getAllDoctors(): Result<List<DoctorFull>> = try {
         val doctors = db.collection("users")
-            .whereEqualTo("userType", "doctor")
+            .whereEqualTo("role", "doctor")
             .get()
             .await()
             .toObjects(DoctorFull::class.java)
@@ -190,7 +190,7 @@ object SearchRepository {
      */
     suspend fun getTopRatedDoctors(limit: Int = 10): Result<List<DoctorFull>> = try {
         val allDoctors = db.collection("users")
-            .whereEqualTo("userType", "doctor")
+            .whereEqualTo("role", "doctor")
             .get()
             .await()
             .toObjects(DoctorFull::class.java)
@@ -220,7 +220,7 @@ object SearchRepository {
 
             val lowerPrefix = prefix.lowercase().trim()
             val allDoctors = db.collection("users")
-                .whereEqualTo("userType", "doctor")
+                .whereEqualTo("role", "doctor")
                 .get()
                 .await()
                 .toObjects(DoctorFull::class.java)

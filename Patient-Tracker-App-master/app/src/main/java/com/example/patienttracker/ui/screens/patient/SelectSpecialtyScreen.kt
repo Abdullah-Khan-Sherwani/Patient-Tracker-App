@@ -62,6 +62,20 @@ private fun getAllSpecialtiesForBooking(): List<SpecialtyCategory> {
 @Composable
 fun SelectSpecialtyScreen(navController: NavController, context: Context) {
     val specialties = getAllSpecialtiesForBooking()
+    var searchQuery by remember { mutableStateOf("") }
+    
+    // Filter specialties based on search query
+    val filteredSpecialties = remember(searchQuery, specialties) {
+        if (searchQuery.isEmpty()) {
+            specialties
+        } else {
+            val query = searchQuery.lowercase()
+            specialties.filter { specialty ->
+                specialty.name.lowercase().contains(query) ||
+                specialty.description.lowercase().contains(query)
+            }
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -108,21 +122,79 @@ fun SelectSpecialtyScreen(navController: NavController, context: Context) {
         // THEME FIX: Use background color from theme
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            LazyVerticalGrid(
-                columns = GridCells.Fixed(2),
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(specialties) { specialty ->
-                    BookingSpecialtyCard(specialty) {
-                        navController.navigate("select_doctor/${specialty.name}")
+            // Search bar
+            com.example.patienttracker.ui.components.SearchBar(
+                value = searchQuery,
+                onValueChange = { searchQuery = it },
+                placeholder = "Search by specialty or description...",
+                backgroundColor = MaterialTheme.colorScheme.surface,
+                searchIconColor = MaterialTheme.colorScheme.primary,
+                textColor = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.padding(16.dp)
+            )
+            
+            // Results count
+            if (searchQuery.isNotEmpty()) {
+                Text(
+                    text = "${filteredSpecialties.size} specialt${if (filteredSpecialties.size == 1) "y" else "ies"} found",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                )
+            }
+            
+            // Specialty grid or empty state
+            if (filteredSpecialties.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.SearchOff,
+                            contentDescription = null,
+                            modifier = Modifier.size(48.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No specialties found",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Try searching with different keywords",
+                            fontSize = 14.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(filteredSpecialties) { specialty ->
+                        BookingSpecialtyCard(specialty) {
+                            navController.navigate("select_doctor/${specialty.name}")
+                        }
                     }
                 }
             }

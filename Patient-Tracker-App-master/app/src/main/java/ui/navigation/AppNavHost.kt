@@ -34,6 +34,8 @@ import com.example.patienttracker.ui.screens.doctor.DoctorHomeScreen
 import com.example.patienttracker.ui.screens.auth.UnifiedLoginScreen
 import com.example.patienttracker.ui.screens.auth.PatientWelcomeScreen
 import com.example.patienttracker.ui.screens.auth.DoctorWelcomeScreen
+import com.example.patienttracker.ui.screens.auth.PrivacyPolicyScreen as AuthPrivacyPolicyScreen
+import com.example.patienttracker.ui.screens.auth.TermsAndConditionsScreen as AuthTermsAndConditionsScreen
 import com.example.patienttracker.ui.screens.patient.DoctorListScreen
 import com.example.patienttracker.ui.screens.patient.DoctorFull
 import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
@@ -186,6 +188,14 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
         
         composable("forgot_password") {
             ForgotPasswordScreen(navController, context)
+        }
+
+        composable("privacy_policy") {
+            AuthPrivacyPolicyScreen(navController)
+        }
+
+        composable("terms_and_conditions") {
+            AuthTermsAndConditionsScreen(navController)
         }
 
         composable(Route.REGISTER_PATIENT) {

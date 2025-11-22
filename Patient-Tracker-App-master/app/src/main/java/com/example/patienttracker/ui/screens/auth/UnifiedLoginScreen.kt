@@ -12,6 +12,10 @@ import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Translate
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -23,10 +27,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.compose.foundation.text.ClickableText
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -50,6 +56,9 @@ fun UnifiedLoginScreen(
     var passwordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     var navigationTarget by remember { mutableStateOf<String?>(null) }
+    var showSettingsDialog by remember { mutableStateOf(false) }
+    var isUrduEnabled by remember { mutableStateOf(false) }
+    var isDarkModeEnabled by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
 
     // Handle navigation after successful login
@@ -62,9 +71,16 @@ fun UnifiedLoginScreen(
         }
     }
 
+    // Color scheme based on dark mode
+    val backgroundColor = if (isDarkModeEnabled) Color(0xFF1C1B1F) else Color(0xFFDDD2CE)
+    val surfaceColor = if (isDarkModeEnabled) Color(0xFF2B2930) else Color(0xFFF7ECE8)
+    val textColor = if (isDarkModeEnabled) Color(0xFFE6E1E5) else Color(0xFF2F2019)
+    val secondaryTextColor = if (isDarkModeEnabled) Color(0xFFCAC4D0) else Color(0xFF6B5B54)
+    val buttonColor = if (isDarkModeEnabled) Color(0xFFD0BCFF) else Color(0xFF2F2019)
+
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFDDD2CE) // Warm peach/beige background
+        color = backgroundColor
     ) {
         Box(Modifier.fillMaxSize()) {
             Column(
@@ -79,10 +95,10 @@ fun UnifiedLoginScreen(
 
                 // Title
                 Text(
-                    text = "Sign In",
+                    text = if (isUrduEnabled) "سائن ان" else "Sign In",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2F2019),
+                    color = textColor,
                     textAlign = TextAlign.Center
                 )
 
@@ -95,12 +111,12 @@ fun UnifiedLoginScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        text = "Do not have an account? ",
+                        text = if (isUrduEnabled) "اکاؤنٹ نہیں ہے؟ " else "Do not have an account? ",
                         fontSize = 14.sp,
-                        color = Color(0xFF6B5B54)
+                        color = secondaryTextColor
                     )
                     Text(
-                        text = "Sign Up",
+                        text = if (isUrduEnabled) "سائن اپ" else "Sign Up",
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFFA8653A),
@@ -114,21 +130,23 @@ fun UnifiedLoginScreen(
                 OutlinedTextField(
                     value = idOrEmail,
                     onValueChange = { idOrEmail = it },
-                    label = { Text("Email") },
+                    label = { Text(if (isUrduEnabled) "ای میل" else "Email") },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Email,
                             contentDescription = "Email icon",
-                            tint = Color(0xFF6B5B54)
+                            tint = secondaryTextColor
                         )
                     },
                     singleLine = true,
                     shape = RoundedCornerShape(28.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFFB36B3C),
-                        unfocusedBorderColor = Color(0xFF9E8B82),
-                        focusedContainerColor = Color(0xFFF7ECE8),
-                        unfocusedContainerColor = Color(0xFFF7ECE8)
+                        unfocusedBorderColor = if (isDarkModeEnabled) Color(0xFF938F99) else Color(0xFF9E8B82),
+                        focusedContainerColor = surfaceColor,
+                        unfocusedContainerColor = surfaceColor,
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -139,12 +157,12 @@ fun UnifiedLoginScreen(
                 OutlinedTextField(
                     value = password,
                     onValueChange = { password = it },
-                    label = { Text("Password") },
+                    label = { Text(if (isUrduEnabled) "پاس ورڈ" else "Password") },
                     leadingIcon = {
                         Icon(
                             imageVector = Icons.Default.Lock,
                             contentDescription = "Password icon",
-                            tint = Color(0xFF6B5B54)
+                            tint = secondaryTextColor
                         )
                     },
                     trailingIcon = {
@@ -152,7 +170,7 @@ fun UnifiedLoginScreen(
                             Icon(
                                 imageVector = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
                                 contentDescription = if (passwordVisible) "Hide password" else "Show password",
-                                tint = Color(0xFF6B5B54)
+                                tint = secondaryTextColor
                             )
                         }
                     },
@@ -161,9 +179,11 @@ fun UnifiedLoginScreen(
                     shape = RoundedCornerShape(28.dp),
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedBorderColor = Color(0xFFB36B3C),
-                        unfocusedBorderColor = Color(0xFF9E8B82),
-                        focusedContainerColor = Color(0xFFF7ECE8),
-                        unfocusedContainerColor = Color(0xFFF7ECE8)
+                        unfocusedBorderColor = if (isDarkModeEnabled) Color(0xFF938F99) else Color(0xFF9E8B82),
+                        focusedContainerColor = surfaceColor,
+                        unfocusedContainerColor = surfaceColor,
+                        focusedTextColor = textColor,
+                        unfocusedTextColor = textColor
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -178,7 +198,7 @@ fun UnifiedLoginScreen(
                         modifier = Modifier.padding(top = 4.dp)
                     ) {
                         Text(
-                            text = "Forgot Password?",
+                            text = if (isUrduEnabled) "پاس ورڈ بھول گئے؟" else "Forgot Password?",
                             fontSize = 13.sp,
                             color = Color(0xFFA8653A),
                             fontWeight = FontWeight.Medium
@@ -231,15 +251,19 @@ fun UnifiedLoginScreen(
                         }
                     },
                     enabled = !isLoading && idOrEmail.isNotBlank() && password.isNotBlank(),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF2F2019)),
+                    colors = ButtonDefaults.buttonColors(containerColor = buttonColor),
                     shape = RoundedCornerShape(28.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
                 ) {
                     Text(
-                        if (isLoading) "Signing In..." else "Sign In",
-                        color = Color.White,
+                        if (isLoading) {
+                            if (isUrduEnabled) "سائن ان ہو رہا ہے..." else "Signing In..."
+                        } else {
+                            if (isUrduEnabled) "سائن ان" else "Sign In"
+                        },
+                        color = if (isDarkModeEnabled) Color(0xFF381E72) else Color.White,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -254,17 +278,17 @@ fun UnifiedLoginScreen(
                 ) {
                     Divider(
                         modifier = Modifier.weight(1f),
-                        color = Color(0xFF9E8B82),
+                        color = if (isDarkModeEnabled) Color(0xFF938F99) else Color(0xFF9E8B82),
                         thickness = 1.dp
                     )
                     Text(
-                        text = " or ",
+                        text = if (isUrduEnabled) " یا " else " or ",
                         fontSize = 14.sp,
-                        color = Color(0xFF6B5B54)
+                        color = secondaryTextColor
                     )
                     Divider(
                         modifier = Modifier.weight(1f),
-                        color = Color(0xFF9E8B82),
+                        color = if (isDarkModeEnabled) Color(0xFF938F99) else Color(0xFF9E8B82),
                         thickness = 1.dp
                     )
                 }
@@ -275,7 +299,7 @@ fun UnifiedLoginScreen(
                 OutlinedButton(
                     onClick = { /* TODO: Google sign-in */ },
                     colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = Color(0xFFF7ECE8)
+                        containerColor = surfaceColor
                     ),
                     shape = RoundedCornerShape(28.dp),
                     modifier = Modifier
@@ -283,9 +307,9 @@ fun UnifiedLoginScreen(
                         .height(56.dp)
                 ) {
                     Text(
-                        text = "Sign In with Google",
+                        text = if (isUrduEnabled) "گوگل کے ساتھ سائن ان" else "Sign In with Google",
                         fontSize = 16.sp,
-                        color = Color(0xFF2F2019),
+                        color = textColor,
                         fontWeight = FontWeight.Medium
                     )
                 }
@@ -301,7 +325,7 @@ fun UnifiedLoginScreen(
                     },
                     colors = ButtonDefaults.outlinedButtonColors(
                         containerColor = Color.Transparent,
-                        contentColor = Color(0xFF2F2019)
+                        contentColor = textColor
                     ),
                     shape = RoundedCornerShape(28.dp),
                     modifier = Modifier
@@ -309,39 +333,64 @@ fun UnifiedLoginScreen(
                         .height(56.dp)
                 ) {
                     Text(
-                        text = "Continue as Guest",
+                        text = if (isUrduEnabled) "مہمان کے طور پر جاری رکھیں" else "Continue as Guest",
                         fontSize = 16.sp,
-                        color = Color(0xFF2F2019),
+                        color = textColor,
                         fontWeight = FontWeight.Medium
                     )
                 }
 
                 Spacer(Modifier.height(32.dp))
 
-                // Footer text with links
+                // Footer text with clickable links
                 val annotatedText = buildAnnotatedString {
-                    withStyle(style = SpanStyle(color = Color(0xFF6B5B54), fontSize = 12.sp)) {
-                        append("Before continuing, you agree to our ")
+                    withStyle(style = SpanStyle(color = secondaryTextColor, fontSize = 12.sp)) {
+                        append(if (isUrduEnabled) "جاری رکھ کر، آپ ہماری " else "By continuing, you agree to our ")
                     }
                     pushStringAnnotation(tag = "privacy", annotation = "privacy_policy")
-                    withStyle(style = SpanStyle(color = Color(0xFFA8653A), fontSize = 12.sp, fontWeight = FontWeight.Medium)) {
-                        append("Privacy Policy")
+                    withStyle(style = SpanStyle(
+                        color = Color(0xFFA8653A), 
+                        fontSize = 12.sp, 
+                        fontWeight = FontWeight.SemiBold,
+                        textDecoration = TextDecoration.Underline
+                    )) {
+                        append(if (isUrduEnabled) "رازداری کی پالیسی" else "Privacy Policy")
                     }
                     pop()
-                    withStyle(style = SpanStyle(color = Color(0xFF6B5B54), fontSize = 12.sp)) {
-                        append(" and ")
+                    withStyle(style = SpanStyle(color = secondaryTextColor, fontSize = 12.sp)) {
+                        append(if (isUrduEnabled) " اور " else " and ")
                     }
-                    pushStringAnnotation(tag = "terms", annotation = "terms_of_service")
-                    withStyle(style = SpanStyle(color = Color(0xFFA8653A), fontSize = 12.sp, fontWeight = FontWeight.Medium)) {
-                        append("Terms of Service")
+                    pushStringAnnotation(tag = "terms", annotation = "terms_and_conditions")
+                    withStyle(style = SpanStyle(
+                        color = Color(0xFFA8653A), 
+                        fontSize = 12.sp, 
+                        fontWeight = FontWeight.SemiBold,
+                        textDecoration = TextDecoration.Underline
+                    )) {
+                        append(if (isUrduEnabled) "شرائط و ضوابط" else "Terms & Conditions")
                     }
                     pop()
+                    withStyle(style = SpanStyle(color = secondaryTextColor, fontSize = 12.sp)) {
+                        append(if (isUrduEnabled) " سے اتفاق کرتے ہیں" else "")
+                    }
                 }
 
-                Text(
+                ClickableText(
                     text = annotatedText,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    style = androidx.compose.ui.text.TextStyle(textAlign = TextAlign.Center),
+                    onClick = { offset ->
+                        annotatedText.getStringAnnotations(tag = "privacy", start = offset, end = offset)
+                            .firstOrNull()?.let {
+                                navController.navigate("privacy_policy")
+                            }
+                        annotatedText.getStringAnnotations(tag = "terms", start = offset, end = offset)
+                            .firstOrNull()?.let {
+                                navController.navigate("terms_and_conditions")
+                            }
+                    }
                 )
 
                 Spacer(Modifier.height(40.dp))
@@ -352,10 +401,137 @@ fun UnifiedLoginScreen(
                     modifier = Modifier
                         .align(Alignment.Center)
                         .size(44.dp),
-                    color = Color(0xFF2F2019)
+                    color = buttonColor
+                )
+            }
+
+            // Settings icon in top right (rendered on top)
+            IconButton(
+                onClick = { showSettingsDialog = true },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Settings,
+                    contentDescription = "Settings",
+                    tint = textColor,
+                    modifier = Modifier.size(28.dp)
                 )
             }
         }
+    }
+
+    // Settings Dialog
+    if (showSettingsDialog) {
+        AlertDialog(
+            onDismissRequest = { showSettingsDialog = false },
+            title = {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isUrduEnabled) "سیٹنگز" else "Settings",
+                        fontWeight = FontWeight.Bold
+                    )
+                    IconButton(onClick = { showSettingsDialog = false }) {
+                        Icon(Icons.Default.Close, contentDescription = "Close")
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Urdu Translation Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Translate,
+                                contentDescription = "Language",
+                                tint = Color(0xFFA8653A)
+                            )
+                            Column {
+                                Text(
+                                    text = if (isUrduEnabled) "اردو زبان" else "Urdu Language",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    text = if (isUrduEnabled) "انگریزی سے اردو میں ترجمہ" else "Translate to Urdu",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF6B5B54)
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = isUrduEnabled,
+                            onCheckedChange = { isUrduEnabled = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFFA8653A),
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color(0xFF9E8B82)
+                            )
+                        )
+                    }
+
+                    Divider(color = Color(0xFFE0E0E0))
+
+                    // Dark Mode Toggle
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.DarkMode,
+                                contentDescription = "Dark Mode",
+                                tint = Color(0xFFA8653A)
+                            )
+                            Column {
+                                Text(
+                                    text = if (isUrduEnabled) "ڈارک موڈ" else "Dark Mode",
+                                    fontWeight = FontWeight.Medium,
+                                    fontSize = 16.sp
+                                )
+                                Text(
+                                    text = if (isUrduEnabled) "تاریک تھیم فعال کریں" else "Enable dark theme",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF6B5B54)
+                                )
+                            }
+                        }
+                        Switch(
+                            checked = isDarkModeEnabled,
+                            onCheckedChange = { isDarkModeEnabled = it },
+                            colors = SwitchDefaults.colors(
+                                checkedThumbColor = Color.White,
+                                checkedTrackColor = Color(0xFFA8653A),
+                                uncheckedThumbColor = Color.White,
+                                uncheckedTrackColor = Color(0xFF9E8B82)
+                            )
+                        )
+                    }
+                }
+            },
+            confirmButton = {},
+            containerColor = if (isDarkModeEnabled) Color(0xFF2B2930) else Color.White
+        )
     }
 }
 

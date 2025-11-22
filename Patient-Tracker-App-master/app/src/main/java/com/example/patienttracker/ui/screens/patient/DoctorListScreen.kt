@@ -32,14 +32,14 @@ import kotlinx.parcelize.Parcelize
 
 @Parcelize
 data class DoctorFull(
-    val id: String,
-    val firstName: String,
-    val lastName: String,
-    val email: String,
-    val phone: String,
-    val speciality: String,
-    val days: String,
-    val timings: String
+    val id: String = "",
+    val firstName: String = "",
+    val lastName: String = "",
+    val email: String = "",
+    val phone: String = "",
+    val speciality: String = "",
+    val days: String = "",
+    val timings: String = ""
 ) : Parcelable
 
 /**
@@ -196,19 +196,31 @@ suspend fun fetchDoctorsFromFirestore(): List<DoctorFull> {
     val db = Firebase.firestore
     return try {
         val querySnapshot = db.collection("users").whereEqualTo("role", "doctor").get().await()
+        println("fetchDoctorsFromFirestore: Found ${querySnapshot.documents.size} doctor documents")
         querySnapshot.documents.mapNotNull { doc ->
-            DoctorFull(
-                id = doc.id,
-                firstName = doc.getString("firstName") ?: "",
-                lastName = doc.getString("lastName") ?: "",
-                email = doc.getString("email") ?: "",
-                phone = doc.getString("phone") ?: "",
-                speciality = doc.getString("speciality") ?: "",
-                days = doc.getString("days") ?: "",
-                timings = doc.getString("timings") ?: ""
-            )
+            val firstName = doc.getString("firstName") ?: ""
+            val lastName = doc.getString("lastName") ?: ""
+            println("fetchDoctorsFromFirestore: Doctor ${doc.id} - Name: '$firstName $lastName'")
+            
+            // Only include doctors with at least a first name or last name
+            if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
+                DoctorFull(
+                    id = doc.id,
+                    firstName = firstName,
+                    lastName = lastName,
+                    email = doc.getString("email") ?: "",
+                    phone = doc.getString("phone") ?: "",
+                    speciality = doc.getString("speciality") ?: "General Physician",
+                    days = doc.getString("days") ?: "",
+                    timings = doc.getString("timings") ?: ""
+                )
+            } else {
+                println("fetchDoctorsFromFirestore: Skipping doctor ${doc.id} - empty name")
+                null
+            }
         }
     } catch (e: Exception) {
+        println("fetchDoctorsFromFirestore: Error - ${e.message}")
         e.printStackTrace()
         emptyList()
     }

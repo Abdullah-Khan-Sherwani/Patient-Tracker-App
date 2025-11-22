@@ -43,6 +43,8 @@ fun GuestDoctorDetailsScreen(
     var specialization by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
     var phone by remember { mutableStateOf("") }
+    var days by remember { mutableStateOf("") }
+    var timings by remember { mutableStateOf("") }
     var availability by remember { mutableStateOf<List<DoctorAvailability>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var showLoginDialog by remember { mutableStateOf(false) }
@@ -61,6 +63,8 @@ fun GuestDoctorDetailsScreen(
                 specialization = doctorDoc.getString("speciality") ?: "General Physician"
                 email = doctorDoc.getString("email") ?: ""
                 phone = doctorDoc.getString("phone") ?: ""
+                days = doctorDoc.getString("days") ?: ""
+                timings = doctorDoc.getString("timings") ?: ""
                 
                 // Load availability
                 val availSnapshot = db.collection("doctor_availability")
@@ -192,8 +196,87 @@ fun GuestDoctorDetailsScreen(
                 Spacer(Modifier.height(24.dp))
 
                 // Availability Schedule
+                if (days.isNotEmpty() || timings.isNotEmpty()) {
+                    Text(
+                        text = "Availability",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TextPrimary
+                    )
+
+                    Spacer(Modifier.height(12.dp))
+
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        color = AccentColor.copy(alpha = 0.15f),
+                        shadowElevation = 2.dp
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            if (days.isNotEmpty()) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.CalendarToday,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = AccentColor
+                                    )
+                                    Text(
+                                        text = "Available Days",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextPrimary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = days,
+                                    fontSize = 15.sp,
+                                    color = TextPrimary,
+                                    lineHeight = 22.sp
+                                )
+                            }
+
+                            if (timings.isNotEmpty()) {
+                                if (days.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Schedule,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = AccentColor
+                                    )
+                                    Text(
+                                        text = "Consultation Timings",
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = TextPrimary
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = timings,
+                                    fontSize = 15.sp,
+                                    color = TextPrimary
+                                )
+                            }
+                        }
+                    }
+
+                    Spacer(Modifier.height(24.dp))
+                }
+
+                // Consultation Fee
                 Text(
-                    text = "Availability",
+                    text = "Consultation Fee",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = TextPrimary
@@ -207,45 +290,36 @@ fun GuestDoctorDetailsScreen(
                     color = CardColor,
                     shadowElevation = 2.dp
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        if (availability.isEmpty()) {
-                            Text(
-                                text = "Availability not set",
-                                fontSize = 14.sp,
-                                color = TextSecondary,
-                                modifier = Modifier.padding(vertical = 8.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccountBalanceWallet,
+                                contentDescription = null,
+                                tint = AccentColor,
+                                modifier = Modifier.size(28.dp)
                             )
-                        } else {
-                            availability.forEach { avail ->
-                                if (avail.isActive) {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.SpaceBetween,
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Text(
-                                            text = DoctorAvailability.getDayName(avail.dayOfWeek),
-                                            fontSize = 14.sp,
-                                            fontWeight = FontWeight.Medium,
-                                            color = TextPrimary,
-                                            modifier = Modifier.weight(1f)
-                                        )
-                                        Text(
-                                            text = "${avail.startTime} - ${avail.endTime}",
-                                            fontSize = 14.sp,
-                                            color = AccentColor,
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                    }
-                                    if (avail != availability.filter { it.isActive }.last()) {
-                                        Divider(
-                                            color = AccentColor.copy(alpha = 0.2f),
-                                            modifier = Modifier.padding(vertical = 4.dp)
-                                        )
-                                    }
-                                }
+                            Column {
+                                Text(
+                                    text = "Fee per consultation",
+                                    fontSize = 13.sp,
+                                    color = TextSecondary
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "PKR 1500",
+                                    fontSize = 22.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentColor
+                                )
                             }
                         }
                     }

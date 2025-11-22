@@ -225,13 +225,105 @@ fun DoctorCatalogueScreen(navController: NavController, context: Context) {
                         modifier = Modifier.padding(16.dp)
                     )
 
+                    // Specialty filter chips
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(CardWhite)
+                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                    ) {
+                        Text(
+                            text = "Filter by Specialty",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = StatTextColor,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                        
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // "All" chip
+                            item {
+                                FilterChip(
+                                    selected = selectedSpecialty == null,
+                                    onClick = { selectedSpecialty = null },
+                                    label = {
+                                        Text(
+                                            text = "All (${searchResults.size})",
+                                            fontSize = 13.sp
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = HeaderTopColor,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = BackgroundColor,
+                                        labelColor = StatTextColor
+                                    )
+                                )
+                            }
+                            
+                            // Specialty chips for specialties in search results
+                            val specialtiesInResults = searchResults
+                                .map { normalizeSpecialty(it.speciality) }
+                                .distinct()
+                                .sorted()
+                            
+                            items(specialtiesInResults) { specialty ->
+                                val count = searchResults.count { 
+                                    normalizeSpecialty(it.speciality) == specialty 
+                                }
+                                FilterChip(
+                                    selected = selectedSpecialty == specialty,
+                                    onClick = { 
+                                        selectedSpecialty = if (selectedSpecialty == specialty) null else specialty 
+                                    },
+                                    label = {
+                                        Text(
+                                            text = "$specialty ($count)",
+                                            fontSize = 13.sp
+                                        )
+                                    },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = HeaderTopColor,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = BackgroundColor,
+                                        labelColor = StatTextColor
+                                    )
+                                )
+                            }
+                        }
+                    }
+
+                    Divider(color = BackgroundColor, thickness = 1.dp)
+
+                    // Filter search results by selected specialty
+                    val filteredSearchResults = if (selectedSpecialty != null) {
+                        searchResults.filter { normalizeSpecialty(it.speciality) == selectedSpecialty }
+                    } else {
+                        searchResults
+                    }
+
+                    // Search results count
+                    Text(
+                        text = if (selectedSpecialty != null) {
+                            "${filteredSearchResults.size} doctor(s) found in $selectedSpecialty"
+                        } else {
+                            "${filteredSearchResults.size} doctor(s) found"
+                        },
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = StatTextColor.copy(alpha = 0.7f),
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                    )
+
                     // Search results
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(searchResults) { doctor ->
+                        items(filteredSearchResults) { doctor ->
                             DoctorListCard(
                                 doctor = doctor,
                                 onBookAppointment = {

@@ -3,6 +3,7 @@ package com.example.patienttracker.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Search
@@ -11,8 +12,10 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
  * Reusable search bar component for doctor/patient search.
@@ -32,7 +35,7 @@ fun SearchBar(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .height(48.dp),
+            .height(56.dp),
         shape = RoundedCornerShape(12.dp),
         color = backgroundColor,
         tonalElevation = 2.dp
@@ -40,7 +43,7 @@ fun SearchBar(
         Row(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 12.dp),
+                .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -48,31 +51,36 @@ fun SearchBar(
                 imageVector = Icons.Default.Search,
                 contentDescription = "Search",
                 tint = searchIconColor,
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(22.dp)
             )
 
-            TextField(
+            BasicTextField(
                 value = value,
                 onValueChange = onValueChange,
                 modifier = Modifier
                     .weight(1f)
-                    .height(48.dp),
-                placeholder = {
-                    Text(
-                        text = placeholder,
-                        color = Color.Gray.copy(alpha = 0.6f)
-                    )
-                },
+                    .padding(vertical = 4.dp),
                 singleLine = true,
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = Color.Transparent,
-                    unfocusedContainerColor = Color.Transparent,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent,
-                    focusedTextColor = textColor,
-                    unfocusedTextColor = textColor
+                textStyle = LocalTextStyle.current.copy(
+                    color = textColor,
+                    fontSize = 15.sp
                 ),
-                textStyle = LocalTextStyle.current.copy(color = textColor)
+                decorationBox = { innerTextField ->
+                    Box(
+                        modifier = Modifier.fillMaxWidth(),
+                        contentAlignment = Alignment.CenterStart
+                    ) {
+                        if (value.isEmpty()) {
+                            Text(
+                                text = placeholder,
+                                color = Color.Gray.copy(alpha = 0.6f),
+                                fontSize = 15.sp
+                            )
+                        }
+                        innerTextField()
+                    }
+                },
+                cursorBrush = SolidColor(searchIconColor)
             )
 
             if (value.isNotEmpty()) {

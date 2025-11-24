@@ -158,6 +158,16 @@ fun PatientNotificationsScreen(navController: NavController, context: Context) {
                                                 } else it
                                             }
                                         }
+                                        
+                                        // Navigate based on notification type
+                                        when (notification.type) {
+                                            "appointment_created",
+                                            "appointment_cancelled",
+                                            "appointment_updated" -> {
+                                                // Navigate to full schedule to see all appointments
+                                                navController.navigate("full_schedule")
+                                            }
+                                        }
                                     }
                                 }
                             )

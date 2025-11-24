@@ -25,6 +25,7 @@ import androidx.navigation.NavController
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
+import com.example.patienttracker.ui.components.ChatFloatingButton
 
 /**
  * Select Specialty Screen
@@ -122,10 +123,13 @@ fun SelectSpecialtyScreen(navController: NavController, context: Context) {
         // THEME FIX: Use background color from theme
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
+        ) {
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
             // Search bar
             com.example.patienttracker.ui.components.SearchBar(
@@ -198,6 +202,13 @@ fun SelectSpecialtyScreen(navController: NavController, context: Context) {
                     }
                 }
             }
+        }
+
+            // Floating Chat Button
+            ChatFloatingButton(
+                onClick = { navController.navigate("chatbot") },
+                modifier = Modifier.align(Alignment.BottomEnd)
+            )
         }
     }
 }

@@ -18,33 +18,56 @@ object AppointmentRepository {
     private const val COLLECTION = "appointments"
     
     /**
-     * Generate next appointment number (001, 002, etc.)
+     * Generate next appointment number per doctor, per day (resets daily)
+     * Format: Simple integer (1, 2, 3...)
+     * Each doctor has their own sequence that resets at midnight
      */
-    private suspend fun getNextAppointmentNumber(): String {
-        val counterRef = db.collection("counters").document("appointments")
-        
+    private suspend fun getNextAppointmentNumber(doctorUid: String, appointmentDate: Timestamp): String {
         return try {
-            // First, ensure counter document exists
-            val counterDoc = counterRef.get().await()
-            if (!counterDoc.exists()) {
-                counterRef.set(mapOf("count" to 0L)).await()
+            // Extract date string from timestamp (yyyy-MM-dd format)
+            val calendar = java.util.Calendar.getInstance()
+            calendar.timeInMillis = appointmentDate.seconds * 1000
+            val dateString = String.format(
+                "%04d-%02d-%02d",
+                calendar.get(java.util.Calendar.YEAR),
+                calendar.get(java.util.Calendar.MONTH) + 1,
+                calendar.get(java.util.Calendar.DAY_OF_MONTH)
+            )
+            
+            // Count existing appointments for this doctor on this date (exclude cancelled)
+            val existingAppointments = db.collection(COLLECTION)
+                .whereEqualTo("doctorUid", doctorUid)
+                .get()
+                .await()
+            
+            // Filter by date and non-cancelled status
+            val appointmentsOnDate = existingAppointments.documents.count { doc ->
+                val docDate = doc.getTimestamp("appointmentDate")
+                val docStatus = doc.getString("status") ?: ""
+                
+                if (docDate != null && docStatus != "cancelled") {
+                    val docCalendar = java.util.Calendar.getInstance()
+                    docCalendar.timeInMillis = docDate.seconds * 1000
+                    val docDateString = String.format(
+                        "%04d-%02d-%02d",
+                        docCalendar.get(java.util.Calendar.YEAR),
+                        docCalendar.get(java.util.Calendar.MONTH) + 1,
+                        docCalendar.get(java.util.Calendar.DAY_OF_MONTH)
+                    )
+                    docDateString == dateString
+                } else {
+                    false
+                }
             }
             
-            // Then run transaction to increment
-            db.runTransaction { transaction ->
-                val snapshot = transaction.get(counterRef)
-                val currentCount = snapshot.getLong("count") ?: 0L
-                val nextCount = currentCount + 1
-                
-                transaction.update(counterRef, "count", nextCount)
-                
-                // Format as 3-digit number with leading zeros
-                String.format("%03d", nextCount)
-            }.await()
+            // Next number is count + 1
+            val nextNumber = appointmentsOnDate + 1
+            nextNumber.toString()
+            
         } catch (e: Exception) {
             e.printStackTrace()
-            // If counter fails, use timestamp-based number
-            String.format("%03d", (System.currentTimeMillis() % 1000))
+            // Fallback to "1" if something goes wrong
+            "1"
         }
     }
     
@@ -69,8 +92,8 @@ object AppointmentRepository {
             val lastName = userDoc.getString("lastName") ?: ""
             val patientName = "$firstName $lastName"
             
-            // Generate appointment number
-            val appointmentNumber = getNextAppointmentNumber()
+            // Generate appointment number (per doctor, per day)
+            val appointmentNumber = getNextAppointmentNumber(doctorUid, appointmentDate)
             
             // Fetch consultation fee from configuration (admin-editable)
             val consultationFee = ConsultationFeeRepository.getDoctorFee(doctorUid)

@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.systemBars
 import com.example.patienttracker.data.PatientFavoritesRepository
 import com.example.patienttracker.data.SearchRepository
 import com.example.patienttracker.ui.components.SearchBar
+import com.example.patienttracker.ui.components.ChatFloatingButton
 import androidx.compose.ui.graphics.vector.ImageVector
 
 // Color scheme
@@ -508,6 +509,12 @@ fun DoctorCatalogueScreen(navController: NavController, context: Context) {
                     }
                 }
             }
+
+            // Floating Chat Button
+            ChatFloatingButton(
+                onClick = { navController.navigate("chatbot") },
+                modifier = Modifier.align(Alignment.BottomEnd)
+            )
         }
     }
 }
@@ -623,7 +630,9 @@ fun DoctorListCard(
     onBookAppointment: () -> Unit
 ) {
     var isFavorite by remember { mutableStateOf(false) }
+    var availabilityText by remember { mutableStateOf("Loading...") }
     val scope = rememberCoroutineScope()
+    val isDarkMode = androidx.compose.foundation.isSystemInDarkTheme()
     
     // Check favorite status
     LaunchedEffect(doctor.id) {
@@ -634,192 +643,268 @@ fun DoctorListCard(
         }
     }
     
+    // Fetch real availability from doctor_availability collection
+    LaunchedEffect(doctor.id) {
+        try {
+            val db = Firebase.firestore
+            val today = java.time.LocalDate.now()
+            val dayOfWeek = today.dayOfWeek.value // 1=Mon, 7=Sun
+            
+            val availabilitySnapshot = db.collection("doctor_availability")
+                .whereEqualTo("doctorUid", doctor.id)
+                .whereEqualTo("dayOfWeek", dayOfWeek)
+                .whereEqualTo("isActive", true)
+                .get()
+                .await()
+            
+            if (availabilitySnapshot.documents.isNotEmpty()) {
+                val doc = availabilitySnapshot.documents.first()
+                val startTime = doc.getString("startTime") // "09:00"
+                val endTime = doc.getString("endTime") // "17:00"
+                
+                if (startTime != null && endTime != null) {
+                    // Convert to 12-hour format
+                    val formatter12 = java.time.format.DateTimeFormatter.ofPattern("h:mm a")
+                    val start = java.time.LocalTime.parse(startTime, java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                    val end = java.time.LocalTime.parse(endTime, java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                    
+                    availabilityText = "${start.format(formatter12)} – ${end.format(formatter12)}"
+                } else {
+                    availabilityText = "Timings not provided"
+                }
+            } else {
+                availabilityText = "Not available today"
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("DoctorCard", "Error loading availability: ${e.message}", e)
+            availabilityText = "Availability unknown"
+        }
+    }
+    
+    val cardColor = if (isDarkMode) DarkCardColor else CardWhite
+    val textPrimaryColor = if (isDarkMode) DarkTextColor else StatTextColor
+    val textSecondaryColor = if (isDarkMode) DarkSecondaryTextColor else StatTextColor.copy(alpha = 0.7f)
+    val iconTint = if (isDarkMode) DarkIconTint else AccentColor
+    
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = CardWhite,
+        color = cardColor,
         tonalElevation = 2.dp,
-        shadowElevation = 2.dp
+        shadowElevation = 4.dp
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(20.dp)
         ) {
-            // Doctor profile placeholder
-            Surface(
-                modifier = Modifier.size(64.dp),
-                shape = CircleShape,
-                color = AccentColor.copy(alpha = 0.2f)
+            // Top row: Profile picture + Name + Heart
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                // Profile picture with initials
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    shape = CircleShape,
+                    color = AccentColor.copy(alpha = 0.2f)
                 ) {
-                    Text(
-                        text = "${doctor.firstName.firstOrNull() ?: "D"}${doctor.lastName.firstOrNull() ?: ""}",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = AccentColor
-                    )
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${doctor.firstName.firstOrNull()?.uppercaseChar() ?: "D"}${doctor.lastName.firstOrNull()?.uppercaseChar() ?: ""}",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentColor
+                        )
+                    }
                 }
-            }
-            
-            Spacer(modifier = Modifier.width(12.dp))
-            
-            // Doctor info
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                // Name with heart icon
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                
+                Spacer(modifier = Modifier.width(14.dp))
+                
+                // Doctor name
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = "Dr. ${doctor.firstName} ${doctor.lastName}",
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = StatTextColor,
-                        modifier = Modifier.weight(1f)
+                        color = textPrimaryColor,
+                        maxLines = 1
                     )
-                    
-                    // Heart icon
-                    IconButton(
-                        onClick = {
-                            scope.launch {
+                }
+                
+                // Favorite heart icon
+                IconButton(
+                    onClick = {
+                        scope.launch {
+                            try {
                                 PatientFavoritesRepository.toggleFavorite(doctor.id)
                                 isFavorite = !isFavorite
-                            }
-                        },
-                        modifier = Modifier.size(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                            tint = if (isFavorite) Color(0xFFE91E63) else StatTextColor.copy(alpha = 0.5f),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-                }
-                
-                Spacer(modifier = Modifier.height(4.dp))
-                
-                // Consultation fee
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.AccountBalanceWallet,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = ButtonColor
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "PKR 1500",
-                        fontSize = 13.sp,
-                        color = ButtonColor,
-                        fontWeight = FontWeight.SemiBold
-                    )
-                }
-                
-                Spacer(modifier = Modifier.height(6.dp))
-                
-                // Availability - Days and Timings
-                if (doctor.days.isNotEmpty() || doctor.timings.isNotEmpty()) {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = BackgroundColor
-                    ) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            if (doctor.days.isNotEmpty()) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.CalendarToday,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(12.dp),
-                                        tint = AccentColor
-                                    )
-                                    Text(
-                                        text = doctor.days,
-                                        fontSize = 11.sp,
-                                        color = StatTextColor,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1
-                                    )
-                                }
-                            }
-                            if (doctor.timings.isNotEmpty()) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Schedule,
-                                        contentDescription = null,
-                                        modifier = Modifier.size(12.dp),
-                                        tint = AccentColor
-                                    )
-                                    Text(
-                                        text = doctor.timings,
-                                        fontSize = 11.sp,
-                                        color = StatTextColor,
-                                        fontWeight = FontWeight.Medium,
-                                        maxLines = 1
-                                    )
-                                }
+                            } catch (e: Exception) {
+                                android.util.Log.e("DoctorCard", "Error toggling favorite: ${e.message}", e)
                             }
                         }
-                    }
+                    },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                        tint = if (isFavorite) Color(0xFFE91E63) else textSecondaryColor,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Specialty and experience
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 70.dp) // Align with name
+            ) {
+                Text(
+                    text = doctor.speciality.ifEmpty { "General Physician" },
+                    fontSize = 14.sp,
+                    color = textSecondaryColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Availability pill
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                    Color(0xFFFFEBEE)
                 } else {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = BackgroundColor
+                    Color(0xFFE8F5E9)
+                },
+                modifier = Modifier.padding(start = 70.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Icon(
+                        imageVector = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                            Icons.Default.EventBusy
+                        } else {
+                            Icons.Default.AccessTime
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                            Color(0xFFD32F2F)
+                        } else {
+                            Color(0xFF4CAF50)
+                        }
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                            availabilityText
+                        } else {
+                            "Next: $availabilityText"
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                            Color(0xFFD32F2F)
+                        } else {
+                            Color(0xFF2E7D32)
+                        }
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Consultation fee chip
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 70.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AccentColor.copy(alpha = 0.12f)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
                     ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountBalanceWallet,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = AccentColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
                         Text(
-                            text = "Availability not provided",
-                            fontSize = 11.sp,
-                            color = StatTextColor.copy(alpha = 0.6f),
-                            modifier = Modifier.padding(8.dp)
+                            text = "PKR 1,500",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textPrimaryColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "•",
+                            fontSize = 13.sp,
+                            color = textSecondaryColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "In person",
+                            fontSize = 12.sp,
+                            color = textSecondaryColor
                         )
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.width(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
-            // Book button
-            Surface(
+            // Separator line
+            Divider(
+                color = if (isDarkMode) Color(0xFF37474F) else Color(0xFFE0E0E0),
+                thickness = 1.dp
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Full-width CTA button
+            Button(
+                onClick = onBookAppointment,
                 modifier = Modifier
-                    .size(48.dp)
-                    .clickable(onClick = onBookAppointment),
-                shape = CircleShape,
-                color = ButtonColor,
-                tonalElevation = 4.dp
+                    .fillMaxWidth()
+                    .height(48.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ButtonColor,
+                    contentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 2.dp,
+                    pressedElevation = 4.dp
+                )
             ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "Book Appointment",
-                        tint = Color.White,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
+                Icon(
+                    imageVector = Icons.Default.EventAvailable,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Book Appointment",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
             }
         }
     }

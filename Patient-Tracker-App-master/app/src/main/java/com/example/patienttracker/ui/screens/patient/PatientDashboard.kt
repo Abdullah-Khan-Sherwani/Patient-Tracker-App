@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -30,6 +31,7 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
+import com.example.patienttracker.ui.components.ChatFloatingButton
 
 // Color scheme - light beige/beige gradient
 private val HeaderTopColor = Color(0xFFD4AF8C)
@@ -139,6 +141,12 @@ fun PatientDashboard(navController: NavController, context: Context, isDarkMode:
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
+
+            // Floating Chat Button
+            ChatFloatingButton(
+                onClick = { navController.navigate("chatbot") },
+                modifier = Modifier.align(Alignment.BottomEnd)
+            )
         }
         }
     }
@@ -155,6 +163,22 @@ fun DashboardTopAppBar(
     val scope = rememberCoroutineScope()
     val headerBgCol = if (isDarkMode) DarkBottomBarBg else HeaderTopColor
     val textIconCol = if (isDarkMode) DarkIconTint else CardWhite
+    var unreadCount by remember { mutableStateOf(0) }
+    
+    // Fetch unread notification count
+    LaunchedEffect(Unit) {
+        scope.launch {
+            try {
+                val currentUser = com.google.firebase.auth.FirebaseAuth.getInstance().currentUser
+                currentUser?.uid?.let { uid ->
+                    val notifications = com.example.patienttracker.data.NotificationRepository().getPatientNotifications(uid)
+                    unreadCount = notifications.count { !it.isRead }
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("DashboardTopBar", "Error fetching notification count: ${e.message}")
+            }
+        }
+    }
     
     Box(
         modifier = Modifier
@@ -207,22 +231,48 @@ fun DashboardTopAppBar(
             IconButton(
                 onClick = { navController.navigate("patient_notifications") }
             ) {
-                Surface(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp)),
-                    color = if (isDarkMode) DarkCardColor else CardWhite
-                ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                Box {
+                    Surface(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                        color = if (isDarkMode) DarkCardColor else CardWhite
                     ) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = if (isDarkMode) DarkIconTint else HeaderTopColor,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Notifications,
+                                contentDescription = "Notifications",
+                                tint = if (isDarkMode) DarkIconTint else HeaderTopColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                    
+                    // Unread badge
+                    if (unreadCount > 0) {
+                        Surface(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .align(Alignment.TopEnd)
+                                .offset(x = 2.dp, y = (-2).dp),
+                            shape = CircleShape,
+                            color = Color(0xFFE91E63)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (unreadCount > 9) "9+" else unreadCount.toString(),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -419,6 +469,10 @@ fun AppointmentInfoBlock(navController: NavController, isDarkMode: Boolean = fal
             val today = java.time.LocalDate.now()
             val upcoming = appointments
                 .filter { appointment ->
+                    // Exclude cancelled appointments
+                    val status = appointment.status ?: "pending"
+                    if (status == "cancelled") return@filter false
+                    
                     val appointmentDate = appointment.appointmentDate.toDate()
                         .toInstant()
                         .atZone(java.time.ZoneId.systemDefault())

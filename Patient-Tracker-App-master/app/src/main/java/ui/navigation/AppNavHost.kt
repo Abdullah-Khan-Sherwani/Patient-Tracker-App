@@ -70,6 +70,7 @@ import com.example.patienttracker.ui.screens.patient.SelectDoctorScreen
 import com.example.patienttracker.ui.screens.patient.SelectDateTimeScreen
 import com.example.patienttracker.ui.screens.patient.ConfirmAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.AppointmentSuccessScreen
+import com.example.patienttracker.ui.screens.patient.ChatbotScreen
 import com.example.patienttracker.ui.screens.guest.GuestHomeScreen
 import com.example.patienttracker.ui.screens.guest.GuestDoctorsScreen
 import com.example.patienttracker.ui.screens.guest.GuestDoctorDetailsScreen
@@ -436,21 +437,28 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             SelectDateTimeScreen(navController, context, doctorId, doctorFirstName, doctorLastName, specialty)
         }
 
-        composable("confirm_appointment/{doctorId}/{doctorName}/{specialty}/{date}/{timeSlot}") { backStackEntry ->
+        composable("confirm_appointment/{doctorId}/{doctorName}/{specialty}/{date}/{blockName}/{timeRange}") { backStackEntry ->
             val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
             val doctorName = backStackEntry.arguments?.getString("doctorName") ?: ""
             val specialty = backStackEntry.arguments?.getString("specialty") ?: ""
             val date = backStackEntry.arguments?.getString("date") ?: ""
-            val timeSlot = backStackEntry.arguments?.getString("timeSlot") ?: ""
-            ConfirmAppointmentScreen(navController, context, doctorId, doctorName, specialty, date, timeSlot)
+            val blockName = backStackEntry.arguments?.getString("blockName") ?: ""
+            val timeRange = backStackEntry.arguments?.getString("timeRange") ?: ""
+            ConfirmAppointmentScreen(navController, context, doctorId, doctorName, specialty, date, blockName, timeRange)
         }
 
-        composable("appointment_success/{appointmentNumber}/{doctorName}/{date}/{timeSlot}") { backStackEntry ->
+        composable("appointment_success/{appointmentNumber}/{doctorName}/{date}/{blockName}/{timeRange}") { backStackEntry ->
             val appointmentNumber = backStackEntry.arguments?.getString("appointmentNumber") ?: "000"
             val doctorName = backStackEntry.arguments?.getString("doctorName") ?: ""
             val date = backStackEntry.arguments?.getString("date") ?: ""
-            val timeSlot = backStackEntry.arguments?.getString("timeSlot") ?: ""
-            AppointmentSuccessScreen(navController, context, appointmentNumber, doctorName, date, timeSlot)
+            val blockName = backStackEntry.arguments?.getString("blockName") ?: ""
+            val timeRange = backStackEntry.arguments?.getString("timeRange") ?: ""
+            AppointmentSuccessScreen(navController, context, appointmentNumber, doctorName, date, blockName, timeRange)
+        }
+
+        // Chatbot Route
+        composable("chatbot") {
+            ChatbotScreen(navController)
         }
 
         // New Doctor Feature Routes

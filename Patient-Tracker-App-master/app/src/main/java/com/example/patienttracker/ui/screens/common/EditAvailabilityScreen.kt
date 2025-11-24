@@ -37,9 +37,9 @@ private val TextSecondary = Color(0xFF6B7280)
 data class AvailabilityDayState(
     val dayOfWeek: Int,
     val dayName: String,
-    var isActive: Boolean,
-    var startTime: String,
-    var endTime: String
+    val isActive: Boolean,
+    val startTime: String,
+    val endTime: String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -373,23 +373,36 @@ private suspend fun saveAvailability(
     availabilityList: List<AvailabilityDayState>
 ) {
     val db = Firebase.firestore
-    val batch = db.batch()
     
-    availabilityList.forEach { day ->
-        val availabilityDoc = DoctorAvailability(
-            doctorUid = doctorUid,
-            dayOfWeek = day.dayOfWeek,
-            isActive = day.isActive,
-            startTime = day.startTime,
-            endTime = day.endTime
-        )
+    try {
+        android.util.Log.d("EditAvailability", "Saving availability for doctor: $doctorUid")
         
-        val docRef = db.collection("doctor_availability")
-            .document("${doctorUid}_${day.dayOfWeek}")
-        batch.set(docRef, availabilityDoc.toMap(), com.google.firebase.firestore.SetOptions.merge())
+        // Use individual writes instead of batch for better error handling
+        // and to avoid batch permission issues
+        availabilityList.forEach { day ->
+            val availabilityDoc = DoctorAvailability(
+                doctorUid = doctorUid,
+                dayOfWeek = day.dayOfWeek,
+                isActive = day.isActive,
+                startTime = day.startTime,
+                endTime = day.endTime
+            )
+            
+            val docRef = db.collection("doctor_availability")
+                .document("${doctorUid}_${day.dayOfWeek}")
+            
+            android.util.Log.d("EditAvailability", "Setting document: ${docRef.path}")
+            
+            // Use set with merge instead of batch
+            docRef.set(availabilityDoc.toMap(), com.google.firebase.firestore.SetOptions.merge()).await()
+        }
+        
+        android.util.Log.d("EditAvailability", "All availability documents saved successfully")
+        
+    } catch (e: Exception) {
+        android.util.Log.e("EditAvailability", "Error saving availability: ${e.message}", e)
+        throw e
     }
-    
-    batch.commit().await()
 }
 
 private fun timeToMinutes(time: String): Int {

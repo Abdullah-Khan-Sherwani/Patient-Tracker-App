@@ -52,7 +52,8 @@ fun ConfirmAppointmentScreen(
     doctorName: String,
     specialty: String,
     dateStr: String,
-    timeSlot: String
+    blockName: String,
+    timeRange: String
 ) {
     val scope = rememberCoroutineScope()
     
@@ -143,13 +144,13 @@ fun ConfirmAppointmentScreen(
                                 val appointmentDateTime = date.atTime(12, 0).atZone(ZoneId.systemDefault())
                                 val timestamp = Timestamp(appointmentDateTime.toEpochSecond(), 0)
                                 
-                                // Create appointment
+                                // Create appointment with block name (used for capacity tracking)
                                 val result = AppointmentRepository.createAppointment(
                                     doctorUid = doctorId,
                                     doctorName = doctorName,
                                     speciality = specialty,
                                     appointmentDate = timestamp,
-                                    timeSlot = timeSlot,
+                                    timeSlot = blockName, // Store block name for capacity checking
                                     notes = notes
                                 )
                                 
@@ -166,7 +167,7 @@ fun ConfirmAppointmentScreen(
                                             val notificationId = NotificationRepository().createNotification(
                                                 patientUid = currentUser.uid,
                                                 title = "Appointment Booked",
-                                                message = "Your appointment with Dr. $doctorName on $formattedDate at $timeSlot has been confirmed.",
+                                                message = "Your appointment with $doctorName on $formattedDate ($blockName block: $timeRange) has been confirmed. Appointment #${appointment.appointmentNumber}",
                                                 type = "appointment_created",
                                                 appointmentId = appointment.appointmentId
                                             )
@@ -182,7 +183,7 @@ fun ConfirmAppointmentScreen(
                                     }
                                     
                                     // Navigate to success screen and clear booking flow from back stack
-                                    navController.navigate("appointment_success/${appointment?.appointmentNumber ?: "000"}/$doctorName/$formattedDate/$timeSlot") {
+                                    navController.navigate("appointment_success/${appointment?.appointmentNumber ?: "000"}/$doctorName/$formattedDate/$blockName/$timeRange") {
                                         popUpTo("patient_home") { inclusive = false }
                                     }
                                 } else {
@@ -285,8 +286,14 @@ fun ConfirmAppointmentScreen(
 
                     DetailRow(
                         icon = Icons.Default.AccessTime,
-                        label = "Time",
-                        value = timeSlot
+                        label = "Time Block",
+                        value = blockName
+                    )
+
+                    DetailRow(
+                        icon = Icons.Default.Schedule,
+                        label = "Time Range",
+                        value = timeRange
                     )
 
                     DetailRow(
@@ -333,6 +340,35 @@ fun ConfirmAppointmentScreen(
                             )
                         }
                     }
+                }
+            }
+
+            // Important Notice - Appointment Time
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFE3F2FD),
+                tonalElevation = 1.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Schedule,
+                        contentDescription = null,
+                        tint = Color(0xFF1976D2),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "This time is approximate. You will be called based on your appointment number.",
+                        fontSize = 13.sp,
+                        color = Color(0xFF0D47A1),
+                        lineHeight = 18.sp,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
 

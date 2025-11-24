@@ -47,7 +47,8 @@ fun AppointmentSuccessScreen(
     appointmentNumber: String,
     doctorName: String,
     date: String,
-    timeSlot: String
+    blockName: String,
+    timeRange: String
 ) {
     var uploadedFiles by remember { mutableStateOf<List<UploadedFile>>(emptyList()) }
     var isUploading by remember { mutableStateOf(false) }
@@ -174,7 +175,9 @@ fun AppointmentSuccessScreen(
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
                     SummaryItem(label = "Date", value = date)
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
-                    SummaryItem(label = "Time", value = timeSlot)
+                    SummaryItem(label = "Block", value = blockName)
+                    Divider(color = Color.LightGray.copy(alpha = 0.5f))
+                    SummaryItem(label = "Time Range", value = timeRange)
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
                     
                     // Highlighted Appointment Number
@@ -224,6 +227,36 @@ fun AppointmentSuccessScreen(
                             color = StatTextColor
                         )
                     }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Important Notice
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                color = Color(0xFFE3F2FD),
+                tonalElevation = 1.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = Color(0xFF1976D2),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Text(
+                        text = "Note: This time is approximate. You will be called based on your appointment number.",
+                        fontSize = 13.sp,
+                        color = Color(0xFF0D47A1),
+                        lineHeight = 18.sp
+                    )
                 }
             }
 

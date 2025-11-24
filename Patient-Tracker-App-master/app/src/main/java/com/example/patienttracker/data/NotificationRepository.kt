@@ -150,6 +150,36 @@ class NotificationRepository {
     }
     
     /**
+     * Get all notifications for a doctor, ordered by newest first
+     */
+    suspend fun getDoctorNotifications(doctorUid: String): Result<List<Notification>> {
+        return try {
+            android.util.Log.d("NotificationRepo", "Fetching notifications for doctor: $doctorUid")
+            
+            val snapshot = db.collection("notifications")
+                .whereEqualTo("doctorUid", doctorUid)
+                .get()
+                .await()
+            
+            android.util.Log.d("NotificationRepo", "Found ${snapshot.size()} notifications")
+            
+            val notifications = snapshot.documents.mapNotNull { doc ->
+                try {
+                    doc.data?.let { Notification.fromFirestore(it, doc.id) }
+                } catch (e: Exception) {
+                    android.util.Log.e("NotificationRepo", "Failed to parse notification ${doc.id}: ${e.message}", e)
+                    null
+                }
+            }.sortedByDescending { it.createdAt }
+            
+            Result.success(notifications)
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationRepo", "Error fetching doctor notifications: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+
+    /**
      * Mark a notification as read
      */
     suspend fun markAsRead(notificationId: String) {

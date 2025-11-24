@@ -222,6 +222,14 @@ object AppointmentRepository {
      */
     suspend fun updateAppointmentStatus(appointmentId: String, status: String): Result<Unit> {
         return try {
+            val currentUser = Firebase.auth.currentUser
+            android.util.Log.d("AppointmentRepo", "Updating appointment $appointmentId to status=$status, currentUser=${currentUser?.uid}")
+            
+            // First, fetch the appointment to verify doctorUid
+            val apptDoc = db.collection(COLLECTION).document(appointmentId).get().await()
+            val doctorUid = apptDoc.getString("doctorUid")
+            android.util.Log.d("AppointmentRepo", "Appointment doctorUid=$doctorUid, currentUser=${currentUser?.uid}, match=${doctorUid == currentUser?.uid}")
+            
             db.collection(COLLECTION)
                 .document(appointmentId)
                 .update(
@@ -232,9 +240,11 @@ object AppointmentRepository {
                 )
                 .await()
             
+            android.util.Log.d("AppointmentRepo", "Successfully updated appointment")
             Result.success(Unit)
             
         } catch (e: Exception) {
+            android.util.Log.e("AppointmentRepo", "Error updating appointment: ${e.message}", e)
             Result.failure(e)
         }
     }

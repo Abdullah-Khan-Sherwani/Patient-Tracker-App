@@ -57,6 +57,7 @@ import com.example.patienttracker.ui.screens.doctor.DoctorPatientListScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorProfileScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorMessagesScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorAppointmentsFullScreen
+import com.example.patienttracker.ui.screens.doctor.DoctorNotificationsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorManageScheduleScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorViewRecordsScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorSettingsScreen
@@ -484,6 +485,10 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
 
         composable("doctor_appointments_full") {
             DoctorAppointmentsFullScreen(navController, context)
+        }
+
+        composable("doctor_notifications") {
+            DoctorNotificationsScreen(navController, context)
         }
 
         composable("doctor_manage_schedule") {

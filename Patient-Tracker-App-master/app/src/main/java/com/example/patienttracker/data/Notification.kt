@@ -46,4 +46,13 @@ data class Notification(
             "createdAt" to createdAt
         )
     }
+    
+    fun getFormattedDate(): String {
+        return try {
+            val sdf = java.text.SimpleDateFormat("MMM dd, yyyy 'at' hh:mm a", java.util.Locale.ENGLISH)
+            sdf.format(createdAt.toDate())
+        } catch (e: Exception) {
+            "Unknown"
+        }
+    }
 }

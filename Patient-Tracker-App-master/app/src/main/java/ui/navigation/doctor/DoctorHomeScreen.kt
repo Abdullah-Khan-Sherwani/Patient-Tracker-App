@@ -92,8 +92,8 @@ fun DoctorHomeScreen(
                 ModernDoctorTopBar(
                     doctorName = fullName,
                     initials = initials,
-                    onMenuClick = { scope.launch { drawerState.open() } },
-                    onProfileClick = { /* TODO: Navigate to profile */ }
+                    navController = navController,
+                    onMenuClick = { scope.launch { drawerState.open() } }
                 )
             },
             bottomBar = {
@@ -120,9 +120,32 @@ fun DoctorHomeScreen(
 private fun ModernDoctorTopBar(
     doctorName: String,
     initials: String,
-    onMenuClick: () -> Unit,
-    onProfileClick: () -> Unit
+    navController: NavController,
+    onMenuClick: () -> Unit
 ) {
+    var unreadCount by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
+    
+    // Fetch unread notification count
+    LaunchedEffect(Unit) {
+        scope.launch {
+            try {
+                val currentUser = Firebase.auth.currentUser
+                if (currentUser != null) {
+                    val db = Firebase.firestore
+                    val snapshot = db.collection("notifications")
+                        .whereEqualTo("doctorUid", currentUser.uid)
+                        .whereEqualTo("isRead", false)
+                        .get()
+                        .await()
+                    unreadCount = snapshot.size()
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("DoctorTopBar", "Error fetching notifications: ${e.message}")
+            }
+        }
+    }
+    
     TopAppBar(
         title = {
             Text(
@@ -140,12 +163,53 @@ private fun ModernDoctorTopBar(
             }
         },
         actions = {
+            // Notifications Icon
+            IconButton(
+                onClick = { navController.navigate("doctor_notifications") }
+            ) {
+                Box {
+                    Icon(
+                        imageVector = Icons.Default.Notifications,
+                        contentDescription = "Notifications",
+                        tint = AccentColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    
+                    // Unread badge
+                    if (unreadCount > 0) {
+                        Surface(
+                            modifier = Modifier
+                                .size(18.dp)
+                                .align(Alignment.TopEnd)
+                                .offset(x = 4.dp, y = (-4).dp),
+                            shape = CircleShape,
+                            color = Color(0xFFE91E63)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = if (unreadCount > 9) "9+" else unreadCount.toString(),
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            
+            Spacer(Modifier.width(4.dp))
+            
+            // Profile Icon
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
                     .background(AccentColor)
-                    .clickable(onClick = onProfileClick),
+                    .clickable(onClick = { navController.navigate("doctor_profile") }),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
@@ -285,8 +349,8 @@ private fun ModernDoctorDashboard(
                 AppointmentListCard(
                     appointment = appointment,
                     onClick = { 
-                        // Navigate to appointment details with appointment ID if available
-                        navController.navigate("doctor_appointment_details/${appointment.patientName}")
+                        // Navigate to full appointments screen instead
+                        navController.navigate("doctor_appointments_full")
                     }
                 )
                 Spacer(Modifier.height(12.dp))
@@ -947,17 +1011,26 @@ data class DoctorAppointment(
 // ========== DATA FETCHING ==========
 private suspend fun fetchTodayAppointments(): List<DoctorAppointment> {
     return try {
+        android.util.Log.d("DoctorDashboard", "Fetching doctor appointments...")
         val result = AppointmentRepository.getDoctorAppointments()
-        val allAppointments: List<FirebaseAppointment> = result.getOrElse { emptyList() }
+        val allAppointments: List<FirebaseAppointment> = result.getOrElse { 
+            android.util.Log.e("DoctorDashboard", "Failed to fetch appointments: ${result.exceptionOrNull()?.message}")
+            emptyList() 
+        }
+        
+        android.util.Log.d("DoctorDashboard", "Total appointments fetched: ${allAppointments.size}")
         val today = LocalDate.now()
+        android.util.Log.d("DoctorDashboard", "Today's date: $today")
 
-        allAppointments.filter { appointment ->
+        val todayAppointments = allAppointments.filter { appointment ->
             try {
                 val appointmentDate = Instant.ofEpochSecond(appointment.appointmentDate.seconds)
                     .atZone(ZoneId.systemDefault())
                     .toLocalDate()
-                appointmentDate == today
+                android.util.Log.d("DoctorDashboard", "Appointment: ${appointment.patientName}, Date: $appointmentDate, Status: ${appointment.status}, Matches today: ${appointmentDate == today}")
+                appointmentDate == today && appointment.status.lowercase() != "cancelled"
             } catch (e: Exception) {
+                android.util.Log.e("DoctorDashboard", "Error parsing appointment date: ${e.message}")
                 false
             }
         }.map { appointment ->
@@ -968,7 +1041,11 @@ private suspend fun fetchTodayAppointments(): List<DoctorAppointment> {
                 status = appointment.status.lowercase()
             )
         }
+        
+        android.util.Log.d("DoctorDashboard", "Today's appointments count: ${todayAppointments.size}")
+        todayAppointments
     } catch (e: Exception) {
+        android.util.Log.e("DoctorDashboard", "Exception in fetchTodayAppointments: ${e.message}", e)
         emptyList()
     }
 }

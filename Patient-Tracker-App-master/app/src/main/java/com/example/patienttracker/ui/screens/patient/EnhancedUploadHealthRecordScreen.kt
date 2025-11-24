@@ -106,12 +106,23 @@ fun EnhancedUploadHealthRecordScreen(
                 val type = contentResolver.getType(uri) ?: "image/jpeg"
                 val name = "camera_${System.currentTimeMillis()}.jpg"
                 
+                // Try to query the actual size using OpenableColumns, fall back to stream.available()
                 val fileSize = try {
-                    contentResolver.openInputStream(uri)?.available()?.toLong() ?: 0L
+                    var sizeVal = 0L
+                    val cursor = contentResolver.query(uri, null, null, null, null)
+                    cursor?.use { c ->
+                        if (c.moveToFirst()) {
+                            val sizeIndex = c.getColumnIndex(android.provider.OpenableColumns.SIZE)
+                            if (sizeIndex >= 0) sizeVal = c.getLong(sizeIndex)
+                        }
+                    }
+                    if (sizeVal <= 0L) {
+                        contentResolver.openInputStream(uri)?.available()?.toLong() ?: 0L
+                    } else sizeVal
                 } catch (e: Exception) {
                     0L
                 }
-                
+
                 selectedFiles = selectedFiles + FileSelection(uri, name, fileSize, type)
             } catch (e: Exception) {
                 Toast.makeText(context, "Error processing photo: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -217,8 +228,9 @@ fun EnhancedUploadHealthRecordScreen(
                 }
 
                 // File Picker Button
+                // Use "*/*" so the picker returns PDFs and images; validation filters later
                 Button(
-                    onClick = { filePickerLauncher.launch("image/*,application/pdf") },
+                    onClick = { filePickerLauncher.launch("*/*") },
                     modifier = Modifier
                         .weight(1f)
                         .height(56.dp),
@@ -422,6 +434,8 @@ fun EnhancedUploadHealthRecordScreen(
                         selectedFiles.forEachIndexed { index, file ->
                             uploadProgress = ((index + 1) * 100) / selectedFiles.size
                             
+                            android.util.Log.d("HealthRecordUpload", "Uploading file: ${file.name}, type: ${file.type}, size: ${file.size}")
+                            
                             val result = HealthRecordRepository.uploadRecord(
                                 fileUri = file.uri,
                                 fileName = file.name,
@@ -435,8 +449,16 @@ fun EnhancedUploadHealthRecordScreen(
 
                             if (result.isSuccess) {
                                 successCount++
+                                android.util.Log.d("HealthRecordUpload", "Upload successful: ${file.name}")
                             } else {
                                 failCount++
+                                val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                                android.util.Log.e("HealthRecordUpload", "Upload failed for ${file.name}: $errorMsg", result.exceptionOrNull())
+                                Toast.makeText(
+                                    context,
+                                    "Failed to upload ${file.name}: $errorMsg",
+                                    Toast.LENGTH_LONG
+                                ).show()
                             }
                         }
 

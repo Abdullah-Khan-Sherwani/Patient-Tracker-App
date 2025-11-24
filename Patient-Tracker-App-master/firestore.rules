@@ -45,14 +45,19 @@ service cloud.firestore {
       allow create: if request.auth != null &&
         (request.resource.data.patientUid == request.auth.uid || isDoctor() || isAdmin());
       
-      // Allow read for:
-      // 1. Patients viewing their own appointments
-      // 2. Doctors viewing their appointments
-      // 3. Admin viewing all
-      // 4. Any authenticated user querying by doctorUid (for checking availability/capacity when booking)
+      // Allow read for authenticated users
       allow read: if request.auth != null;
       
-      allow update, delete: if request.auth != null &&
+      allow update: if request.auth != null && (
+        // Patient can update their own appointments
+        request.auth.uid == resource.data.patientUid ||
+        // Doctor can update appointments they're assigned to (e.g., mark as completed)
+        (isDoctor() && request.auth.uid == resource.data.doctorUid) ||
+        // Admin can update all
+        isAdmin()
+      );
+      
+      allow delete: if request.auth != null &&
         (request.auth.uid == resource.data.patientUid || isAdmin());
     }
 

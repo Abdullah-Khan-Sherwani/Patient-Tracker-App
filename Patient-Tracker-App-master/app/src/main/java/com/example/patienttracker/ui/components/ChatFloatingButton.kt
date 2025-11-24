@@ -5,7 +5,7 @@ import androidx.compose.animation.core.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.SmartToy
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -75,8 +75,8 @@ fun ChatFloatingButton(
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Default.Chat,
-                    contentDescription = "Open Chat",
+                    imageVector = Icons.Default.SmartToy,
+                    contentDescription = "Open AI Assistant",
                     tint = Color.White,
                     modifier = Modifier.size(28.dp)
                 )

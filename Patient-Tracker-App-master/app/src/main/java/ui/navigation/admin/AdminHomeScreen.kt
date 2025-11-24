@@ -22,14 +22,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
-import com.example.patienttracker.data.AppointmentRepository
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
-import java.text.SimpleDateFormat
-import java.util.*
+import java.util.Calendar
 
 // Medify Beige Theme
 private val BgColor = Color(0xFFFAF8F3)
@@ -73,10 +71,26 @@ fun AdminHomeScreen(nav: NavController, ctx: Context) {
                     .await()
                 totalPatients = patientsSnapshot.size()
                 
-                // Get today's appointments
-                val today = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date())
-                val appointmentsResult = AppointmentRepository.getDoctorAppointmentsByDate(today)
-                activeAppointments = appointmentsResult.getOrNull()?.size ?: 0
+                // Get today's appointments using timestamp range
+                val calendar = Calendar.getInstance()
+                calendar.set(Calendar.HOUR_OF_DAY, 0)
+                calendar.set(Calendar.MINUTE, 0)
+                calendar.set(Calendar.SECOND, 0)
+                calendar.set(Calendar.MILLISECOND, 0)
+                val startOfDay = com.google.firebase.Timestamp(calendar.time)
+                
+                calendar.set(Calendar.HOUR_OF_DAY, 23)
+                calendar.set(Calendar.MINUTE, 59)
+                calendar.set(Calendar.SECOND, 59)
+                calendar.set(Calendar.MILLISECOND, 999)
+                val endOfDay = com.google.firebase.Timestamp(calendar.time)
+                
+                val appointmentsSnapshot = db.collection("appointments")
+                    .whereGreaterThanOrEqualTo("appointmentDate", startOfDay)
+                    .whereLessThanOrEqualTo("appointmentDate", endOfDay)
+                    .get()
+                    .await()
+                activeAppointments = appointmentsSnapshot.size()
                 
             } catch (e: Exception) {
                 // Handle error silently - display zeros
@@ -135,7 +149,8 @@ fun AdminHomeScreen(nav: NavController, ctx: Context) {
                     QuickSummaryStrip(
                         totalPatients = totalPatients,
                         totalDoctors = totalDoctors,
-                        totalAppointments = activeAppointments
+                        totalAppointments = activeAppointments,
+                        navController = nav
                     )
                 }
                 
@@ -224,14 +239,6 @@ private fun GreetingSection(adminName: String) {
             fontSize = 28.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary
-        )
-        
-        val dateFormat = SimpleDateFormat("EEEE, dd MMMM yyyy", Locale.getDefault())
-        Text(
-            text = dateFormat.format(Date()),
-            fontSize = 14.sp,
-            color = TextSecondary,
-            modifier = Modifier.padding(top = 4.dp)
         )
     }
 }
@@ -710,7 +717,8 @@ private fun PremiumAdminTopBar(
 private fun QuickSummaryStrip(
     totalPatients: Int,
     totalDoctors: Int,
-    totalAppointments: Int
+    totalAppointments: Int,
+    navController: NavController
 ) {
     Row(
         modifier = Modifier
@@ -722,17 +730,20 @@ private fun QuickSummaryStrip(
         SummaryPill(
             label = "Patients",
             count = totalPatients,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            onClick = { navController.navigate("admin_manage_users") }
         )
         SummaryPill(
             label = "Doctors",
             count = totalDoctors,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            onClick = { navController.navigate("admin_manage_users") }
         )
         SummaryPill(
-            label = "Appointments",
+            label = "Today's Appointments",
             count = totalAppointments,
-            modifier = Modifier.weight(1f)
+            modifier = Modifier.weight(1f),
+            onClick = { navController.navigate("admin_all_appointments") }
         )
     }
 }
@@ -741,31 +752,37 @@ private fun QuickSummaryStrip(
 private fun SummaryPill(
     label: String,
     count: Int,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     Surface(
-        modifier = modifier,
+        modifier = modifier
+            .height(140.dp)
+            .clickable(onClick = onClick),
         shape = RoundedCornerShape(20.dp),
         color = CardColor,
         shadowElevation = 2.dp
     ) {
         Column(
             modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 12.dp, horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .fillMaxSize()
+                .padding(vertical = 16.dp, horizontal = 12.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Text(
                 text = count.toString(),
-                fontSize = 24.sp,
+                fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = AccentColor
             )
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
                 text = label,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = TextSecondary,
-                fontWeight = FontWeight.Medium
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center
             )
         }
     }

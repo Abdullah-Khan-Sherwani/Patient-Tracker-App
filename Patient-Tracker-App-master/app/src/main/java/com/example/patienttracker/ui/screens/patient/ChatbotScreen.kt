@@ -46,6 +46,19 @@ enum class BookingStep {
     CONFIRM
 }
 
+// SESSION CONTEXT MEMORY - NEW
+data class SessionContext(
+    var patientName: String = "",
+    var lastSelectedDoctor: DoctorFull? = null,
+    var lastSelectedDate: String? = null,
+    var lastSelectedTime: String? = null,
+    var mentionedSymptoms: MutableList<String> = mutableListOf(),
+    var preferredSpecialty: String? = null,
+    var preferredTimeOfDay: String? = null, // "morning" or "evening"
+    var lastAppointmentId: String? = null,
+    var conversationHistory: MutableList<String> = mutableListOf() // For context awareness
+)
+
 // Data models
 data class ChatMessage(
     val id: String = UUID.randomUUID().toString(),
@@ -57,7 +70,8 @@ data class ChatMessage(
     val dateOptions: List<String> = emptyList(),
     val timeSlots: List<String> = emptyList(),
     val bookingSummary: BookingSummary? = null,
-    val messageType: MessageType = MessageType.TEXT
+    val messageType: MessageType = MessageType.TEXT,
+    val isEmergency: Boolean = false // NEW: for emergency detection
 )
 
 enum class MessageType {
@@ -105,13 +119,37 @@ fun ChatbotScreen(navController: NavController) {
     var selectedDate by remember { mutableStateOf<String?>(null) }
     var selectedTime by remember { mutableStateOf<String?>(null) }
     var allDoctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
+    
+    // NEW: Session context memory for proactive assistance
+    val sessionContext = remember { SessionContext() }
 
-    // Welcome message on first load
+    // Welcome message on first load - NOW WITH PERSONALIZATION
     LaunchedEffect(Unit) {
         delay(300)
+        
+        // Get patient name from Firebase
+        val currentUser = Firebase.auth.currentUser
+        if (currentUser != null) {
+            try {
+                val userDoc = Firebase.firestore.collection("users")
+                    .document(currentUser.uid)
+                    .get()
+                    .await()
+                sessionContext.patientName = userDoc.getString("firstName") ?: "there"
+            } catch (e: Exception) {
+                sessionContext.patientName = "there"
+            }
+        }
+        
+        val greeting = if (sessionContext.patientName.isNotEmpty() && sessionContext.patientName != "there") {
+            "Hi ${sessionContext.patientName}, I'm Medify Assistant. I'm here to help you anytime."
+        } else {
+            "Hi, I'm Medify Assistant. I'm here to help you anytime."
+        }
+        
         messages = listOf(
             ChatMessage(
-                text = "Hi, I'm Medify Assistant. Ask me anything or tap a shortcut below.",
+                text = greeting,
                 isFromUser = false
             )
         )
@@ -258,7 +296,9 @@ fun ChatbotScreen(navController: NavController) {
                         onDoctorSelect = { selectedDoctor = it },
                         selectedDate = selectedDate,
                         onDateSelect = { selectedDate = it },
-                        allDoctors = allDoctors
+                        allDoctors = allDoctors,
+                        sessionContext = sessionContext, // NEW
+                        navController = navController // NEW
                     )
                     messageText = ""
                 }
@@ -312,7 +352,9 @@ fun ChatbotScreen(navController: NavController) {
                                     onDoctorSelect = { selectedDoctor = it },
                                     selectedDate = selectedDate,
                                     onDateSelect = { selectedDate = it },
-                                    allDoctors = allDoctors
+                                    allDoctors = allDoctors,
+                                    sessionContext = sessionContext, // NEW
+                                    navController = navController // NEW
                                 )
                                 messageText = ""
                             }
@@ -566,7 +608,7 @@ fun SuggestionChipItem(text: String, onClick: () -> Unit) {
     )
 }
 
-// Message handler with intelligent responses and booking flow
+// Message handler with intelligent responses and booking flow - UPGRADED
 private fun handleSendMessage(
     text: String,
     messages: List<ChatMessage>,
@@ -578,11 +620,16 @@ private fun handleSendMessage(
     onDoctorSelect: (DoctorFull?) -> Unit,
     selectedDate: String?,
     onDateSelect: (String?) -> Unit,
-    allDoctors: List<DoctorFull>
+    allDoctors: List<DoctorFull>,
+    sessionContext: SessionContext, // NEW
+    navController: NavController // NEW
 ) {
     // Add user message
     val userMessage = ChatMessage(text = text, isFromUser = true)
     onMessagesUpdate(messages + userMessage)
+    
+    // Update conversation history for context awareness
+    sessionContext.conversationHistory.add(text.lowercase())
 
     // Show typing indicator
     onTypingUpdate(true)
@@ -598,7 +645,9 @@ private fun handleSendMessage(
             onBookingStepChange = onBookingStepChange,
             allDoctors = allDoctors,
             selectedDoctor = selectedDoctor,
-            selectedDate = selectedDate
+            selectedDate = selectedDate,
+            sessionContext = sessionContext, // NEW
+            navController = navController // NEW
         )
         onMessagesUpdate(messages + userMessage + botResponse)
     }
@@ -610,75 +659,355 @@ private fun generateBotResponse(
     onBookingStepChange: (BookingStep) -> Unit,
     allDoctors: List<DoctorFull>,
     selectedDoctor: DoctorFull?,
-    selectedDate: String?
+    selectedDate: String?,
+    sessionContext: SessionContext, // NEW
+    navController: NavController // NEW
 ): ChatMessage {
-    // Check for booking intent
-    val bookingKeywords = listOf("book", "appointment", "need appointment", "want to see", 
-        "consult", "schedule", "visit", "see doctor", "need doctor")
-    val isBookingIntent = bookingKeywords.any { query.contains(it) }
     
-    return when {
-        isBookingIntent && bookingStep == BookingStep.NONE -> {
-            onBookingStepChange(BookingStep.SELECT_DOCTOR)
-            ChatMessage(
-                text = "Sure! Who would you like to book an appointment with?",
+    // ============================================
+    // 1. EMERGENCY DETECTION (HIGHEST PRIORITY)
+    // ============================================
+    val emergencyKeywords = listOf(
+        "severe bleeding", "not breathing", "can't breathe", "heart attack", 
+        "chest pain severe", "suicidal", "suicide", "kill myself", 
+        "stroke", "unconscious", "seizure", "choking", "severe burn"
+    )
+    
+    if (emergencyKeywords.any { query.contains(it) }) {
+        return ChatMessage(
+            text = "⚠️ This may be an emergency.\n\nPlease call your local emergency number (911 or 112) or visit the nearest hospital immediately.\n\nDo not wait for an appointment.",
+            isFromUser = false,
+            isEmergency = true
+        )
+    }
+    
+    // ============================================
+    // 2. SYMPTOM-BASED HELP (NO DIAGNOSIS)
+    // ============================================
+    val symptomToSpecialty = mapOf(
+    // ❤️ Heart & chest
+    "chest pain" to "cardiologist",
+    "heart pain" to "cardiologist",
+    "palpitations" to "cardiologist",
+    "high blood pressure" to "cardiologist",
+    "bp" to "cardiologist",
+
+    // 🫁 Lungs & breathing
+    "breathing" to "pulmonologist",
+    "shortness of breath" to "pulmonologist",
+    "cough" to "pulmonologist",
+    "asthma" to "pulmonologist",
+    "lung" to "pulmonologist",
+
+    // 🧠 Brain & nerves
+    "headache" to "neurologist",
+    "migraine" to "neurologist",
+    "memory loss" to "neurologist",
+    "dizziness" to "neurologist",
+    "seizure" to "neurologist",
+
+    // 🧠 Mental health
+    "anxiety" to "psychiatrist",
+    "depression" to "psychiatrist",
+    "panic" to "psychiatrist",
+    "stress" to "psychiatrist",
+    "insomnia" to "psychiatrist",
+
+    // 🍽 Stomach & digestion
+    "stomach" to "gastroenterologist",
+    "abdomen" to "gastroenterologist",
+    "acidity" to "gastroenterologist",
+    "bloating" to "gastroenterologist",
+    "indigestion" to "gastroenterologist",
+    "constipation" to "gastroenterologist",
+
+    // 🧴 Skin & hair
+    "skin" to "dermatologist",
+    "rash" to "dermatologist",
+    "hair loss" to "dermatologist",
+    "acne" to "dermatologist",
+    "eczema" to "dermatologist",
+    "psoriasis" to "dermatologist",
+
+    // 👁 Eyes
+    "eye pain" to "ophthalmologist",
+    "blurred vision" to "ophthalmologist",
+    "itchy eyes" to "ophthalmologist",
+    "red eyes" to "ophthalmologist",
+
+    // 👂 ENT (ear, nose, throat)
+    "ear pain" to "ent specialist",
+    "hearing loss" to "ent specialist",
+    "sinus" to "ent specialist",
+    "runny nose" to "ent specialist",
+    "tonsils" to "ent specialist",
+
+    // 🦴 Bones & joints
+    "joint pain" to "orthopedic",
+    "back pain" to "orthopedic",
+    "bone fracture" to "orthopedic",
+    "knee pain" to "orthopedic",
+    "shoulder pain" to "orthopedic",
+
+    // 🤰 Women health
+    "pregnancy" to "gynecologist",
+    "period pain" to "gynecologist",
+    "irregular periods" to "gynecologist",
+    "pcos" to "gynecologist",
+    "fertility" to "gynecologist",
+
+    // 🧒 Children
+    "child fever" to "pediatrician",
+    "baby cough" to "pediatrician",
+    "child vomiting" to "pediatrician",
+    "baby rash" to "pediatrician",
+
+    // 🦷 Teeth
+    "tooth pain" to "dentist",
+    "bleeding gums" to "dentist",
+    "bad breath" to "dentist",
+    "cavity" to "dentist",
+
+    // 🚻 Urinary & kidneys
+    "burning urination" to "urologist",
+    "kidney pain" to "urologist",
+    "urine infection" to "urologist",
+    "uti" to "urologist",
+
+    // 🎗 Cancer concerns
+    "sudden lumps" to "oncologist",
+    "unexplained weight loss" to "oncologist",
+    "persistent fatigue" to "oncologist",
+
+    // 🔥 General
+    "fever" to "general physician",
+    "cold" to "general physician",
+    "flu" to "general physician",
+    "weakness" to "general physician",
+    "body pain" to "general physician",
+    "fatigue" to "general physician"
+)
+
+    
+    for ((symptom, specialty) in symptomToSpecialty) {
+        if (query.contains(symptom)) {
+            sessionContext.mentionedSymptoms.add(symptom)
+            sessionContext.preferredSpecialty = specialty
+            
+            val specialistDoctors = allDoctors.filter { 
+                it.speciality.lowercase().contains(specialty) 
+            }
+            
+            return ChatMessage(
+                text = "I can't provide medical diagnosis, but ${symptom.replace("_", " ")} concerns are usually treated by ${specialty}s.\n\nWould you like to book an appointment with one?",
                 isFromUser = false,
-                messageType = MessageType.DOCTOR_LIST,
-                doctorList = allDoctors
+                actionButtons = if (specialistDoctors.isNotEmpty()) {
+                    listOf(ChatAction("Yes, show ${specialty}s", "doctor_catalogue"))
+                } else {
+                    listOf(ChatAction("Browse All Doctors", "doctor_catalogue"))
+                }
             )
         }
-        query.contains("doctor") || query.contains("find") || query.contains("search") -> {
-            ChatMessage(
-                text = "Let me help you find the right doctor for your needs.",
+    }
+    
+    // ============================================
+    // 3. CONTEXT-AWARE BOOKING REUSE
+    // ============================================
+    val bookingKeywords = listOf("book", "appointment", "need appointment", "want to see", 
+        "consult", "schedule", "visit", "see doctor", "need doctor", "book again", "same doctor")
+    val isBookingIntent = bookingKeywords.any { query.contains(it) }
+    
+    if (isBookingIntent) {
+        // Check if user wants to reuse previous doctor
+        if ((query.contains("again") || query.contains("same")) && sessionContext.lastSelectedDoctor != null) {
+            val doctor = sessionContext.lastSelectedDoctor!!
+            return ChatMessage(
+                text = "Got it! Booking with ${doctor.firstName} ${doctor.lastName} (${doctor.speciality}) again.\n\nWhen would you like to see them?",
+                isFromUser = false,
+                actionButtons = listOf(
+                    ChatAction("Choose Date", "doctor_catalogue"),
+                    ChatAction("Different Doctor", "doctor_catalogue")
+                )
+            )
+        }
+        
+        // Proactive suggestion based on previous specialty
+        if (sessionContext.preferredSpecialty != null && bookingStep == BookingStep.NONE) {
+            val matchingDoctors = allDoctors.filter { 
+                it.speciality.lowercase().contains(sessionContext.preferredSpecialty!!) 
+            }
+            
+            if (matchingDoctors.isNotEmpty()) {
+                onBookingStepChange(BookingStep.SELECT_DOCTOR)
+                return ChatMessage(
+                    text = "Since you were looking for ${sessionContext.preferredSpecialty}s, I found ${matchingDoctors.size} available.\n\nWho would you like to book?",
+                    isFromUser = false,
+                    actionButtons = listOf(
+                        ChatAction("Show ${sessionContext.preferredSpecialty}s", "doctor_catalogue")
+                    )
+                )
+            }
+        }
+        
+        // Standard booking flow
+        if (bookingStep == BookingStep.NONE) {
+            onBookingStepChange(BookingStep.SELECT_DOCTOR)
+            return ChatMessage(
+                text = "Sure! Let me help you book an appointment.\n\nWho would you like to see?",
                 isFromUser = false,
                 actionButtons = listOf(
                     ChatAction("Browse Doctors", "doctor_catalogue")
                 )
             )
         }
-        query.contains("report") || query.contains("history") || query.contains("medical") -> {
+    }
+    
+    // ============================================
+    // 4. SMART CLARIFICATION (NO ERROR MESSAGES)
+    // ============================================
+    val needsClarification = !query.contains("book") && !query.contains("doctor") && 
+                             !query.contains("report") && !query.contains("timing") &&
+                             !query.contains("help") && !query.contains("insurance") &&
+                             !query.contains("cancel") && !query.contains("reschedule") &&
+                             query.length > 3
+    
+    if (needsClarification) {
+        val suggestions = mutableListOf<String>()
+        
+        if (query.contains("time") || query.contains("when")) {
+            suggestions.add("What are your timings?")
+        }
+        if (query.contains("cost") || query.contains("pay") || query.contains("price")) {
+            suggestions.add("Insurance or payment help")
+        }
+        if (query.contains("appointment")) {
+            suggestions.add("Book an appointment")
+            suggestions.add("Reschedule appointment")
+        }
+        
+        if (suggestions.isEmpty()) {
+            suggestions.addAll(listOf(
+                "Book an appointment",
+                "Find a doctor",
+                "View my reports"
+            ))
+        }
+        
+        return ChatMessage(
+            text = "I think you're asking about one of these:",
+            isFromUser = false,
+            actionButtons = suggestions.map { ChatAction(it, "") }
+        )
+    }
+    
+    // ============================================
+    // 5. EXISTING INTENTS (ENHANCED WITH TONE)
+    // ============================================
+    return when {
+        query.contains("doctor") || query.contains("find") || query.contains("search") -> {
+            val personalizedText = if (sessionContext.patientName.isNotEmpty()) {
+                "Let me help you find the right doctor for your needs, ${sessionContext.patientName}."
+            } else {
+                "Let me help you find the right doctor for your needs."
+            }
             ChatMessage(
-                text = "You can view your medical reports and history here.",
+                text = personalizedText,
                 isFromUser = false,
                 actionButtons = listOf(
-                    ChatAction("View Medical History", "patient_reports")
+                    ChatAction("Browse Doctors", "doctor_catalogue")
+                )
+            )
+        }
+        query.contains("report") || query.contains("history") || query.contains("medical") || query.contains("record") -> {
+            // PROACTIVE: Ask if they want to discuss with doctor
+            val hasRecentReports = sessionContext.conversationHistory.any { 
+                it.contains("upload") || it.contains("record") 
+            }
+            
+            val proactiveText = if (hasRecentReports) {
+                "You can view your medical reports here.\n\nWould you like to discuss them with a doctor?"
+            } else {
+                "You can view your medical reports and history here."
+            }
+            
+            ChatMessage(
+                text = proactiveText,
+                isFromUser = false,
+                actionButtons = listOf(
+                    ChatAction("View Medical History", "patient_reports"),
+                    ChatAction("Book Consultation", "doctor_catalogue")
                 )
             )
         }
         query.contains("reschedule") || query.contains("cancel") -> {
+            // PROACTIVE: Suggest rescheduling instead of just canceling
             ChatMessage(
-                text = "You can manage your appointments and reschedule as needed.",
+                text = "I can help you manage your appointments.\n\nWould you like to reschedule or cancel?",
                 isFromUser = false,
                 actionButtons = listOf(
-                    ChatAction("View Appointments", "patient_appointments")
+                    ChatAction("View Appointments", "patient_appointments"),
+                    ChatAction("Book New Appointment", "doctor_catalogue")
                 )
             )
         }
-        query.contains("timing") || query.contains("hour") || query.contains("open") -> {
+        query.contains("timing") || query.contains("hour") || query.contains("open") || query.contains("available") -> {
             ChatMessage(
-                text = "Our doctors are available 24/7 for emergency consultations. Regular appointments are from 9 AM to 9 PM daily.",
-                isFromUser = false
-            )
-        }
-        query.contains("insurance") || query.contains("payment") || query.contains("cost") -> {
-            ChatMessage(
-                text = "We accept most major insurance plans and offer flexible payment options. You can view payment details in your profile.",
+                text = "Our doctors are available 24/7 for emergency consultations.\n\nRegular appointments: 9 AM to 9 PM daily.",
                 isFromUser = false,
                 actionButtons = listOf(
-                    ChatAction("Go to Profile", "patient_profile")
+                    ChatAction("Book Appointment", "doctor_catalogue")
                 )
             )
         }
-        query.contains("help") || query.contains("support") -> {
+        query.contains("insurance") || query.contains("payment") || query.contains("cost") || query.contains("fee") -> {
             ChatMessage(
-                text = "I'm here to assist you with:\n• Booking appointments\n• Finding doctors\n• Viewing reports\n• Managing your profile\n\nWhat would you like help with?",
+                text = "We accept most major insurance plans and offer flexible payment options.\n\nYou can view detailed payment information in your profile.",
+                isFromUser = false,
+                actionButtons = listOf(
+                    ChatAction("Go to Profile", "patient_profile"),
+                    ChatAction("Book Appointment", "doctor_catalogue")
+                )
+            )
+        }
+        query.contains("help") || query.contains("support") || query.contains("assist") -> {
+            val helpText = if (sessionContext.patientName.isNotEmpty()) {
+                "${sessionContext.patientName}, I'm here to assist you with:"
+            } else {
+                "I'm here to assist you with:"
+            }
+            ChatMessage(
+                text = "$helpText\n• Booking appointments\n• Finding doctors\n• Viewing reports\n• Managing your profile\n\nWhat would you like help with?",
                 isFromUser = false
+            )
+        }
+        query.contains("thank") || query.contains("thanks") -> {
+            ChatMessage(
+                text = "You're welcome! Is there anything else I can help you with?",
+                isFromUser = false
+            )
+        }
+        query.contains("yes") || query.contains("okay") || query.contains("sure") -> {
+            ChatMessage(
+                text = "Great! What would you like to do next?",
+                isFromUser = false,
+                actionButtons = listOf(
+                    ChatAction("Book Appointment", "doctor_catalogue"),
+                    ChatAction("Find Doctor", "doctor_catalogue"),
+                    ChatAction("View Reports", "patient_reports")
+                )
             )
         }
         else -> {
+            // Friendly fallback with suggestions
             ChatMessage(
-                text = "I'm here to learn and help. Try asking about:\n• Booking appointments\n• Finding doctors\n• Viewing reports\n• Timings and payments",
-                isFromUser = false
+                text = "I'm here to learn and help you with medical appointments and records.\n\nTry asking about:",
+                isFromUser = false,
+                actionButtons = listOf(
+                    ChatAction("Book Appointment", "doctor_catalogue"),
+                    ChatAction("Find Doctor", "doctor_catalogue"),
+                    ChatAction("View Reports", "patient_reports"),
+                    ChatAction("Timings & Payments", "patient_profile")
+                )
             )
         }
     }

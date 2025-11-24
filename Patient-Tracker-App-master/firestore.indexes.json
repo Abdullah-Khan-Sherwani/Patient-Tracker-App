@@ -20,6 +20,14 @@
       "collectionId": "appointments",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "doctorUid", "order": "ASCENDING" },
+        { "fieldPath": "appointmentDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionId": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "patientUid", "order": "ASCENDING" },
         { "fieldPath": "appointmentDate", "order": "DESCENDING" }
       ]

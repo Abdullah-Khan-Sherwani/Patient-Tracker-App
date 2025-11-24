@@ -1,0 +1,688 @@
+Software Requirements Specification
+Healthcare Management System with Privacy-Enhanced Report Management
+Version: 1.0
+Date: November 2, 2025
+Prepared by: Ibad-ur-Rehman Khan
+	           Abdullah Khan Sherwani
+	           Tayyib Bin Hisham Syed
+	           Zuhair Amirali Merchant
+________________________________________
+Table of Contents
+1.	Introduction
+2.	Overall Description
+3.	Specific Requirements
+4.	System Features
+5.	External Interface Requirements
+6.	Non-Functional Requirements
+7.	Appendices
+________________________________________
+1. Introduction
+1.1 Purpose
+This Software Requirements Specification (SRS) document provides a complete description of the Healthcare Management System. It details the functional and non-functional requirements for a system that enables patients to submit health reports, doctors to manage appointments and medical records, and administrators to oversee system operations while maintaining HIPAA compliance and patient privacy.
+1.2 Scope
+The Healthcare Management System is designed to:
+•	Enable patients to register, book appointments, and submit health reports through multiple modalities (voice notes, text, images)
+•	Allow doctors to review, edit, and create patient health records within appointment timeframes
+•	Provide administrators with capabilities to manage users and approve doctor registrations
+•	Enforce strict privacy controls including time-limited access to patient records (2-day post-appointment window)
+•	Maintain audit trails for all medical record access and modifications
+System Name: Healthcare Management System (HMS)
+Benefits:
+•	Improved patient engagement through flexible report submission
+•	Enhanced privacy protection through time-limited access controls
+•	Streamlined appointment and record management
+•	HIPAA-compliant data handling
+1.3 Definitions, Acronyms, and Abbreviations
+•	HMS: Healthcare Management System
+•	HIPAA: Health Insurance Portability and Accountability Act
+•	SRS: Software Requirements Specification
+•	UI: User Interface
+•	RBAC: Role-Based Access Control
+•	Patient: End-user who books appointments and submits health reports
+•	Doctor: Medical professional who reviews reports and provides diagnoses
+•	Admin: System administrator who manages users and approvals
+•	Health Record: Digital document containing patient medical information
+•	Access Window: 2-day period post-appointment during which doctors can access patient records
+1.4 References
+•	IEEE Std 830-1998, IEEE Recommended Practice for Software Requirements Specifications
+•	HIPAA Privacy Rule (45 CFR Part 160 and Part 164, Subparts A and E)
+•	Course UML Diagrams (Class, Use Case, Sequence, Activity)
+1.5 Overview
+This document is organized into sections covering system description, specific requirements, system features, interface requirements, and non-functional requirements. It serves as the primary reference for development, testing, and validation of the Healthcare Management System.
+
+
+________________________________________
+2. Overall Description
+2.1 Product Perspective
+The Healthcare Management System is a standalone web-based application that manages the interaction between patients, doctors, and administrators in a healthcare setting. The system interfaces with:
+•	Storage Systems: For health records, attachments, and user data
+•	Notification Services: For appointment reminders and access alerts
+•	Authentication Systems: For secure user login and role management
+System Context:
+┌─────────────┐         ┌──────────────────┐         ┌─────────────┐
+│   Patient   │◄───────►│   HMS Platform   │◄───────►│   Doctor    │
+└─────────────┘         └──────────────────┘         └─────────────┘
+                               ▲
+                               │
+                               ▼
+                        ┌─────────────┐
+                        │    Admin    │
+                        └─────────────┘
+2.2 Product Functions
+The major functions include:
+Patient Functions:
+•	User registration and authentication
+•	Appointment booking with health report submission
+•	Multiple report submission formats (voice, text, images)
+•	View appointment history and health records
+•	Receive notifications about appointments
+Doctor Functions:
+•	User authentication (pending admin approval)
+•	View assigned appointments
+•	Access patient health reports within appointment window
+•	Edit existing patient reports
+•	Create new health reports for patients
+•	Add diagnoses, prescriptions, and medical notes
+•	Time-limited access (2 days post-appointment) for privacy compliance
+Admin Functions:
+•	User authentication
+•	Approve or reject doctor registration requests
+•	Manage user accounts and roles
+•	Monitor system access and audit logs
+2.3 User Classes and Characteristics
+User Class 1: Patient
+•	Frequency of Use: Occasional (appointment-based)
+•	Technical Expertise: Basic computer/mobile device skills
+•	Key Responsibilities: Submit health information, attend appointments
+•	Priority: High (primary system users)
+User Class 2: Doctor
+•	Frequency of Use: Daily/Regular
+•	Technical Expertise: Moderate computer skills
+•	Key Responsibilities: Review reports, provide medical care, document diagnoses
+•	Priority: High (critical for system function)
+User Class 3: Administrator
+•	Frequency of Use: Regular for user management
+•	Technical Expertise: Advanced technical and administrative skills
+•	Key Responsibilities: System oversight, user approval, security management
+•	Priority: Medium (supportive role)
+2.4 Operating Environment
+•	Client-Side: Modern web browsers (Chrome, Firefox, Safari, Edge) on desktop and mobile devices
+•	Server-Side: Cloud-based infrastructure with secure data storage
+•	Database: Relational database (PostgreSQL/MySQL) for structured data
+•	File Storage: Secure cloud storage for attachments, voice notes, and images
+•	Operating Systems: Platform-independent (web-based)
+2.5 Design and Implementation Constraints
+•	HIPAA Compliance: All data handling must comply with HIPAA privacy and security rules
+•	Time-Limited Access: Strict enforcement of 2-day post-appointment access window
+•	Data Encryption: All sensitive data must be encrypted in transit and at rest
+•	Audit Logging: Complete audit trail for all health record access
+•	Multi-Modal Input: Support for text, voice, and image report submissions
+•	Browser Compatibility: Must work on major browsers without plugins
+2.6 Assumptions and Dependencies
+Assumptions:
+•	Users have internet connectivity
+•	Patients have access to devices capable of recording voice or capturing images
+•	Doctors are licensed medical professionals
+•	Appointments are scheduled at least 24 hours in advance (unless emergency cases) 
+Dependencies:
+•	Third-party authentication services (optional)
+•	Cloud storage providers for media files
+•	Email/SMS notification services
+•	Speech-to-text services for voice note processing (optional)
+________________________________________
+3. Specific Requirements
+3.1 Functional Requirements
+3.1.1 User Management
+FR-UM-001: User Registration
+•	Description: System shall allow new users to register with role selection (Patient/Doctor)
+•	Input: Username, password, email, full name, role
+•	Processing: Validate unique username/email, hash password, create user account
+•	Output: Confirmation message, pending approval for doctors
+•	Priority: High
+FR-UM-002: User Authentication
+•	Description: System shall authenticate users with username/password
+•	Input: Username, password
+•	Processing: Validate credentials, establish session, load role-based permissions
+•	Output: Redirect to role-specific dashboard or error message
+•	Priority: High
+FR-UM-003: Password Reset
+•	Description: System shall allow users to reset forgotten passwords via email
+•	Input: Email address
+•	Processing: Generate reset token, send email, validate token, update password
+•	Output: Password reset confirmation
+•	Priority: Medium
+FR-UM-004: Logout
+•	Description: System shall allow users to securely logout
+•	Input: Logout request
+•	Processing: Terminate session, clear authentication tokens
+•	Output: Redirect to login page
+•	Priority: High
+3.1.2 Admin Functions
+FR-AD-001: Doctor Approval
+•	Description: Admin shall approve or reject doctor registration requests
+•	Input: Doctor registration details, approval decision
+•	Processing: Update doctor access status, send notification
+•	Output: Approval/rejection confirmation, email to doctor
+•	Priority: High
+FR-AD-002: User Role Assignment
+•	Description: Admin shall assign or modify user roles
+•	Input: User ID, new role
+•	Processing: Validate role, update user permissions
+•	Output: Role update confirmation
+•	Priority: Medium
+FR-AD-003: View Access Logs
+•	Description: Admin shall view audit logs of health record access
+•	Input: Filter criteria (date range, user, action type)
+•	Processing: Query audit log database
+•	Output: Filtered access log report
+•	Priority: High (for HIPAA compliance)
+3.1.3 Patient Functions
+FR-PT-001: Book Appointment
+•	Description: Patient shall book appointments with doctors
+•	Input: Doctor selection, date/time preference, reason for visit
+•	Processing: Check doctor availability, create appointment record
+•	Output: Appointment confirmation with details
+•	Priority: High
+FR-PT-002: Submit Health Report (Text)
+•	Description: Patient shall submit health report as text during appointment booking
+•	Input: Text-based health information, symptoms, medical history
+•	Processing: Validate input, save to database, link to appointment
+•	Output: Submission confirmation
+•	Priority: High
+FR-PT-003: Submit Health Report (Voice Note)
+•	Description: Patient shall submit health report as voice recording
+•	Input: Audio file (max 10MB, formats: MP3, WAV, M4A)
+•	Processing: Upload file, store securely, link to appointment
+•	Output: Upload confirmation with file preview
+•	Priority: High
+FR-PT-004: Submit Health Report (Images)
+•	Description: Patient shall upload images (lab reports, prescriptions) with health report
+•	Input: Image files (max 5MB each, formats: JPG, PNG, PDF)
+•	Processing: Upload files, validate format, store securely, link to appointment
+•	Output: Upload confirmation with thumbnails
+•	Priority: High
+FR-PT-005: Include Past Medications
+•	Description: Patient shall include current/past medications in health report
+•	Input: Medication names, dosages, frequency, duration
+•	Processing: Parse medication data, store in structured format
+•	Output: Medication list confirmation
+•	Priority: High
+FR-PT-006: View Appointment History
+•	Description: Patient shall view their past and upcoming appointments
+•	Input: Patient ID (from session)
+•	Processing: Query appointments, retrieve associated health records
+•	Output: List of appointments with dates, doctors, statuses
+•	Priority: Medium
+
+FR-PT-007: View Health Records
+•	Description: Patient shall view their health records and doctor notes
+•	Input: Patient ID, record selection
+•	Processing: Retrieve health record, check access permissions
+•	Output: Display health record with diagnoses, prescriptions, doctor notes
+•	Priority: Medium
+3.1.4 Doctor Functions
+FR-DC-001: View Assigned Appointments
+•	Description: Doctor shall view appointments assigned to them
+•	Input: Doctor ID (from session), date filter
+•	Processing: Query appointments for doctor, order by date/time
+•	Output: List of appointments with patient names, times, status
+•	Priority: High
+FR-DC-002: Access Patient Health Report
+•	Description: Doctor shall access patient health report on appointment day
+•	Input: Appointment ID
+•	Processing: Verify appointment date, check 2-day window, retrieve report, log access
+•	Output: Display patient report (text, voice player, images)
+•	Priority: High
+•	Note: Access restricted to appointment day and 2 days post-appointment
+FR-DC-003: Edit Patient Health Report
+•	Description: Doctor shall edit patient-submitted health report within access window
+•	Input: Report ID, edited content (text, annotations on images)
+•	Processing: Verify access window, save changes, log modification, update timestamp
+•	Output: Save confirmation, updated report display
+•	Priority: High
+FR-DC-004: Create New Health Report
+•	Description: Doctor shall create new health report if patient report is outdated or missing
+•	Input: Patient ID, appointment ID, report content
+•	Processing: Verify access window, create new report, link to appointment
+•	Output: New report created confirmation
+•	Priority: High
+
+
+FR-DC-005: Add Diagnosis
+•	Description: Doctor shall add diagnosis to patient health record
+•	Input: Diagnosis text, ICD codes (optional), severity
+•	Processing: Save diagnosis, link to health record, timestamp entry
+•	Output: Diagnosis saved confirmation
+•	Priority: High
+FR-DC-006: Prescribe Medication
+•	Description: Doctor shall prescribe medications in health record
+•	Input: Medication name, dosage, frequency, duration, special instructions
+•	Processing: Save prescription, link to health record, check drug interactions (if available)
+•	Output: Prescription saved confirmation
+•	Priority: High
+FR-DC-007: Time-Limited Access Enforcement
+•	Description: System shall block doctor access to patient records after 2-day window
+•	Input: Current date/time, appointment date/time
+•	Processing: Calculate time difference, deny access if > 2 days post-appointment
+•	Output: Access denied message if outside window
+•	Priority: High (HIPAA compliance)
+FR-DC-008: View Patient Medical History
+•	Description: Doctor shall view patient's past health records within access window
+•	Input: Patient ID, appointment ID
+•	Processing: Verify access window, retrieve historical records
+•	Output: Display list of past health records
+•	Priority: Medium
+3.1.5 Notification System
+FR-NT-001: Appointment Confirmation
+•	Description: System shall send appointment confirmation to patient
+•	Input: Appointment details
+•	Processing: Generate confirmation message, send via email/SMS
+•	Output: Notification sent
+•	Priority: Medium
+FR-NT-002: Appointment Reminder
+•	Description: System shall send appointment reminder 24 hours before appointment
+•	Input: Upcoming appointments
+•	Processing: Check appointments, send reminders
+•	Output: Reminder notifications sent
+•	Priority: Low
+FR-NT-003: Doctor Approval Notification
+•	Description: System shall notify doctor of registration approval/rejection
+•	Input: Approval status
+•	Processing: Generate message, send to doctor email
+•	Output: Notification sent
+•	Priority: Medium
+FR-NT-004: Access Window Expiry Alert
+•	Description: System shall notify doctor when access window is about to expire
+•	Input: Appointment date, current date
+•	Processing: Calculate remaining time, send alert if < 6 hours remaining
+•	Output: Alert notification sent
+•	Priority: Low
+3.1.6 Report Management
+FR-RM-001: Multi-Format Report Storage
+•	Description: System shall store health reports in multiple formats
+•	Input: Text, audio files, image files
+•	Processing: Validate formats, compress if needed, store with encryption, link to patient/appointment
+•	Output: Secure storage confirmation
+•	Priority: High
+FR-RM-002: Report Versioning
+•	Description: System shall maintain version history when reports are edited
+•	Input: Original report, edited report
+•	Processing: Create new version, preserve original, timestamp changes, record editor
+•	Output: New version saved
+•	Priority: Medium
+FR-RM-003: Report Retrieval
+•	Description: System shall retrieve reports based on access permissions
+•	Input: Report ID, user credentials
+•	Processing: Verify permissions, check time window, retrieve and decrypt data
+•	Output: Formatted report display
+•	Priority: High
+3.2 Non-Functional Requirements
+3.2.1 Performance Requirements
+NFR-PF-001: Response Time
+•	System shall respond to user actions within 2 seconds under normal load
+•	Search and retrieval operations shall complete within 3 seconds
+•	File uploads shall provide progress feedback for files > 1MB
+NFR-PF-002: Concurrent Users
+•	System shall support at least 1000 concurrent users
+•	System shall maintain performance with 100 simultaneous appointment bookings
+NFR-PF-003: Database Performance
+•	Database queries shall execute within 1 second for 95% of requests
+•	System shall handle up to 10,000 health records without performance degradation
+3.2.2 Security Requirements
+NFR-SC-001: Authentication
+•	System shall use secure password hashing (bcrypt, Argon2, or equivalent)
+•	System shall enforce strong password policies (min 8 characters, mix of types)
+•	System shall implement account lockout after 5 failed login attempts
+NFR-SC-002: Authorization
+•	System shall implement role-based access control (RBAC)
+•	System shall enforce principle of least privilege
+•	System shall validate user permissions on every sensitive operation
+NFR-SC-003: Data Encryption
+•	System shall encrypt all data in transit using TLS 1.3 or higher
+•	System shall encrypt all sensitive data at rest (AES-256 or equivalent)
+•	System shall encrypt file uploads before storage
+NFR-SC-004: Audit Logging
+•	System shall log all access to patient health records
+•	System shall log all modifications to health records
+•	Audit logs shall include: timestamp, user ID, action, affected record ID, IP address
+•	Audit logs shall be immutable and retained for minimum 7 years (HIPAA requirement)
+NFR-SC-005: Time-Limited Access
+•	System shall programmatically enforce 2-day post-appointment access window
+•	System shall not allow manual override of access restrictions
+•	System shall audit all access attempts including denied attempts
+NFR-SC-006: Session Management
+•	System shall expire inactive sessions after 30 minutes
+•	System shall use secure, httpOnly, sameSite cookies
+•	System shall invalidate sessions on password change
+3.2.3 Reliability Requirements
+NFR-RL-001: Availability
+•	System shall maintain 99.5% uptime (excluding scheduled maintenance)
+•	Scheduled maintenance shall occur during off-peak hours with 48-hour notice
+NFR-RL-002: Data Backup
+•	System shall perform automated daily backups
+•	System shall retain backups for minimum 90 days
+•	Backup restoration time shall not exceed 4 hours
+NFR-RL-003: Error Handling
+•	System shall gracefully handle errors without exposing sensitive information
+•	System shall log all errors with sufficient context for debugging
+•	System shall provide user-friendly error messages
+3.2.4 Usability Requirements
+NFR-US-001: User Interface
+•	System shall provide intuitive, consistent navigation
+•	System shall be accessible according to WCAG 2.1 Level AA standards
+•	System shall provide help documentation and tooltips
+NFR-US-002: Mobile Responsiveness
+•	System shall be fully functional on mobile devices (phones, tablets)
+•	System shall adapt layouts for screen sizes from 320px to 2560px width
+
+NFR-US-003: Multi-Format Support
+•	System shall support voice recording on devices with microphone access
+•	System shall support camera access for image capture on mobile devices
+•	System shall provide fallback options if device features unavailable
+3.2.5 Compliance Requirements
+NFR-CP-001: HIPAA Compliance
+•	System shall comply with HIPAA Privacy Rule (45 CFR Part 164.502)
+•	System shall comply with HIPAA Security Rule (45 CFR Part 164.306)
+•	System shall implement required administrative, physical, and technical safeguards
+NFR-CP-002: Data Privacy
+•	System shall obtain user consent for data collection and processing
+•	System shall provide users ability to view and export their data
+•	System shall implement data retention policies
+________________________________________
+4. System Features
+4.1 Feature: User Login and Authentication
+Description: Secure authentication system supporting three user roles (Patient, Doctor, Admin) with role-based access control.
+Priority: High
+Functional Requirements:
+•	FR-UM-002: User Authentication
+•	FR-UM-004: Logout
+Use Case:
+Use Case: User Login
+Actor: Patient/Doctor/Admin
+Precondition: User has registered account (Doctor: approved by admin)
+Main Flow:
+  1. User navigates to login page
+  2. User enters username and password
+  3. System validates credentials
+  4. System establishes session with role-based permissions
+  5. System redirects user to role-specific dashboard
+Alternative Flow 3a: Invalid credentials
+  3a.1. System displays error message
+  3a.2. System increments failed login counter
+  3a.3. Return to step 2
+Alternative Flow 3b: Account locked
+  3b.1. System displays lockout message
+  3b.2. System sends unlock instructions to email
+Postcondition: User authenticated with appropriate access level
+4.2 Feature: Submit Health Report (Multi-Modal)
+Description: Patients can submit health reports during appointment booking using text, voice notes, or images, including current/past medications.
+Priority: High
+Functional Requirements:
+•	FR-PT-001: Book Appointment
+•	FR-PT-002: Submit Health Report (Text)
+•	FR-PT-003: Submit Health Report (Voice Note)
+•	FR-PT-004: Submit Health Report (Images)
+•	FR-PT-005: Include Past Medications
+Use Case:
+Use Case: Submit Health Report
+Actor: Patient
+Precondition: Patient logged in, selecting appointment
+Main Flow:
+  1. Patient selects doctor and appointment date/time
+  2. Patient chooses report submission format (text/voice/images)
+  3. Patient enters/uploads health information:
+     - Symptoms and concerns (text/voice)
+     - Current medications (text)
+     - Past medical history (text/voice)
+     - Attachments (images of lab reports, prescriptions)
+  4. System validates input formats and file sizes
+  5. System securely stores report linked to appointment
+  6. System confirms submission
+  7. System sends appointment confirmation
+Alternative Flow 2a: Multiple formats
+  2a.1. Patient selects multiple formats
+  2a.2. System accepts combined submission
+Alternative Flow 4a: Invalid file format
+  4a.1. System displays format error
+  4a.2. Patient re-uploads valid file
+Postcondition: Health report submitted and linked to appointment
+Sequence Diagram Key Interactions:
+1.	Patient → System: BookAppointment(doctorId, dateTime)
+2.	System → Patient: ShowReportSubmissionForm()
+3.	Patient → System: SubmitReport(text, voiceFile, imageFiles, medications)
+4.	System → Storage: SaveReport(encryptedData)
+5.	System → Patient: ConfirmSubmission()
+4.3 Feature: View and Edit Patient Report (Doctor)
+Description: Doctors can access, view, and edit patient health reports within the 2-day post-appointment window, maintaining HIPAA compliance.
+Priority: High
+Functional Requirements:
+•	FR-DC-002: Access Patient Health Report
+•	FR-DC-003: Edit Patient Health Report
+•	FR-DC-007: Time-Limited Access Enforcement
+Use Case:
+Use Case: Edit Patient Report
+Actor: Doctor
+Precondition: Doctor logged in, appointment exists, within 2-day access window
+Main Flow:
+  1. Doctor views list of assigned appointments
+  2. Doctor selects appointment
+  3. System verifies current date is within access window
+  4. System logs access attempt (successful)
+  5. System displays patient health report (all formats)
+  6. Doctor reviews report content
+  7. Doctor edits report (adds clarifications, corrections)
+  8. System saves changes with version control
+  9. System logs modification
+  10. System confirms update
+Alternative Flow 3a: Access window expired
+  3a.1. System denies access
+  3a.2. System logs access attempt (denied)
+  3a.3. System displays "Access window expired" message
+Alternative Flow 6a: Report outdated
+  6a.1. Doctor initiates "Create New Report"
+  6a.2. System creates fresh report linked to appointment
+Postcondition: Patient report updated, changes logged
+Activity Diagram Flow:
+[Doctor selects appointment] → [System checks access window]
+  ├─ Within window → [Display report] → [Doctor edits]
+  │                   → [Save changes] → [Log modification] → [End]
+  └─ Outside window → [Deny access] → [Log denial] → [Display error] → [End]
+4.4 Feature: Create New Health Report (Doctor)
+Description: Doctors can create new health reports for patients when existing reports are outdated or during post-appointment documentation.
+Priority: High
+Functional Requirements:
+•	FR-DC-004: Create New Health Report
+•	FR-DC-005: Add Diagnosis
+•	FR-DC-006: Prescribe Medication
+Use Case:
+Use Case: Create New Health Report
+Actor: Doctor
+Precondition: Doctor logged in, appointment exists, within access window
+Main Flow:
+  1. Doctor accesses patient appointment
+  2. Doctor selects "Create New Report"
+  3. System verifies access window
+  4. System displays new report form
+  5. Doctor enters:
+     - Physical examination findings
+     - Diagnosis (with ICD codes)
+     - Prescribed medications (name, dosage, frequency, duration)
+     - Treatment plan
+     - Follow-up instructions
+  6. System validates input
+  7. System saves new report linked to patient and appointment
+  8. System logs report creation
+  9. System confirms creation
+Postcondition: New health report created and accessible to patient
+4.5 Feature: Doctor Approval (Admin)
+Description: Administrators approve or reject doctor registration requests, controlling access to the system.
+Priority: High
+Functional Requirements:
+•	FR-AD-001: Doctor Approval
+Use Case:
+Use Case: Approve Doctor Registration
+Actor: Admin
+Precondition: Admin logged in, pending doctor registration exists
+Main Flow:
+  1. Admin views list of pending doctor registrations
+  2. Admin selects doctor registration to review
+  3. System displays doctor details (credentials, specialization)
+  4. Admin verifies information
+  5. Admin approves registration
+  6. System updates doctor status to "APPROVED"
+  7. System grants doctor access permissions
+  8. System sends approval notification to doctor
+  9. System logs approval action
+Alternative Flow 5a: Reject registration
+  5a.1. Admin rejects registration with reason
+  5a.2. System updates status to "REJECTED"
+  5a.3. System sends rejection notification
+Postcondition: Doctor account approved and activated OR rejected
+________________________________________
+5. External Interface Requirements
+5.1 User Interfaces
+UI-001: Login Page
+•	Simple form with username and password fields
+•	"Forgot Password" link
+•	"Register" button for new users
+•	Responsive design for mobile/desktop
+UI-002: Patient Dashboard
+•	Upcoming appointments list
+•	"Book New Appointment" button
+•	"View Health Records" section
+•	Notification area
+UI-003: Appointment Booking Form
+•	Doctor selection dropdown
+•	Date/time picker
+•	Multi-tab report submission: 
+o	Text input tab
+o	Voice recording tab (with record button)
+o	Image upload tab (drag-drop support)
+o	Medication list input
+•	Submit button
+
+UI-004: Doctor Dashboard
+•	Today's appointments list
+•	Appointment details with patient report access
+•	Color-coded access window indicator (green: active, orange: expiring, red: expired)
+UI-005: Report Viewer (Doctor)
+•	Tabbed interface for multi-format reports
+•	Audio player for voice notes
+•	Image gallery for attachments
+•	Editable text fields for modifications
+•	Diagnosis and prescription forms
+•	Save and "Create New Report" buttons
+UI-006: Admin Dashboard
+•	Pending doctor approvals list
+•	User management section
+•	Audit log viewer with filters
+5.2 Hardware Interfaces
+•	No direct hardware interfaces required
+•	System shall utilize standard browser APIs for: 
+o	Microphone access (for voice recording)
+o	Camera access (for image capture on mobile)
+o	File system access (for uploads)
+5.3 Software Interfaces
+Database Interface:
+•	System: PostgreSQL/MySQL RDBMS
+•	Interface: SQL queries via ORM (Sequelize, TypeORM, or similar)
+•	Data Exchanged: User data, appointments, health records metadata, audit logs
+
+
+
+
+
+
+
+
+
+________________________________________
+6. Non-Functional Requirements (Expanded)
+6.1 Quality Attributes
+Maintainability:
+•	Code shall follow established coding standards
+•	System shall include comprehensive inline documentation
+•	Architecture shall be modular for easy updates
+Scalability:
+•	System shall scale horizontally to handle increased load
+•	Database shall support sharding for future growth
+Testability:
+•	System shall achieve minimum 80% code coverage
+•	All critical functions shall have unit tests
+•	End-to-end tests for main user flows
+6.2 Legal Requirements
+•	System shall comply with local healthcare data protection laws
+•	System shall maintain required certifications (SOC 2, ISO 27001 recommended)
+•	System shall provide data processing agreements for cloud services
+________________________________________
+7. Appendices
+7.1 Use Case Diagram
+Patient
+  - Login
+  - Book Appointment
+  - Submit Report (Text/Voice/Images)
+  - View Appointments
+  - View Health Records
+
+Doctor
+  - Login
+  - View Appointments
+  - Access Patient Report (time-limited)
+  - Edit Patient Report
+  - Create New Report
+  - Add Diagnosis
+  - Prescribe Medication
+
+Admin
+  - Login
+  - Approve Doctor Registration
+  - Manage Users
+  - View Audit Logs
+7.2 Data Dictionary
+User Table:
+•	userId (PK): Long - Unique identifier
+•	username: String - Login username
+•	passwordHash: String - Hashed password
+•	email: String - User email
+•	role: Enum (PATIENT, DOCTOR, ADMIN)
+Patient Table:
+•	patientId (PK): Long - Unique identifier
+•	userId (FK): Long - Reference to User
+•	dob: Date - Date of birth
+•	contact: String - Contact information
+•	address: String - Physical address
+Doctor Table:
+•	doctorId (PK): Long - Unique identifier
+•	userId (FK): Long - Reference to User
+•	name: String - Full name
+•	specialization: String - Medical specialization
+•	contact: String - Contact information
+Appointment Table:
+•	id (PK): Long - Unique identifier
+•	patientId (FK): Long - Reference to Patient
+•	doctorId (FK): Long - Reference to Doctor
+•	date: DateTime - Appointment date and time
+•	status: Enum (SCHEDULED, COMPLETED, CANCELLED)
+HealthRecord Table:
+•	id (PK): Long - Unique identifier
+•	patientId (FK): Long - Reference to Patient
+•	date: Date - Record creation date
+•	description: String - Medical description
+•	symptoms: String [0..1] - Patient symptoms
+•	medications: String [0..1] - Prescribed medications
+•	diagnosis: String [0..1] - Medical diagnosis
+•	appointmentId (FK): Long [0..1] - Related appointment
+•	source: Enum (INTERNAL, IMPORTED) - Record source
+Attachment Table:
+•	id (PK): Long - Unique identifier
+•	file: String - File path/URL
+•	type: String - File MIME type
+•	url: String - Access URL
+•	healthRecordId (FK): Long - Reference to HealthRecord
+AccessLog Table:
+•	id (PK): Long - Unique identifier
+•	userId (FK): Long - User who accessed
+•	patientId (FK): Long - Patient whose record was accessed
+•	recordId (FK): Long - Health record accessed
+•	action
+

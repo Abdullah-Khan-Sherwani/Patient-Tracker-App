@@ -162,10 +162,13 @@ fun PatientNotificationsScreen(navController: NavController, context: Context) {
                                         // Navigate based on notification type
                                         when (notification.type) {
                                             "appointment_created",
-                                            "appointment_cancelled",
                                             "appointment_updated" -> {
-                                                // Navigate to full schedule to see all appointments
-                                                navController.navigate("full_schedule")
+                                                // Navigate to full schedule
+                                                navController.navigate("full_schedule?selectedTab=upcoming")
+                                            }
+                                            "appointment_cancelled" -> {
+                                                // Navigate to full schedule with cancelled tab selected
+                                                navController.navigate("full_schedule?selectedTab=cancelled")
                                             }
                                         }
                                     }
@@ -202,18 +205,18 @@ private fun NotificationCard(
         colors = CardDefaults.cardColors(
             containerColor = if (notification.isRead) Color.White else Color(0xFFFAF8F3)
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(20.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             // Icon
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(56.dp)
                     .clip(CircleShape)
                     .background(iconColor.copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
@@ -222,14 +225,14 @@ private fun NotificationCard(
                     imageVector = icon,
                     contentDescription = null,
                     tint = iconColor,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(28.dp)
                 )
             }
             
             // Content
             Column(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -239,16 +242,16 @@ private fun NotificationCard(
                     Text(
                         text = notification.title,
                         fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.Bold,
-                        fontSize = 16.sp,
+                        fontSize = 17.sp,
                         color = Color(0xFF1C3D5A),
-                        maxLines = 1,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
                     )
                     if (!notification.isRead) {
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
+                                .size(10.dp)
                                 .clip(CircleShape)
                                 .background(Color(0xFFB8956A))
                         )
@@ -259,8 +262,7 @@ private fun NotificationCard(
                     text = notification.message,
                     fontSize = 14.sp,
                     color = Color(0xFF6C7A89),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
+                    lineHeight = 18.sp
                 )
                 
                 Text(

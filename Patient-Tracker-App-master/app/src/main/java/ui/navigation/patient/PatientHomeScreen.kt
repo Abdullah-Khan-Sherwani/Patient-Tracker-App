@@ -549,27 +549,33 @@ private fun ScheduleCard(
 
             appointments.forEachIndexed { index, appointment ->
                 Column {
-                    Text(
-                        appointment.timeSlot,
-                        color = Color(0xFF2A6C74), 
-                        style = MaterialTheme.typography.labelLarge
-                    )
+                    // Show time block and range together
                     Row(
-                        Modifier.fillMaxWidth().padding(top = 6.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        val displayTime = if (appointment.timeSlot.contains("-") || appointment.timeSlot.contains(":")) {
+                            formatTimeRange(appointment.timeSlot)
+                        } else {
+                            "${appointment.timeSlot} • ${getTimeRangeForBlock(appointment.timeSlot)}"
+                        }
                         Text(
-                            appointment.timeSlot,
+                            displayTime,
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
                             color = Color(0xFF2A6C74)
                         )
-                        Spacer(Modifier.width(12.dp))
-                        Text(
-                            "${appointment.doctorName} (${appointment.speciality})",
-                            style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF2A6C74)
-                        )
+                        Spacer(Modifier.width(8.dp))
+
                     }
+                    
+                    // Show doctor info
+                    Text(
+                        "${appointment.doctorName} (${appointment.speciality})",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = Color(0xFF2A6C74).copy(alpha = 0.8f),
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                    
                     if (index != appointments.lastIndex) {
                         Divider(Modifier.padding(vertical = 12.dp), color = Color(0xFFB9E3E7))
                     }
@@ -765,6 +771,46 @@ private fun BottomBar(
                 ) { navController.navigate("full_schedule") }
             }
         }
+    }
+}
+
+/**
+ * Convert time block name to time range string
+ */
+private fun getTimeRangeForBlock(blockName: String): String {
+    return when (blockName.lowercase()) {
+        "morning" -> "6:00 AM - 12:00 PM"
+        "afternoon" -> "12:00 PM - 6:00 PM"
+        "evening" -> "6:00 PM - 12:00 AM"
+        else -> blockName // Return original if not a recognized block
+    }
+}
+
+private fun formatTimeRange(timeRange: String): String {
+    return try {
+        // Clean the input - remove + signs and extra spaces, handle AM/PM already present
+        val cleaned = timeRange.replace("+", " ").replace("\\s+".toRegex(), " ").trim()
+        
+        // Check if it's already formatted with AM/PM
+        if (cleaned.contains("AM", ignoreCase = true) || cleaned.contains("PM", ignoreCase = true)) {
+            // Just ensure proper spacing
+            return cleaned.replace("AM", " AM").replace("PM", " PM")
+                .replace("am", " AM").replace("pm", " PM")
+                .replace("\\s+".toRegex(), " ").trim()
+        }
+        
+        // Parse as 24-hour format
+        val parts = cleaned.split("-").map { it.trim() }
+        if (parts.size == 2) {
+            val startTime = java.time.LocalTime.parse(parts[0], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val endTime = java.time.LocalTime.parse(parts[1], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH)
+            "${startTime.format(formatter)} - ${endTime.format(formatter)}"
+        } else {
+            cleaned
+        }
+    } catch (e: Exception) {
+        timeRange
     }
 }
 

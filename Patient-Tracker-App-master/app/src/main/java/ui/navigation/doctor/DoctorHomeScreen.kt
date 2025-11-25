@@ -1036,7 +1036,7 @@ private suspend fun fetchTodayAppointments(): List<DoctorAppointment> {
         }.map { appointment ->
             DoctorAppointment(
                 patientName = appointment.patientName,
-                time = appointment.timeSlot,
+                time = formatTimeRange(appointment.timeSlot),
                 type = appointment.speciality,
                 status = appointment.status.lowercase()
             )
@@ -1047,5 +1047,27 @@ private suspend fun fetchTodayAppointments(): List<DoctorAppointment> {
     } catch (e: Exception) {
         android.util.Log.e("DoctorDashboard", "Exception in fetchTodayAppointments: ${e.message}", e)
         emptyList()
+    }
+}
+
+private fun formatTimeRange(timeRange: String): String {
+    return try {
+        val cleaned = timeRange.replace("+", " ").replace("\\\\s+".toRegex(), " ").trim()
+        if (cleaned.contains("AM", ignoreCase = true) || cleaned.contains("PM", ignoreCase = true)) {
+            return cleaned.replace("AM", " AM").replace("PM", " PM")
+                .replace("am", " AM").replace("pm", " PM")
+                .replace("\\\\s+".toRegex(), " ").trim()
+        }
+        val parts = cleaned.split("-").map { it.trim() }
+        if (parts.size == 2) {
+            val startTime = java.time.LocalTime.parse(parts[0], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val endTime = java.time.LocalTime.parse(parts[1], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH)
+            "${startTime.format(formatter)} - ${endTime.format(formatter)}"
+        } else {
+            cleaned
+        }
+    } catch (e: Exception) {
+        timeRange
     }
 }

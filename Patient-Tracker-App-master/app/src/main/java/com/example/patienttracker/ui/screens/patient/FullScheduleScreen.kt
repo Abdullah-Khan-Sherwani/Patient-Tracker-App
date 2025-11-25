@@ -45,11 +45,59 @@ private val CardWhite = Color(0xFFFFFFFF)
 private val StatTextColor = Color(0xFF5C4A42)
 private val ButtonColor = Color(0xFFC9956E)
 
+/**
+ * Convert time block name to time range string
+ */
+private fun getTimeRangeForBlock(blockName: String): String {
+    return when (blockName.lowercase()) {
+        "morning" -> "6:00 AM - 12:00 PM"
+        "afternoon" -> "12:00 PM - 6:00 PM"
+        "evening" -> "6:00 PM - 12:00 AM"
+        else -> blockName // Return original if not a recognized block
+    }
+}
+
+private fun formatTimeRange(timeRange: String): String {
+    return try {
+        // Clean the input - remove + signs and extra spaces, handle AM/PM already present
+        val cleaned = timeRange.replace("+", " ").replace("\\s+".toRegex(), " ").trim()
+        
+        // Check if it's already formatted with AM/PM
+        if (cleaned.contains("AM", ignoreCase = true) || cleaned.contains("PM", ignoreCase = true)) {
+            // Just ensure proper spacing
+            return cleaned.replace("AM", " AM").replace("PM", " PM")
+                .replace("am", " AM").replace("pm", " PM")
+                .replace("\\s+".toRegex(), " ").trim()
+        }
+        
+        // Parse as 24-hour format
+        val parts = cleaned.split("-").map { it.trim() }
+        if (parts.size == 2) {
+            val startTime = java.time.LocalTime.parse(parts[0], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val endTime = java.time.LocalTime.parse(parts[1], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH)
+            "${startTime.format(formatter)} - ${endTime.format(formatter)}"
+        } else {
+            cleaned
+        }
+    } catch (e: Exception) {
+        timeRange
+    }
+}
+
 @Composable
-fun FullScheduleScreen(navController: NavController, context: Context) {
+fun FullScheduleScreen(navController: NavController, context: Context, initialTab: String = "upcoming") {
     val currentUser = FirebaseAuth.getInstance().currentUser
     var appointments by remember { mutableStateOf<List<Appointment>>(emptyList()) }
-    var selectedTabIndex by remember { mutableStateOf(0) }
+    var selectedTabIndex by remember { 
+        mutableStateOf(
+            when (initialTab) {
+                "cancelled" -> 2
+                "past" -> 1
+                else -> 0
+            }
+        )
+    }
     var refreshTrigger by remember { mutableStateOf(0) }
     
     // Refresh appointments when screen is displayed or refreshTrigger changes
@@ -318,8 +366,13 @@ fun AppointmentCard(
                         fontWeight = FontWeight.Bold
                     )
                     Spacer(Modifier.height(6.dp))
+                    val displayTime = if (appointment.timeSlot.contains("-") || appointment.timeSlot.contains(":")) {
+                        formatTimeRange(appointment.timeSlot)
+                    } else {
+                        "${appointment.timeSlot} • ${getTimeRangeForBlock(appointment.timeSlot)}"
+                    }
                     Text(
-                        text = appointment.timeSlot,
+                        text = displayTime,
                         color = StatTextColor,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -394,18 +447,21 @@ fun AppointmentCard(
                                 // Cancel appointment
                                 AppointmentRepository.cancelAppointment(appointment.appointmentId, "patient").getOrThrow()
                                 
-                                // Create notification for patient
+                                // Create notifications for patient and doctor
                                 try {
                                     val notificationRepo = NotificationRepository()
-                                    notificationRepo.createNotification(
+                                    notificationRepo.createNotificationForBoth(
                                         patientUid = appointment.patientUid,
-                                        title = "Appointment Cancelled",
-                                        message = "Your appointment with ${appointment.doctorName} on $formattedDate at ${appointment.timeSlot} has been cancelled.",
+                                        doctorUid = appointment.doctorUid,
+                                        patientTitle = "Appointment Cancelled",
+                                        patientMessage = "Your appointment with ${appointment.doctorName} on $formattedDate at ${appointment.timeSlot} has been cancelled.",
+                                        doctorTitle = "Appointment Cancelled",
+                                        doctorMessage = "Appointment with ${appointment.patientName} scheduled on $formattedDate at ${appointment.timeSlot} has been cancelled by patient.",
                                         type = "appointment_cancelled",
                                         appointmentId = appointment.appointmentId
                                     )
                                 } catch (e: Exception) {
-                                    println("Failed to create notification: ${e.message}")
+                                    println("Failed to create notifications: ${e.message}")
                                 }
                                 
                                 // Show success message

@@ -101,9 +101,13 @@ private fun normalizeSpecialty(specialty: String): String {
 }
 
 @Composable
-fun DoctorCatalogueScreen(navController: NavController, context: Context) {
+fun DoctorCatalogueScreen(
+    navController: NavController, 
+    context: Context,
+    preselectedSpecialty: String? = null
+) {
     var allDoctors by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
-    var selectedSpecialty by remember { mutableStateOf<String?>(null) }
+    var selectedSpecialty by remember { mutableStateOf<String?>(preselectedSpecialty) }
     var isLoading by remember { mutableStateOf(true) }
     var searchQuery by remember { mutableStateOf("") }
     var searchResults by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }

@@ -1,6 +1,7 @@
 package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
+import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,14 +27,18 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.patienttracker.data.AppointmentRepository
+import com.example.patienttracker.data.NotificationRepository
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.Timestamp
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.time.LocalDate
+import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 
@@ -94,7 +99,8 @@ data class BookingSummary(
 data class ChatAction(
     val label: String,
     val route: String = "",
-    val action: (() -> Unit)? = null
+    val action: (() -> Unit)? = null,
+    val messageAction: ((addMessage: (ChatMessage) -> Unit) -> Unit)? = null
 )
 
 // Color scheme
@@ -266,8 +272,20 @@ fun ChatbotScreen(navController: NavController) {
                         message = message,
                         isDarkMode = isDarkMode,
                         onActionClick = { route ->
-                            navController.navigate(route) {
-                                launchSingleTop = true
+                            if (route.isNotBlank()) {
+                                navController.navigate(route) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        },
+                        onInlineAction = { action ->
+                            // Execute inline action and refresh UI
+                            action?.invoke()
+                        },
+                        onMessageAction = { messageAction ->
+                            // Execute message action with addMessage callback
+                            messageAction?.invoke { newMessage ->
+                                messages = messages + newMessage
                             }
                         }
                     )
@@ -395,7 +413,9 @@ fun ChatbotScreen(navController: NavController) {
 fun ChatMessageBubble(
     message: ChatMessage,
     isDarkMode: Boolean,
-    onActionClick: (String) -> Unit
+    onActionClick: (String) -> Unit,
+    onInlineAction: (((() -> Unit)?) -> Unit)? = null,
+    onMessageAction: ((((addMessage: (ChatMessage) -> Unit) -> Unit)?) -> Unit)? = null
 ) {
     val bubbleColor = if (message.isFromUser) {
         if (isDarkMode) DarkPatientBubble else LightPatientBubble
@@ -472,7 +492,16 @@ fun ChatMessageBubble(
                             ) {
                                 message.actionButtons.forEach { action ->
                                     Button(
-                                        onClick = { onActionClick(action.route) },
+                                        onClick = { 
+                                            // Execute messageAction if available (for adding messages)
+                                            if (action.messageAction != null && onMessageAction != null) {
+                                                onMessageAction(action.messageAction)
+                                            } else if (action.action != null && onInlineAction != null) {
+                                                onInlineAction(action.action)
+                                            } else if (action.route.isNotBlank()) {
+                                                onActionClick(action.route)
+                                            }
+                                        },
                                         modifier = Modifier.fillMaxWidth(),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = if (isDarkMode)
@@ -647,7 +676,10 @@ private fun handleSendMessage(
             selectedDoctor = selectedDoctor,
             selectedDate = selectedDate,
             sessionContext = sessionContext, // NEW
-            navController = navController // NEW
+            navController = navController, // NEW
+            messages = messages, // NEW: For inline actions
+            onMessagesUpdate = onMessagesUpdate, // NEW: For inline actions
+            onTypingUpdate = onTypingUpdate // NEW: For inline actions
         )
         onMessagesUpdate(messages + userMessage + botResponse)
     }
@@ -661,7 +693,10 @@ private fun generateBotResponse(
     selectedDoctor: DoctorFull?,
     selectedDate: String?,
     sessionContext: SessionContext, // NEW
-    navController: NavController // NEW
+    navController: NavController, // NEW
+    messages: List<ChatMessage>, // NEW: For inline actions
+    onMessagesUpdate: (List<ChatMessage>) -> Unit, // NEW: For inline actions
+    onTypingUpdate: (Boolean) -> Unit // NEW: For inline actions
 ): ChatMessage {
     
     // ============================================
@@ -680,6 +715,16 @@ private fun generateBotResponse(
             isEmergency = true
         )
     }
+    
+    // ============================================
+    // 1.5 URGENT AUTO-BOOKING (NEW FEATURE)
+    // ============================================
+    val urgencyKeywords = listOf(
+        "urgent", "asap", "immediately", "emergency", "nearest appointment", 
+        "book soon", "book now", "quick", "fast", "earliest", "today", "right now"
+    )
+    
+    val hasUrgency = urgencyKeywords.any { query.contains(it) }
     
     // ============================================
     // 2. SYMPTOM-BASED HELP (NO DIAGNOSIS)
@@ -798,11 +843,130 @@ private fun generateBotResponse(
                 it.speciality.lowercase().contains(specialty) 
             }
             
+            // ========================================
+            // URGENT AUTO-BOOKING TRIGGER
+            // ========================================
+            if (hasUrgency && specialistDoctors.isNotEmpty()) {
+                // Synchronously find best available slot
+                val bookingResult = kotlinx.coroutines.runBlocking {
+                    findBestUrgentSlot(
+                        specialistDoctors = specialistDoctors,
+                        specialty = specialty,
+                        symptom = symptom,
+                        sessionContext = sessionContext
+                    )
+                }
+                
+                return if (bookingResult.isDataAccessError) {
+                    // Technical issue - couldn't verify data
+                    ChatMessage(
+                        text = "I'm having trouble accessing doctor availability data. Please use the booking screen:",
+                        isFromUser = false,
+                        actionButtons = listOf(
+                            ChatAction("Go to Booking", "doctor_catalogue")
+                        )
+                    )
+                } else if (bookingResult.success && bookingResult.needsConfirmation) {
+                    // Found best slot - request confirmation with inline actions
+                    ChatMessage(
+                        text = "I found the earliest available appointment:\n\n" +
+                               "• Doctor: ${bookingResult.doctorName}\n" +
+                               "• Speciality: ${specialty.replaceFirstChar { it.uppercase() }}\n" +
+                               "• Date: ${bookingResult.date}\n" +
+                               "• Time: ${bookingResult.timeBlock} (${bookingResult.timeRange})\n" +
+                               "• Consultation Fee: PKR ${bookingResult.fee}\n\n" +
+                               "⚠️ Note: By confirming this booking, you consent to allow the doctor to access your medical records for consultation purposes.",
+                        isFromUser = false,
+                        actionButtons = listOf(
+                            ChatAction(
+                                label = "Confirm Booking",
+                                route = "",
+                                messageAction = { addMessage ->
+                                    // MESSAGE ACTION: Execute booking confirmation and add result to chat
+                                    onTypingUpdate(true)
+                                    kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+                                        val currentUser = Firebase.auth.currentUser
+                                        if (currentUser != null) {
+                                            val confirmResult = confirmUrgentBooking(
+                                                patientId = currentUser.uid,
+                                                patientName = sessionContext.patientName,
+                                                doctorId = bookingResult.doctorId!!,
+                                                doctorName = bookingResult.doctorName!!,
+                                                speciality = specialty.replaceFirstChar { it.uppercase() },
+                                                date = bookingResult.date!!,
+                                                timeBlock = bookingResult.timeBlock!!,
+                                                symptom = symptom
+                                            )
+                                            
+                                            kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Main) {
+                                                onTypingUpdate(false)
+                                                val confirmationMessage = if (confirmResult.success) {
+                                                    ChatMessage(
+                                                        text = "✅ Your urgent appointment has been confirmed!\n\n" +
+                                                               "• Doctor: ${confirmResult.doctorName}\n" +
+                                                               "• Speciality: ${specialty.replaceFirstChar { it.uppercase() }}\n" +
+                                                               "• Date: ${confirmResult.date}\n" +
+                                                               "• Time Block: ${confirmResult.timeBlock}\n" +
+                                                               "• Appointment #: ${confirmResult.appointmentNumber}\n\n" +
+                                                               "You can view details in your appointments.",
+                                                        isFromUser = false,
+                                                        actionButtons = listOf(
+                                                            ChatAction("View Appointment", "full_schedule"),
+                                                            ChatAction("Back to Dashboard", "patient_home")
+                                                        )
+                                                    )
+                                                } else {
+                                                    ChatMessage(
+                                                        text = "Sorry, there was an error confirming your booking: ${confirmResult.errorMessage}\n\nPlease try booking manually.",
+                                                        isFromUser = false,
+                                                        actionButtons = listOf(
+                                                            ChatAction("Go to Booking", "doctor_catalogue")
+                                                        )
+                                                    )
+                                                }
+                                                addMessage(confirmationMessage)
+                                            }
+                                        }
+                                    }
+                                }
+                            ),
+                            ChatAction(
+                                label = "Cancel",
+                                route = "",
+                                messageAction = { addMessage ->
+                                    // MESSAGE ACTION: Show cancellation message
+                                    val cancelMessage = ChatMessage(
+                                        text = "Booking cancelled. How else can I help you?",
+                                        isFromUser = false,
+                                        actionButtons = listOf(
+                                            ChatAction("Find Another Doctor", "doctor_catalogue"),
+                                            ChatAction("View My Reports", "patient_reports")
+                                        )
+                                    )
+                                    addMessage(cancelMessage)
+                                }
+                            )
+                        )
+                    )
+                } else {
+                    // No slots available in next 7 days
+                    ChatMessage(
+                        text = "I checked all ${specialty}s for the next 7 days, but all slots are currently booked.\n\nHere are your options:",
+                        isFromUser = false,
+                        actionButtons = listOf(
+                            ChatAction("View All ${specialty}s", "doctor_catalogue"),
+                            ChatAction("Try Different Specialty", "doctor_catalogue")
+                        )
+                    )
+                }
+            }
+            
+            // Normal symptom-based suggestion (no urgency)
             return ChatMessage(
                 text = "I can't provide medical diagnosis, but ${symptom.replace("_", " ")} concerns are usually treated by ${specialty}s.\n\nWould you like to book an appointment with one?",
                 isFromUser = false,
                 actionButtons = if (specialistDoctors.isNotEmpty()) {
-                    listOf(ChatAction("Yes, show ${specialty}s", "doctor_catalogue"))
+                    listOf(ChatAction("Yes, show ${specialty}s", "doctor_catalogue?specialty=$specialty"))
                 } else {
                     listOf(ChatAction("Browse All Doctors", "doctor_catalogue"))
                 }
@@ -945,7 +1109,7 @@ private fun generateBotResponse(
                 text = "I can help you manage your appointments.\n\nWould you like to reschedule or cancel?",
                 isFromUser = false,
                 actionButtons = listOf(
-                    ChatAction("View Appointments", "patient_appointments"),
+                    ChatAction("View Appointments", "full_schedule"),
                     ChatAction("Book New Appointment", "doctor_catalogue")
                 )
             )
@@ -1085,5 +1249,333 @@ suspend fun bookAppointment(
         true
     } catch (e: Exception) {
         false
+    }
+}
+
+// ============================================
+// URGENT AUTO-BOOKING ENGINE
+// ============================================
+data class UrgentBookingResult(
+    val success: Boolean,
+    val needsConfirmation: Boolean = false,
+    val appointmentNumber: String? = null,
+    val doctorId: String? = null,
+    val doctorName: String? = null,
+    val date: String? = null,
+    val timeBlock: String? = null,
+    val timeRange: String? = null,
+    val fee: String? = null,
+    val errorMessage: String? = null,
+    val isDataAccessError: Boolean = false
+)
+
+data class AvailableSlot(
+    val doctor: DoctorFull,
+    val date: String,
+    val dateObj: LocalDate,
+    val timeBlock: TimeBlockDef,
+    val timeRange: String,
+    val hours: Int,
+    val bookedCount: Int,
+    val capacity: Int
+)
+
+/**
+ * NEW ALGORITHM: Find best available urgent slot with confirmation flow
+ * 1. Validate timing data exists for all doctors
+ * 2. Collect ALL available slots across all doctors for next 7 days
+ * 3. Sort by: earliest date → earliest time block → lowest booking load
+ * 4. Return best match for user confirmation (does NOT auto-book)
+ */
+suspend fun findBestUrgentSlot(
+    specialistDoctors: List<DoctorFull>,
+    specialty: String,
+    symptom: String,
+    sessionContext: SessionContext
+): UrgentBookingResult {
+    try {
+        Log.d("UrgentBooking", "========================================")
+        Log.d("UrgentBooking", "Starting urgent booking search for $specialty")
+        Log.d("UrgentBooking", "Total specialist doctors: ${specialistDoctors.size}")
+        
+        val db = Firebase.firestore
+        val currentUser = Firebase.auth.currentUser 
+            ?: return UrgentBookingResult(false, errorMessage = "User not authenticated")
+        
+        // STEP 1: Validate timing data exists and is parseable
+        specialistDoctors.forEach { doctor ->
+            Log.d("UrgentBooking", "Doctor: ${doctor.firstName} ${doctor.lastName}")
+            Log.d("UrgentBooking", "  - Speciality: '${doctor.speciality}'")
+            Log.d("UrgentBooking", "  - Timings: '${doctor.timings}'")
+            Log.d("UrgentBooking", "  - Days: '${doctor.days}'")
+            Log.d("UrgentBooking", "  - Valid: ${doctor.timings.isNotBlank() && doctor.timings.contains("-") && doctor.days.isNotBlank()}")
+        }
+        
+        val doctorsWithValidTimings = specialistDoctors.filter { doctor ->
+            doctor.timings.isNotBlank() && 
+            doctor.timings.contains("-") && 
+            doctor.days.isNotBlank()
+        }
+        
+        Log.d("UrgentBooking", "Doctors with valid timings: ${doctorsWithValidTimings.size}")
+        
+        // If no doctors have timing data, use all doctors with default timings
+        val doctorsToCheck = if (doctorsWithValidTimings.isEmpty()) {
+            Log.w("UrgentBooking", "⚠️ No doctors with timing data, using default timings for all")
+            specialistDoctors.map { doctor ->
+                DoctorFull(
+                    id = doctor.id,
+                    firstName = doctor.firstName,
+                    lastName = doctor.lastName,
+                    email = doctor.email,
+                    phone = doctor.phone,
+                    speciality = doctor.speciality,
+                    days = "monday,tuesday,wednesday,thursday,friday", // Default working days
+                    timings = "09:00-17:00" // Default 9 AM to 5 PM
+                )
+            }
+        } else {
+            doctorsWithValidTimings
+        }
+        
+        // Time blocks definition
+        val timeBlocks = listOf(
+            TimeBlockDef("Morning", 6, 12),
+            TimeBlockDef("Afternoon", 12, 17),
+            TimeBlockDef("Evening", 17, 21),
+            TimeBlockDef("Night", 21, 24)
+        )
+        
+        // STEP 2: Collect ALL available slots across all doctors
+        val allAvailableSlots = mutableListOf<AvailableSlot>()
+        val today = LocalDate.now()
+        
+        for (dayOffset in 0..6) {
+            val checkDate = today.plusDays(dayOffset.toLong())
+            val dateStr = checkDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
+            val dayOfWeek = checkDate.dayOfWeek.toString().lowercase()
+            
+            for (doctor in doctorsToCheck) {
+                // Check if doctor works on this day
+                val doctorDays = doctor.days.lowercase().split(",").map { it.trim() }
+                if (!doctorDays.any { dayOfWeek.startsWith(it) }) continue
+                
+                // Parse doctor timings
+                val timings = doctor.timings.split("-").map { it.trim() }
+                if (timings.size != 2) continue
+                
+                val doctorStart = timings[0]
+                val doctorEnd = timings[1]
+                
+                // Check each time block
+                for (block in timeBlocks) {
+                    // Calculate if doctor is available in this block
+                    val (overlapStart, overlapEnd, hours) = calculateUrgentBlockAvailability(
+                        doctorStart = doctorStart,
+                        doctorEnd = doctorEnd,
+                        blockStartHour = block.startHour,
+                        blockEndHour = block.endHour
+                    )
+                    
+                    if (overlapStart == null || hours == 0) continue
+                    
+                    // Query existing appointments for this doctor, date, and block
+                    val blockQuery = db.collection("appointments")
+                        .whereEqualTo("doctorUid", doctor.id)
+                        .whereEqualTo("appointmentDate", dateStr)
+                        .whereEqualTo("timeSlot", block.name)
+                        .whereIn("status", listOf("scheduled", "confirmed", "pending"))
+                        .get()
+                        .await()
+                    
+                    val bookedCount = blockQuery.size()
+                    val capacity = hours.toInt() * 4 // 4 patients per hour
+                    
+                    if (bookedCount >= capacity) continue // Block is full
+                    
+                    // Add to available slots list
+                    allAvailableSlots.add(AvailableSlot(
+                        doctor = doctor,
+                        date = dateStr,
+                        dateObj = checkDate,
+                        timeBlock = block,
+                        timeRange = "$overlapStart - $overlapEnd",
+                        hours = hours,
+                        bookedCount = bookedCount,
+                        capacity = capacity
+                    ))
+                }
+            }
+        }
+        
+        // STEP 3: Sort and select best match
+        Log.d("UrgentBooking", "Total available slots found: ${allAvailableSlots.size}")
+        
+        if (allAvailableSlots.isEmpty()) {
+            Log.e("UrgentBooking", "❌ NO AVAILABLE SLOTS in next 7 days")
+            return UrgentBookingResult(
+                success = false,
+                errorMessage = "No available appointments in next 7 days"
+            )
+        }
+        
+        // Log all available slots before sorting
+        allAvailableSlots.forEach { slot ->
+            Log.d("UrgentBooking", "Available: ${slot.doctor.firstName} ${slot.doctor.lastName} | ${slot.date} | ${slot.timeBlock.name} (${slot.timeRange}) | Load: ${slot.bookedCount}/${slot.capacity}")
+        }
+        
+        val bestSlot = allAvailableSlots.sortedWith(
+            compareBy<AvailableSlot> { it.dateObj }           // Earliest date first
+                .thenBy { it.timeBlock.startHour }             // Earliest time block
+                .thenBy { it.bookedCount }                     // Lowest booking load
+        ).first()
+        
+        Log.d("UrgentBooking", "✅ BEST MATCH: ${bestSlot.doctor.firstName} ${bestSlot.doctor.lastName} | ${bestSlot.date} | ${bestSlot.timeBlock.name}")
+        Log.d("UrgentBooking", "========================================")
+        
+        // STEP 4: Return slot for confirmation (NOT auto-booked yet)
+        return UrgentBookingResult(
+            success = true,
+            needsConfirmation = true,
+            doctorId = bestSlot.doctor.id,
+            doctorName = "Dr. ${bestSlot.doctor.firstName} ${bestSlot.doctor.lastName}",
+            date = bestSlot.date,
+            timeBlock = bestSlot.timeBlock.name,
+            timeRange = bestSlot.timeRange,
+            fee = "1500" // Default consultation fee
+        )
+        
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return UrgentBookingResult(
+            success = false,
+            isDataAccessError = true,
+            errorMessage = "Error accessing booking data: ${e.message}"
+        )
+    }
+}
+
+/**
+ * Confirm and execute the urgent booking after user clicks "Confirm Booking"
+ */
+suspend fun confirmUrgentBooking(
+    patientId: String,
+    patientName: String,
+    doctorId: String,
+    doctorName: String,
+    speciality: String,
+    date: String,
+    timeBlock: String,
+    symptom: String
+): UrgentBookingResult {
+    try {
+        val timestamp = convertDateToTimestamp(date)
+        val appointmentResult = AppointmentRepository.createAppointment(
+            doctorUid = doctorId,
+            doctorName = doctorName,
+            speciality = speciality,
+            appointmentDate = timestamp,
+            timeSlot = timeBlock,
+            notes = "Urgent booking for: $symptom"
+        )
+        
+        if (appointmentResult.isSuccess) {
+            val appointment = appointmentResult.getOrNull()
+            
+            // Send notifications to patient and doctor
+            try {
+                val currentUser = Firebase.auth.currentUser
+                if (currentUser != null && appointment != null) {
+                    NotificationRepository().createNotificationForBoth(
+                        patientUid = currentUser.uid,
+                        doctorUid = doctorId,
+                        patientTitle = "Urgent Appointment Booked",
+                        patientMessage = "Your urgent appointment with Dr. $doctorName on $date ($timeBlock) has been confirmed. Appointment #${appointment.appointmentNumber}",
+                        doctorTitle = "New Urgent Appointment",
+                        doctorMessage = "Urgent appointment booked by patient on $date ($timeBlock). Reason: $symptom. Appointment #${appointment.appointmentNumber}",
+                        type = "appointment_created",
+                        appointmentId = appointment.appointmentId
+                    )
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChatbotScreen", "Failed to send notifications: ${e.message}")
+            }
+            
+            return UrgentBookingResult(
+                success = true,
+                appointmentNumber = appointment?.appointmentNumber ?: "N/A",
+                doctorName = doctorName,
+                date = date,
+                timeBlock = timeBlock
+            )
+        } else {
+            return UrgentBookingResult(
+                success = false,
+                errorMessage = "Failed to create appointment"
+            )
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return UrgentBookingResult(
+            success = false,
+            errorMessage = "Booking error: ${e.message}"
+        )
+    }
+}
+
+data class TimeBlockDef(
+    val name: String,
+    val startHour: Int,
+    val endHour: Int
+)
+
+// Helper function to calculate time block availability for urgent booking
+private fun calculateUrgentBlockAvailability(
+    doctorStart: String?,
+    doctorEnd: String?,
+    blockStartHour: Int,
+    blockEndHour: Int
+): Triple<String?, String?, Int> {
+    if (doctorStart.isNullOrBlank() || doctorEnd.isNullOrBlank()) {
+        return Triple(null, null, 0)
+    }
+    
+    try {
+        val docStartTime = LocalTime.parse(doctorStart, DateTimeFormatter.ofPattern("HH:mm"))
+        val docEndTime = LocalTime.parse(doctorEnd, DateTimeFormatter.ofPattern("HH:mm"))
+        val blockStart = LocalTime.of(blockStartHour, 0)
+        val blockEnd = LocalTime.of(blockEndHour, 0)
+        
+        val noOverlap = docEndTime.isBefore(blockStart) || docEndTime == blockStart || 
+                        docStartTime.isAfter(blockEnd) || docStartTime == blockEnd
+        
+        if (noOverlap) return Triple(null, null, 0)
+        
+        val overlapStart = if (docStartTime.isAfter(blockStart)) docStartTime else blockStart
+        val overlapEnd = if (docEndTime.isBefore(blockEnd)) docEndTime else blockEnd
+        
+        if (overlapStart.isBefore(overlapEnd)) {
+            val duration = java.time.Duration.between(overlapStart, overlapEnd)
+            val hours = kotlin.math.ceil(duration.toMinutes() / 60.0).toInt()
+            val formatter = DateTimeFormatter.ofPattern("h:mm a")
+            val formattedStart = overlapStart.format(formatter)
+            val formattedEnd = overlapEnd.format(formatter)
+            return Triple(formattedStart, formattedEnd, hours)
+        }
+        
+        return Triple(null, null, 0)
+    } catch (e: Exception) {
+        e.printStackTrace()
+        return Triple(null, null, 0)
+    }
+}
+
+fun convertDateToTimestamp(dateStr: String): Timestamp {
+    return try {
+        val formatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+        val date = formatter.parse(dateStr)
+        Timestamp(date ?: Date())
+    } catch (e: Exception) {
+        Timestamp(Date())
     }
 }

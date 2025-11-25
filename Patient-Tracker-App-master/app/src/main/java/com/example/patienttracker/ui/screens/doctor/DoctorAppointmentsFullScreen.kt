@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.patienttracker.data.Appointment
 import com.example.patienttracker.data.AppointmentRepository
+import com.example.patienttracker.data.NotificationRepository
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
@@ -269,6 +270,23 @@ fun DoctorAppointmentsFullScreen(
                                         )
                                         if (result.isSuccess) {
                                             android.util.Log.d("DoctorAppointments", "Successfully cancelled appointment")
+                                            
+                                            // Send notification to patient
+                                            try {
+                                                val dateFormat = java.text.SimpleDateFormat("EEEE, MMMM dd, yyyy", java.util.Locale.getDefault())
+                                                val formattedDate = dateFormat.format(appointment.appointmentDate.toDate())
+                                                
+                                                NotificationRepository().createNotification(
+                                                    patientUid = appointment.patientUid,
+                                                    title = "Appointment Cancelled",
+                                                    message = "Your appointment with Dr. ${appointment.doctorName} scheduled on $formattedDate at ${appointment.timeSlot} has been cancelled by the doctor.",
+                                                    type = "appointment_cancelled",
+                                                    appointmentId = appointment.appointmentId
+                                                )
+                                            } catch (e: Exception) {
+                                                android.util.Log.e("DoctorAppointments", "Failed to send notification: ${e.message}")
+                                            }
+                                            
                                             // Refresh appointments
                                             val refreshResult = AppointmentRepository.getDoctorAppointments()
                                             val allAppointments = refreshResult.getOrNull() ?: emptyList()
@@ -399,7 +417,7 @@ private fun AppointmentCard(
                     )
                     Spacer(Modifier.width(4.dp))
                     Text(
-                        text = appointment.timeSlot,
+                        text = formatTimeRange(appointment.timeSlot),
                         fontSize = 14.sp,
                         color = TextPrimary
                     )
@@ -481,5 +499,27 @@ private fun AppointmentCard(
                 }
             }
         }
+    }
+}
+
+private fun formatTimeRange(timeRange: String): String {
+    return try {
+        val cleaned = timeRange.replace("+", " ").replace("\\s+".toRegex(), " ").trim()
+        if (cleaned.contains("AM", ignoreCase = true) || cleaned.contains("PM", ignoreCase = true)) {
+            return cleaned.replace("AM", " AM").replace("PM", " PM")
+                .replace("am", " AM").replace("pm", " PM")
+                .replace("\\s+".toRegex(), " ").trim()
+        }
+        val parts = cleaned.split("-").map { it.trim() }
+        if (parts.size == 2) {
+            val startTime = java.time.LocalTime.parse(parts[0], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val endTime = java.time.LocalTime.parse(parts[1], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH)
+            "${startTime.format(formatter)} - ${endTime.format(formatter)}"
+        } else {
+            cleaned
+        }
+    } catch (e: Exception) {
+        timeRange
     }
 }

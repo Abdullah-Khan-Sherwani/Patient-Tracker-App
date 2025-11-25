@@ -75,7 +75,7 @@ fun ConfirmAppointmentScreen(
                 val firstName = userDoc.getString("firstName") ?: ""
                 val lastName = userDoc.getString("lastName") ?: ""
                 patientName = "$firstName $lastName"
-                patientPhone = userDoc.getString("phoneNumber") ?: "N/A"
+                patientPhone = userDoc.getString("phone") ?: "N/A"
             }
         } catch (e: Exception) {
             patientName = "Patient"
@@ -144,42 +144,78 @@ fun ConfirmAppointmentScreen(
                                 val appointmentDateTime = date.atTime(12, 0).atZone(ZoneId.systemDefault())
                                 val timestamp = Timestamp(appointmentDateTime.toEpochSecond(), 0)
                                 
-                                // Create appointment with block name (used for capacity tracking)
+                                // Check for duplicate appointment
+                                val currentUser = Firebase.auth.currentUser
+                                if (currentUser != null) {
+                                    val dateStr = date.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+                                    val existingAppointments = Firebase.firestore.collection("appointments")
+                                        .whereEqualTo("patientUid", currentUser.uid)
+                                        .whereEqualTo("doctorUid", doctorId)
+                                        .get()
+                                        .await()
+                                    
+                                    val hasDuplicate = existingAppointments.documents.any { doc ->
+                                        val apptDate = doc.getTimestamp("appointmentDate")
+                                        val apptBlockName = doc.getString("blockName") ?: ""
+                                        val status = doc.getString("status")?.lowercase() ?: ""
+                                        
+                                        if (apptDate != null && (status == "scheduled" || status == "confirmed")) {
+                                            val apptLocalDate = apptDate.toDate().toInstant()
+                                                .atZone(ZoneId.systemDefault()).toLocalDate()
+                                            val apptDateStr = apptLocalDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+                                            apptDateStr == dateStr && apptBlockName == blockName
+                                        } else {
+                                            false
+                                        }
+                                    }
+                                    
+                                    if (hasDuplicate) {
+                                        Toast.makeText(context, "You already have an appointment with this doctor in the $blockName time slot on this date.", Toast.LENGTH_LONG).show()
+                                        isBooking = false
+                                        return@launch
+                                    }
+                                }
+                                
+                                // Create appointment with actual time range formatted
+                                val formattedTimeRange = formatTimeRange(timeRange)
                                 val result = AppointmentRepository.createAppointment(
                                     doctorUid = doctorId,
                                     doctorName = doctorName,
                                     speciality = specialty,
                                     appointmentDate = timestamp,
-                                    timeSlot = blockName, // Store block name for capacity checking
+                                    timeSlot = formattedTimeRange, // Store formatted doctor's time range
+                                    blockName = blockName, // Store block name for slot counting
                                     notes = notes
                                 )
                                 
                                 if (result.isSuccess) {
                                     val appointment = result.getOrNull()
                                     
-                                    // Create notification (don't let this fail the whole flow)
+                                    // Create notifications for patient and doctor (don't let this fail the whole flow)
                                     try {
                                         val currentUser = Firebase.auth.currentUser
                                         android.util.Log.d("ConfirmAppointment", "Current user: ${currentUser?.uid}, Appointment: ${appointment?.appointmentId}")
                                         
                                         if (currentUser != null && appointment != null) {
-                                            android.util.Log.d("ConfirmAppointment", "Creating notification for user: ${currentUser.uid}")
-                                            val notificationId = NotificationRepository().createNotification(
+                                            android.util.Log.d("ConfirmAppointment", "Creating notifications for patient and doctor")
+                                            val (patientNotifId, doctorNotifId) = NotificationRepository().createNotificationForBoth(
                                                 patientUid = currentUser.uid,
-                                                title = "Appointment Booked",
-                                                message = "Your appointment with $doctorName on $formattedDate ($blockName block: $timeRange) has been confirmed. Appointment #${appointment.appointmentNumber}",
+                                                doctorUid = doctorId,
+                                                patientTitle = "Appointment Booked",
+                                                patientMessage = "Your appointment with $doctorName on $formattedDate ($blockName block: $timeRange) has been confirmed. Appointment #${appointment.appointmentNumber}",
+                                                doctorTitle = "New Appointment",
+                                                doctorMessage = "New appointment booked by patient on $formattedDate ($blockName block: $timeRange). Appointment #${appointment.appointmentNumber}",
                                                 type = "appointment_created",
                                                 appointmentId = appointment.appointmentId
                                             )
-                                            android.util.Log.d("ConfirmAppointment", "Notification created successfully with ID: $notificationId")
+                                            android.util.Log.d("ConfirmAppointment", "Notifications created: patient=$patientNotifId, doctor=$doctorNotifId")
                                             Toast.makeText(context, "Appointment booked! Check notifications.", Toast.LENGTH_SHORT).show()
                                         } else {
-                                            android.util.Log.e("ConfirmAppointment", "Cannot create notification - user or appointment is null")
+                                            android.util.Log.e("ConfirmAppointment", "Cannot create notifications - user or appointment is null")
                                         }
                                     } catch (notifError: Exception) {
-                                        // Log but don't fail - notification is not critical
-                                        android.util.Log.e("ConfirmAppointment", "Failed to create notification: ${notifError.message}", notifError)
-                                        Toast.makeText(context, "Note: Notification failed - ${notifError.message}", Toast.LENGTH_SHORT).show()
+                                        // Log but don't fail - notification is not critical and likely already created
+                                        android.util.Log.d("ConfirmAppointment", "Notification error (can be ignored): ${notifError.message}")
                                     }
                                     
                                     // Navigate to success screen and clear booking flow from back stack
@@ -293,13 +329,13 @@ fun ConfirmAppointmentScreen(
                     DetailRow(
                         icon = Icons.Default.Schedule,
                         label = "Time Range",
-                        value = timeRange
+                        value = formatTimeRange(timeRange)
                     )
 
                     DetailRow(
                         icon = Icons.Default.LocationOn,
                         label = "Location",
-                        value = "Hospital Clinic"
+                        value = "IATZ Hospital"
                     )
                     
                     // Price section with highlighted background
@@ -489,5 +525,37 @@ fun DetailRow(icon: ImageVector, label: String, value: String) {
                 fontWeight = FontWeight.Medium
             )
         }
+    }
+}
+
+/**
+ * Convert time range from 24-hour format (HH:mm - HH:mm) to 12-hour AM/PM format
+ * Example: "08:00 - 10:00" -> "8:00 AM - 10:00 AM"
+ */
+private fun formatTimeRange(timeRange: String): String {
+    return try {
+        // Clean the input - remove + signs and extra spaces, handle AM/PM already present
+        val cleaned = timeRange.replace("+", " ").replace("\\s+".toRegex(), " ").trim()
+        
+        // Check if it's already formatted with AM/PM
+        if (cleaned.contains("AM", ignoreCase = true) || cleaned.contains("PM", ignoreCase = true)) {
+            // Just ensure proper spacing
+            return cleaned.replace("AM", " AM").replace("PM", " PM")
+                .replace("am", " AM").replace("pm", " PM")
+                .replace("\\s+".toRegex(), " ").trim()
+        }
+        
+        val parts = cleaned.split("-").map { it.trim() }
+        if (parts.size == 2) {
+            val startTime = LocalTime.parse(parts[0], DateTimeFormatter.ofPattern("HH:mm"))
+            val endTime = LocalTime.parse(parts[1], DateTimeFormatter.ofPattern("HH:mm"))
+            val formatter = DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH)
+            "${startTime.format(formatter)} - ${endTime.format(formatter)}"
+        } else {
+            cleaned
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("ConfirmAppointment", "Error formatting time range: $timeRange", e)
+        timeRange
     }
 }

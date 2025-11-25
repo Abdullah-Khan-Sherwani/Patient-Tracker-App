@@ -33,6 +33,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import androidx.compose.foundation.text.ClickableText
+import com.example.patienttracker.R
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -295,23 +296,104 @@ fun UnifiedLoginScreen(
 
                 Spacer(Modifier.height(24.dp))
 
-                // Google Sign In button
-                OutlinedButton(
-                    onClick = { /* TODO: Google sign-in */ },
-                    colors = ButtonDefaults.outlinedButtonColors(
-                        containerColor = surfaceColor
-                    ),
-                    shape = RoundedCornerShape(28.dp),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
+                // "Sign in as" heading
+                Text(
+                    text = if (isUrduEnabled) "سائن ان بطور" else "Sign in as",
+                    fontSize = 14.sp,
+                    color = secondaryTextColor,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(Modifier.height(16.dp))
+
+                // Social login icons row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = if (isUrduEnabled) "گوگل کے ساتھ سائن ان" else "Sign In with Google",
-                        fontSize = 16.sp,
-                        color = textColor,
-                        fontWeight = FontWeight.Medium
-                    )
+                    // Google icon button
+                    IconButton(
+                        onClick = { 
+                            Toast.makeText(context, "Google sign-in coming soon", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .size(64.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = surfaceColor,
+                            tonalElevation = 2.dp
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_google),
+                                    contentDescription = "Google sign in",
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Facebook icon button
+                    IconButton(
+                        onClick = { 
+                            Toast.makeText(context, "Facebook sign-in coming soon", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .size(64.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = surfaceColor,
+                            tonalElevation = 2.dp
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                androidx.compose.foundation.Image(
+                                    painter = androidx.compose.ui.res.painterResource(id = R.drawable.ic_facebook),
+                                    contentDescription = "Facebook sign in",
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Email icon button
+                    IconButton(
+                        onClick = { 
+                            Toast.makeText(context, "Email sign-in already available above", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier
+                            .size(64.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(56.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            color = surfaceColor,
+                            tonalElevation = 2.dp
+                        ) {
+                            Box(
+                                contentAlignment = Alignment.Center,
+                                modifier = Modifier.fillMaxSize()
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Email,
+                                    contentDescription = "Email sign in",
+                                    tint = if (isDarkModeEnabled) Color(0xFFD0BCFF) else Color(0xFF6B5B54),
+                                    modifier = Modifier.size(32.dp)
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Spacer(Modifier.height(16.dp))

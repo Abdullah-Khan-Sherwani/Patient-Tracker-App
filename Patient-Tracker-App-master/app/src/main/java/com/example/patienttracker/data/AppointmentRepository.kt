@@ -80,6 +80,7 @@ object AppointmentRepository {
         speciality: String,
         appointmentDate: Timestamp,
         timeSlot: String,
+        blockName: String = "",
         notes: String = ""
     ): Result<Appointment> {
         return try {
@@ -117,10 +118,13 @@ object AppointmentRepository {
                 updatedAt = Timestamp.now()
             )
             
-            // Save to Firestore
+            // Save to Firestore with blockName for slot counting
+            val appointmentData = appointment.toFirestore().toMutableMap()
+            appointmentData["blockName"] = blockName
+            
             db.collection(COLLECTION)
                 .document(appointmentId)
-                .set(appointment.toFirestore())
+                .set(appointmentData)
                 .await()
             
             Result.success(appointment)

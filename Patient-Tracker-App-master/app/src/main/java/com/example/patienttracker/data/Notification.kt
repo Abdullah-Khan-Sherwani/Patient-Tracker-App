@@ -11,6 +11,7 @@ import kotlinx.parcelize.Parcelize
 data class Notification(
     val notificationId: String = "",
     val patientUid: String = "",
+    val doctorUid: String = "",
     val title: String = "",
     val message: String = "",
     val type: String = "", // "appointment_created", "appointment_cancelled", "appointment_updated"
@@ -25,6 +26,7 @@ data class Notification(
             return Notification(
                 notificationId = notificationId,
                 patientUid = data["patientUid"] as? String ?: "",
+                doctorUid = data["doctorUid"] as? String ?: "",
                 title = data["title"] as? String ?: "",
                 message = data["message"] as? String ?: "",
                 type = data["type"] as? String ?: "",
@@ -38,6 +40,7 @@ data class Notification(
     fun toFirestore(): Map<String, Any> {
         return hashMapOf(
             "patientUid" to patientUid,
+            "doctorUid" to doctorUid,
             "title" to title,
             "message" to message,
             "type" to type,

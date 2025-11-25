@@ -472,18 +472,21 @@ fun AdminCreateAppointmentScreen(navController: NavController, context: Context)
                                             val appointment = result.getOrNull()
                                             successMessage = "Appointment created successfully for ${selectedPatient!!.name} with ${selectedDoctor!!.name}"
                                             
-                                            // Send notification to patient
+                                            // Send notifications to both patient and doctor
                                             try {
-                                                NotificationRepository().createNotification(
+                                                NotificationRepository().createNotificationForBoth(
                                                     patientUid = selectedPatient!!.uid,
-                                                    title = "Appointment Confirmed",
-                                                    message = "Your appointment with Dr. ${selectedDoctor!!.name} has been scheduled on $selectedDate at $selectedTime.",
+                                                    doctorUid = selectedDoctor!!.uid,
+                                                    patientTitle = "Appointment Confirmed",
+                                                    patientMessage = "Your appointment with Dr. ${selectedDoctor!!.name} has been scheduled on $selectedDate at $selectedTime.",
+                                                    doctorTitle = "New Appointment",
+                                                    doctorMessage = "New appointment scheduled with ${selectedPatient!!.name} on $selectedDate at $selectedTime.",
                                                     type = "appointment_created",
                                                     appointmentId = appointment?.appointmentId ?: ""
                                                 )
                                             } catch (e: Exception) {
                                                 // Notification failed but appointment succeeded - log error but don't fail
-                                                android.util.Log.e("AdminCreateAppointment", "Failed to send notification: ${e.message}")
+                                                android.util.Log.e("AdminCreateAppointment", "Failed to send notifications: ${e.message}")
                                             }
                                             
                                             // Navigate after delay

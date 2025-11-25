@@ -522,8 +522,13 @@ fun AppointmentInfoBlock(navController: NavController, isDarkMode: Boolean = fal
                     fontWeight = FontWeight.SemiBold,
                     color = statTextCol
                 )
+                val displayTime = if (appointment.timeSlot.contains("-") || appointment.timeSlot.contains(":")) {
+                    formatTimeRange(appointment.timeSlot)
+                } else {
+                    "${appointment.timeSlot} • ${getTimeRangeForBlock(appointment.timeSlot)}"
+                }
                 Text(
-                    text = "${appointment.timeSlot} • ${appointment.doctorName}, ${appointment.speciality}",
+                    text = "$displayTime • ${appointment.doctorName}, ${appointment.speciality}",
                     fontSize = 18.sp,
                     color = statTextCol.copy(alpha = 0.85f),
                     modifier = Modifier.padding(top = 6.dp)
@@ -903,3 +908,39 @@ private fun DrawerMenuItem(
     }
 }
 
+private fun getTimeRangeForBlock(blockName: String): String {
+    return when (blockName) {
+        "Morning" -> "6:00 AM - 12:00 PM"
+        "Afternoon" -> "12:00 PM - 6:00 PM"
+        "Evening" -> "6:00 PM - 10:00 PM"
+        else -> ""
+    }
+}
+
+private fun formatTimeRange(timeRange: String): String {
+    return try {
+        // Clean the input - remove + signs and extra spaces, handle AM/PM already present
+        val cleaned = timeRange.replace("+", " ").replace("\\s+".toRegex(), " ").trim()
+        
+        // Check if it's already formatted with AM/PM
+        if (cleaned.contains("AM", ignoreCase = true) || cleaned.contains("PM", ignoreCase = true)) {
+            // Just ensure proper spacing
+            return cleaned.replace("AM", " AM").replace("PM", " PM")
+                .replace("am", " AM").replace("pm", " PM")
+                .replace("\\s+".toRegex(), " ").trim()
+        }
+        
+        // Parse as 24-hour format
+        val parts = cleaned.split("-").map { it.trim() }
+        if (parts.size == 2) {
+            val startTime = java.time.LocalTime.parse(parts[0], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val endTime = java.time.LocalTime.parse(parts[1], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH)
+            "${startTime.format(formatter)} - ${endTime.format(formatter)}"
+        } else {
+            cleaned
+        }
+    } catch (e: Exception) {
+        timeRange
+    }
+}

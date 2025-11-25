@@ -351,21 +351,25 @@ fun AdminAppointmentDetailsScreen(
                                     )
                                     .await()
                                 
-                                // Send notification to patient
+                                // Send notifications to both patient and doctor
                                 if (currentAppointment != null) {
                                     try {
                                         val dateFormat = java.text.SimpleDateFormat("EEEE, MMMM dd, yyyy", java.util.Locale.getDefault())
                                         val formattedDate = dateFormat.format(currentAppointment.appointmentDate.toDate())
                                         
-                                        NotificationRepository().createNotification(
+                                        NotificationRepository().createNotificationForBoth(
                                             patientUid = currentAppointment.patientUid,
-                                            title = "Appointment Cancelled",
-                                            message = "Your appointment with Dr. ${currentAppointment.doctorName} scheduled on $formattedDate at ${currentAppointment.timeSlot} has been cancelled.",
+                                            doctorUid = currentAppointment.doctorUid,
+                                            patientTitle = "Appointment Cancelled",
+                                            patientMessage = "Your appointment with Dr. ${currentAppointment.doctorName} scheduled on $formattedDate at ${currentAppointment.timeSlot} has been cancelled.",
+                                            doctorTitle = "Appointment Cancelled",
+                                            doctorMessage = "Your appointment with ${currentAppointment.patientName} scheduled on $formattedDate at ${currentAppointment.timeSlot} has been cancelled.",
                                             type = "appointment_cancelled",
                                             appointmentId = appointmentId
                                         )
                                     } catch (e: Exception) {
                                         // Notification failed but appointment cancelled successfully
+                                        android.util.Log.e("AdminAppointmentDetails", "Failed to send notifications: ${e.message}")
                                     }
                                 }
                                 

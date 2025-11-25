@@ -190,8 +190,10 @@ fun SelectDateTimeScreen(
                         selectedBlock?.let { block ->
                             val dateStr = selectedDate.date.format(DateTimeFormatter.ISO_LOCAL_DATE)
                             val timeRange = "${block.doctorStartTime} - ${block.doctorEndTime}"
+                            // URL encode the time range to handle special characters
+                            val encodedTimeRange = java.net.URLEncoder.encode(timeRange, "UTF-8")
                             // Navigate with block name and time range
-                            navController.navigate("confirm_appointment/$doctorId/$doctorFullName/$specialty/$dateStr/${block.name}/$timeRange")
+                            navController.navigate("confirm_appointment/$doctorId/$doctorFullName/$specialty/$dateStr/${block.name}/$encodedTimeRange")
                         }
                     },
                     modifier = Modifier
@@ -460,20 +462,23 @@ suspend fun loadTimeBlocksForDate(doctorId: String, date: LocalDate): List<TimeB
         
         appointmentsSnapshot.documents.forEach { doc ->
             val appointmentDate = doc.getTimestamp("appointmentDate")
-            val status = doc.getString("status") ?: ""
-            val blockName = doc.getString("timeSlot") // Now stores block name
+            val status = doc.getString("status")?.lowercase() ?: ""
+            val blockName = doc.getString("blockName") ?: "" // Use blockName field
             
-            if (appointmentDate != null && status != "cancelled") {
+            // Only count scheduled or confirmed appointments (not cancelled or completed)
+            if (appointmentDate != null && (status == "scheduled" || status == "confirmed")) {
                 val appointmentLocalDate = appointmentDate.toDate()
                     .toInstant()
                     .atZone(java.time.ZoneId.systemDefault())
                     .toLocalDate()
                 
-                if (appointmentLocalDate == date && blockName != null) {
+                if (appointmentLocalDate == date && blockName.isNotEmpty()) {
                     appointmentsByBlock[blockName] = (appointmentsByBlock[blockName] ?: 0) + 1
                 }
             }
         }
+        
+        android.util.Log.d("SelectDateTime", "Appointments by block for $date: $appointmentsByBlock")
         
         // Define time blocks
         val blockDefinitions = listOf(
@@ -671,123 +676,140 @@ fun TimeBlockCard(
         border = androidx.compose.foundation.BorderStroke(1.5.dp, borderColor),
         tonalElevation = if (isSelected) 4.dp else 2.dp
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            // Icon based on block type
-            val icon = when (block.name) {
-                "Morning" -> Icons.Default.WbSunny
-                "Afternoon" -> Icons.Default.LightMode
-                "Evening" -> Icons.Default.Nightlight
-                "Night" -> Icons.Default.DarkMode
-                else -> Icons.Default.Schedule
-            }
-            
-            val iconColor = when {
-                isDisabled && isDarkMode -> Color(0xFF666666)
-                isDisabled -> Color.Gray
-                isSelected -> Color.White
-                isDarkMode -> Color(0xFFD4AF8C)
-                else -> ButtonColor
-            }
-            
-            Icon(
-                imageVector = icon,
-                contentDescription = block.name,
-                tint = iconColor,
-                modifier = Modifier.size(40.dp)
-            )
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Block info
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
+            // Available slots text in top right
+            if (block.isAvailable && !block.isFullyBooked) {
                 Text(
-                    text = block.name,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
+                    text = "Available: ${block.maxCapacity - block.currentBookings}/${block.maxCapacity} slots",
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Medium,
                     color = when {
-                        isDisabled && isDarkMode -> Color(0xFF888888)
-                        isDisabled -> Color.Gray
-                        isSelected -> Color.White
-                        isDarkMode -> Color.White
-                        else -> StatTextColor
-                    }
+                        isSelected -> Color.White.copy(alpha = 0.8f)
+                        isDarkMode -> Color(0xFFAAAAAA)
+                        else -> Color.Gray
+                    },
+                    modifier = Modifier.align(Alignment.TopEnd)
+                )
+            }
+            
+            // Main content row
+            Row(
+                modifier = Modifier.fillMaxSize(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Icon based on block type
+                val icon = when (block.name) {
+                    "Morning" -> Icons.Default.WbSunny
+                    "Afternoon" -> Icons.Default.LightMode
+                    "Evening" -> Icons.Default.Nightlight
+                    "Night" -> Icons.Default.DarkMode
+                    else -> Icons.Default.Schedule
+                }
+                
+                val iconColor = when {
+                    isDisabled && isDarkMode -> Color(0xFF666666)
+                    isDisabled -> Color.Gray
+                    isSelected -> Color.White
+                    isDarkMode -> Color(0xFFD4AF8C)
+                    else -> ButtonColor
+                }
+                
+                Icon(
+                    imageVector = icon,
+                    contentDescription = block.name,
+                    tint = iconColor,
+                    modifier = Modifier.size(40.dp)
                 )
                 
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 
-                if (block.isAvailable && !block.isFullyBooked) {
+                // Block info
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
                     Text(
-                        text = "${block.doctorStartTime} - ${block.doctorEndTime}",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = block.name,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
                         color = when {
-                            isSelected -> Color.White.copy(alpha = 0.9f)
-                            isDarkMode -> Color(0xFFD4AF8C)
-                            else -> ButtonColor
+                            isDisabled && isDarkMode -> Color(0xFF888888)
+                            isDisabled -> Color.Gray
+                            isSelected -> Color.White
+                            isDarkMode -> Color.White
+                            else -> StatTextColor
                         }
                     )
                     
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     
-                    Text(
-                        text = "Available: ${block.maxCapacity - block.currentBookings}/${block.maxCapacity} slots",
-                        fontSize = 12.sp,
-                        color = when {
-                            isSelected -> Color.White.copy(alpha = 0.8f)
-                            isDarkMode -> Color(0xFFAAAAAA)
-                            else -> Color.Gray
+                    if (block.isAvailable && !block.isFullyBooked) {
+                        Text(
+                            text = "${block.doctorStartTime} - ${block.doctorEndTime}",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = when {
+                                isSelected -> Color.White.copy(alpha = 0.9f)
+                                isDarkMode -> Color(0xFFD4AF8C)
+                                else -> ButtonColor
+                            }
+                        )
+                        Text(
+                            text = "${block.maxCapacity - block.currentBookings} slots available",
+                            fontSize = 12.sp,
+                            color = when {
+                                isSelected -> Color.White.copy(alpha = 0.7f)
+                                isDarkMode -> Color(0xFFB8B8B8)
+                                else -> Color.Gray
+                            }
+                        )
+                    } else if (block.isFullyBooked) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Block,
+                                contentDescription = null,
+                                tint = if (isDarkMode) Color(0xFF888888) else Color.Gray,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Fully Booked",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (isDarkMode) Color(0xFF888888) else Color.Gray
+                            )
                         }
-                    )
-                } else if (block.isFullyBooked) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Block,
-                            contentDescription = null,
-                            tint = if (isDarkMode) Color(0xFF888888) else Color.Gray,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Fully Booked",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isDarkMode) Color(0xFF888888) else Color.Gray
-                        )
-                    }
-                } else {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.Lock,
-                            contentDescription = null,
-                            tint = if (isDarkMode) Color(0xFF888888) else Color.Gray,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Not Available",
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = if (isDarkMode) Color(0xFF888888) else Color.Gray
-                        )
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Lock,
+                                contentDescription = null,
+                                tint = if (isDarkMode) Color(0xFF888888) else Color.Gray,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Not Available",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = if (isDarkMode) Color(0xFF888888) else Color.Gray
+                            )
+                        }
                     }
                 }
-            }
-            
-            // Selection indicator
-            if (isSelected) {
-                Icon(
-                    imageVector = Icons.Default.CheckCircle,
-                    contentDescription = "Selected",
-                    tint = Color.White,
-                    modifier = Modifier.size(28.dp)
-                )
+                
+                // Selection indicator
+                if (isSelected) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = "Selected",
+                        tint = Color.White,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
             }
         }
     }

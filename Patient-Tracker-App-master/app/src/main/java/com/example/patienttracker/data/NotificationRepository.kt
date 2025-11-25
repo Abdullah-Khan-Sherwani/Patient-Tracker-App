@@ -75,6 +75,7 @@ class NotificationRepository {
             
             val notification = hashMapOf(
                 "patientUid" to patientUid,
+                "doctorUid" to "",
                 "title" to title,
                 "message" to message,
                 "type" to type,
@@ -88,6 +89,92 @@ class NotificationRepository {
             return docRef.id
         } catch (e: Exception) {
             android.util.Log.e("NotificationRepo", "Failed to create notification: ${e.message}", e)
+            e.printStackTrace()
+            throw e
+        }
+    }
+    
+    /**
+     * Create a notification for a doctor
+     */
+    suspend fun createNotificationForDoctor(
+        doctorUid: String,
+        title: String,
+        message: String,
+        type: String,
+        appointmentId: String = ""
+    ): String {
+        try {
+            android.util.Log.d("NotificationRepo", "Creating notification for doctor: $doctorUid, title: $title")
+            
+            val notification = hashMapOf(
+                "patientUid" to "",
+                "doctorUid" to doctorUid,
+                "title" to title,
+                "message" to message,
+                "type" to type,
+                "appointmentId" to appointmentId,
+                "isRead" to false,
+                "createdAt" to Timestamp.now()
+            )
+            
+            val docRef = db.collection("notifications").add(notification).await()
+            android.util.Log.d("NotificationRepo", "Notification created for doctor with ID: ${docRef.id}")
+            return docRef.id
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationRepo", "Failed to create notification for doctor: ${e.message}", e)
+            e.printStackTrace()
+            throw e
+        }
+    }
+    
+    /**
+     * Create notifications for both patient and doctor
+     */
+    suspend fun createNotificationForBoth(
+        patientUid: String,
+        doctorUid: String,
+        patientTitle: String,
+        patientMessage: String,
+        doctorTitle: String,
+        doctorMessage: String,
+        type: String,
+        appointmentId: String = ""
+    ): Pair<String, String> {
+        try {
+            android.util.Log.d("NotificationRepo", "Creating notifications for both patient and doctor")
+            
+            // Create patient notification
+            val patientNotification = hashMapOf(
+                "patientUid" to patientUid,
+                "doctorUid" to "",
+                "title" to patientTitle,
+                "message" to patientMessage,
+                "type" to type,
+                "appointmentId" to appointmentId,
+                "isRead" to false,
+                "createdAt" to Timestamp.now()
+            )
+            
+            // Create doctor notification
+            val doctorNotification = hashMapOf(
+                "patientUid" to "",
+                "doctorUid" to doctorUid,
+                "title" to doctorTitle,
+                "message" to doctorMessage,
+                "type" to type,
+                "appointmentId" to appointmentId,
+                "isRead" to false,
+                "createdAt" to Timestamp.now()
+            )
+            
+            val patientDocRef = db.collection("notifications").add(patientNotification).await()
+            val doctorDocRef = db.collection("notifications").add(doctorNotification).await()
+            
+            android.util.Log.d("NotificationRepo", "Both notifications created: patient=${patientDocRef.id}, doctor=${doctorDocRef.id}")
+            return Pair(patientDocRef.id, doctorDocRef.id)
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationRepo", "Failed to create notifications for both: ${e.message}", e)
             e.printStackTrace()
             throw e
         }

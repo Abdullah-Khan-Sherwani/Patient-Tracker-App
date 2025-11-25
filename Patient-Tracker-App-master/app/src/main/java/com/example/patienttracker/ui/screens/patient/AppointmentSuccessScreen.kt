@@ -177,7 +177,7 @@ fun AppointmentSuccessScreen(
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
                     SummaryItem(label = "Block", value = blockName)
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
-                    SummaryItem(label = "Time Range", value = timeRange)
+                    SummaryItem(label = "Time Range", value = formatTimeRange(timeRange))
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
                     
                     // Highlighted Appointment Number
@@ -470,3 +470,29 @@ data class UploadedFile(
     val size: Int
 )
 
+private fun formatTimeRange(timeRange: String): String {
+    return try {
+        // Clean the input - remove + signs and extra spaces, handle AM/PM already present
+        val cleaned = timeRange.replace("+", " ").replace("\\s+".toRegex(), " ").trim()
+        
+        // Check if it's already formatted with AM/PM
+        if (cleaned.contains("AM", ignoreCase = true) || cleaned.contains("PM", ignoreCase = true)) {
+            // Just ensure proper spacing
+            return cleaned.replace("AM", " AM").replace("PM", " PM")
+                .replace("am", " AM").replace("pm", " PM")
+                .replace("\\s+".toRegex(), " ").trim()
+        }
+        
+        val parts = cleaned.split("-").map { it.trim() }
+        if (parts.size == 2) {
+            val startTime = java.time.LocalTime.parse(parts[0], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val endTime = java.time.LocalTime.parse(parts[1], java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+            val formatter = java.time.format.DateTimeFormatter.ofPattern("h:mm a", java.util.Locale.ENGLISH)
+            "${startTime.format(formatter)} - ${endTime.format(formatter)}"
+        } else {
+            cleaned
+        }
+    } catch (e: Exception) {
+        timeRange
+    }
+}

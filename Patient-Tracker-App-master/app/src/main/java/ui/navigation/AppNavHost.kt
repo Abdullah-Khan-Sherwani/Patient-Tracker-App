@@ -245,8 +245,17 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             }
         }
 
-        composable("full_schedule") {
-            FullScheduleScreen(navController, context)
+        composable(
+            route = "full_schedule?selectedTab={selectedTab}",
+            arguments = listOf(
+                navArgument("selectedTab") {
+                    type = androidx.navigation.NavType.StringType
+                    defaultValue = "upcoming"
+                }
+            )
+        ) { backStackEntry ->
+            val selectedTab = backStackEntry.arguments?.getString("selectedTab") ?: "upcoming"
+            FullScheduleScreen(navController, context, selectedTab)
         }
 
         composable("patient_profile/{firstName}/{lastName}") { backStackEntry ->
@@ -315,8 +324,16 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
         }
 
         // Doctor Catalogue Screen
-        composable("doctor_catalogue") {
-            com.example.patienttracker.ui.screens.patient.DoctorCatalogueScreen(navController, context)
+        composable(
+            route = "doctor_catalogue?specialty={specialty}",
+            arguments = listOf(navArgument("specialty") { 
+                type = NavType.StringType
+                nullable = true
+                defaultValue = null
+            })
+        ) { backStackEntry ->
+            val specialty = backStackEntry.arguments?.getString("specialty")
+            com.example.patienttracker.ui.screens.patient.DoctorCatalogueScreen(navController, context, preselectedSpecialty = specialty)
         }
 
         // Enhanced Upload Health Record Screen with privacy, notes, medication

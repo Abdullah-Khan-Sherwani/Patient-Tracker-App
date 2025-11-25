@@ -373,12 +373,104 @@ private suspend fun saveAvailability(
     availabilityList: List<AvailabilityDayState>
 ) {
     val db = Firebase.firestore
+    val notificationRepo = com.example.patienttracker.data.NotificationRepository()
     
     try {
         android.util.Log.d("EditAvailability", "Saving availability for doctor: $doctorUid")
         
-        // Use individual writes instead of batch for better error handling
-        // and to avoid batch permission issues
+        // Step 1: Get all scheduled appointments for this doctor
+        val appointmentsSnapshot = db.collection("appointments")
+            .whereEqualTo("doctorUid", doctorUid)
+            .get()
+            .await()
+        
+        val appointmentsToCancel = mutableListOf<Pair<String, com.example.patienttracker.data.Appointment>>()
+        
+        // Step 2: Check each appointment against new availability
+        appointmentsSnapshot.documents.forEach { doc ->
+            val appointment = com.example.patienttracker.data.Appointment.fromFirestore(doc.data ?: emptyMap(), doc.id)
+            
+            // Only check scheduled/confirmed appointments
+            if (appointment.status == "scheduled" || appointment.status == "confirmed") {
+                val appointmentDate = appointment.appointmentDate.toDate()
+                val calendar = java.util.Calendar.getInstance()
+                calendar.time = appointmentDate
+                
+                val dayOfWeek = calendar.get(java.util.Calendar.DAY_OF_WEEK)
+                // Convert Android Calendar (1=Sunday) to our format (1=Monday)
+                val adjustedDayOfWeek = if (dayOfWeek == 1) 7 else dayOfWeek - 1
+                
+                // Get the new availability for this day
+                val newAvailability = availabilityList.find { it.dayOfWeek == adjustedDayOfWeek }
+                
+                if (newAvailability != null) {
+                    // If availability is disabled for this day, cancel the appointment
+                    if (!newAvailability.isActive) {
+                        appointmentsToCancel.add(Pair(doc.id, appointment))
+                        android.util.Log.d("EditAvailability", "Appointment ${appointment.appointmentId} will be cancelled - day is now inactive")
+                    } else {
+                        // Check if appointment time falls within new availability
+                        val timeSlot = appointment.timeSlot // e.g., "09:00 AM - 10:00 AM"
+                        val appointmentStartTime = extractStartTime(timeSlot)
+                        
+                        if (appointmentStartTime != null && !isTimeWithinRange(appointmentStartTime, newAvailability.startTime, newAvailability.endTime)) {
+                            appointmentsToCancel.add(Pair(doc.id, appointment))
+                            android.util.Log.d("EditAvailability", "Appointment ${appointment.appointmentId} will be cancelled - time ${appointmentStartTime} is outside new hours ${newAvailability.startTime}-${newAvailability.endTime}")
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Step 3: Cancel appointments and send notifications
+        appointmentsToCancel.forEach { (appointmentId, appointment) ->
+            try {
+                // Update appointment status to cancelled
+                db.collection("appointments")
+                    .document(appointmentId)
+                    .update(
+                        "status", "cancelled",
+                        "cancelledBy", "system",
+                        "updatedAt", com.google.firebase.Timestamp.now()
+                    )
+                    .await()
+                
+                android.util.Log.d("EditAvailability", "Cancelled appointment: $appointmentId")
+                
+                // Send notification to patient
+                try {
+                    notificationRepo.createNotification(
+                        patientUid = appointment.patientUid,
+                        title = "Appointment Cancelled",
+                        message = "Your appointment with Dr. ${appointment.doctorName} on ${appointment.getFormattedDate()} at ${appointment.timeSlot} has been cancelled due to doctor availability change.",
+                        type = "appointment_cancelled",
+                        appointmentId = appointmentId
+                    )
+                    android.util.Log.d("EditAvailability", "Patient notification sent for appointment $appointmentId")
+                } catch (e: Exception) {
+                    android.util.Log.e("EditAvailability", "Failed to send patient notification: ${e.message}", e)
+                }
+                
+                // Send notification to doctor
+                try {
+                    notificationRepo.createNotificationForDoctor(
+                        doctorUid = doctorUid,
+                        title = "Appointment Auto-Cancelled",
+                        message = "Appointment #${appointment.appointmentNumber} with ${appointment.patientName} on ${appointment.getFormattedDate()} at ${appointment.timeSlot} has been cancelled due to availability change.",
+                        type = "appointment_cancelled",
+                        appointmentId = appointmentId
+                    )
+                    android.util.Log.d("EditAvailability", "Doctor notification sent for appointment $appointmentId")
+                } catch (e: Exception) {
+                    android.util.Log.e("EditAvailability", "Failed to send doctor notification: ${e.message}", e)
+                }
+                
+            } catch (e: Exception) {
+                android.util.Log.e("EditAvailability", "Failed to cancel appointment $appointmentId: ${e.message}", e)
+            }
+        }
+        
+        // Step 4: Save new availability
         availabilityList.forEach { day ->
             val availabilityDoc = DoctorAvailability(
                 doctorUid = doctorUid,
@@ -392,8 +484,6 @@ private suspend fun saveAvailability(
                 .document("${doctorUid}_${day.dayOfWeek}")
             
             android.util.Log.d("EditAvailability", "Setting document: ${docRef.path}")
-            
-            // Use set with merge instead of batch
             docRef.set(availabilityDoc.toMap(), com.google.firebase.firestore.SetOptions.merge()).await()
         }
         
@@ -402,6 +492,37 @@ private suspend fun saveAvailability(
     } catch (e: Exception) {
         android.util.Log.e("EditAvailability", "Error saving availability: ${e.message}", e)
         throw e
+    }
+}
+
+/**
+ * Extract start time from time slot string like "09:00 AM - 10:00 AM"
+ */
+private fun extractStartTime(timeSlot: String): String? {
+    return try {
+        val parts = timeSlot.split("-")
+        if (parts.isNotEmpty()) {
+            parts[0].trim().split(" ")[0] // Get "09:00" from "09:00 AM"
+        } else {
+            null
+        }
+    } catch (e: Exception) {
+        null
+    }
+}
+
+/**
+ * Check if appointment time (HH:mm) falls within availability range (HH:mm format)
+ */
+private fun isTimeWithinRange(appointmentTime: String, startTime: String, endTime: String): Boolean {
+    return try {
+        val appointmentMinutes = timeToMinutes(appointmentTime)
+        val startMinutes = timeToMinutes(startTime)
+        val endMinutes = timeToMinutes(endTime)
+        
+        appointmentMinutes >= startMinutes && appointmentMinutes < endMinutes
+    } catch (e: Exception) {
+        false
     }
 }
 

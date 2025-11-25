@@ -27,6 +27,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.AccessTime
+import androidx.compose.material.icons.filled.EventAvailable
+import androidx.compose.material.icons.filled.EventBusy
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.example.patienttracker.data.PatientFavoritesRepository
 import kotlinx.coroutines.launch
 
@@ -152,116 +158,276 @@ fun SelectDoctorScreen(navController: NavController, context: Context, specialty
 @Composable
 fun DoctorSelectionCard(doctor: DoctorFull, onViewSlots: () -> Unit) {
     var isFavorite by remember { mutableStateOf(false) }
+    var availabilityText by remember { mutableStateOf("Loading...") }
     val scope = rememberCoroutineScope()
+    val isDarkMode = androidx.compose.foundation.isSystemInDarkTheme()
     
-    // Check if doctor is favorited
+    // Check favorite status
     LaunchedEffect(doctor.id) {
-        isFavorite = PatientFavoritesRepository.isDoctorFavorited(doctor.id)
+        try {
+            isFavorite = PatientFavoritesRepository.isDoctorFavorited(doctor.id)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
+    
+    // Fetch real availability from doctor_availability collection
+    LaunchedEffect(doctor.id) {
+        try {
+            val db = Firebase.firestore
+            val today = java.time.LocalDate.now()
+            val dayOfWeek = today.dayOfWeek.value // 1=Mon, 7=Sun
+            
+            val availabilitySnapshot = db.collection("doctor_availability")
+                .whereEqualTo("doctorUid", doctor.id)
+                .whereEqualTo("dayOfWeek", dayOfWeek)
+                .whereEqualTo("isActive", true)
+                .get()
+                .await()
+            
+            if (availabilitySnapshot.documents.isNotEmpty()) {
+                val doc = availabilitySnapshot.documents.first()
+                val startTime = doc.getString("startTime") // "09:00"
+                val endTime = doc.getString("endTime") // "17:00"
+                
+                if (startTime != null && endTime != null) {
+                    // Convert to 12-hour format
+                    val formatter12 = java.time.format.DateTimeFormatter.ofPattern("h:mm a")
+                    val start = java.time.LocalTime.parse(startTime, java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                    val end = java.time.LocalTime.parse(endTime, java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                    
+                    availabilityText = "${start.format(formatter12)} – ${end.format(formatter12)}"
+                } else {
+                    availabilityText = "Timings not provided"
+                }
+            } else {
+                availabilityText = "Not available today"
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("DoctorCard", "Error loading availability: ${e.message}", e)
+            availabilityText = "Availability unknown"
+        }
+    }
+    
+    val cardColor = if (isDarkMode) Color(0xFF1E1E1E) else CardWhite
+    val textPrimaryColor = if (isDarkMode) Color(0xFFFFFFFF) else StatTextColor
+    val textSecondaryColor = if (isDarkMode) Color(0xFFBBBBBB) else StatTextColor.copy(alpha = 0.7f)
+    val AccentColor = HeaderTopColor
     
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(16.dp),
-        color = CardWhite,
-        tonalElevation = 2.dp
+        color = cardColor,
+        tonalElevation = 2.dp,
+        shadowElevation = 4.dp
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(20.dp)
         ) {
+            // Top row: Profile picture + Name + Heart
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                // Profile picture with initials
+                Surface(
+                    modifier = Modifier.size(56.dp),
+                    shape = CircleShape,
+                    color = AccentColor.copy(alpha = 0.2f)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "${doctor.firstName.firstOrNull()?.uppercaseChar() ?: "D"}${doctor.lastName.firstOrNull()?.uppercaseChar() ?: ""}",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccentColor
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.width(14.dp))
+                
+                // Doctor name
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.Center
+                ) {
                     Text(
                         text = "Dr. ${doctor.firstName} ${doctor.lastName}",
-                        fontSize = 18.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
-                        color = StatTextColor
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = doctor.speciality,
-                        fontSize = 14.sp,
-                        color = HeaderBottomColor,
-                        fontWeight = FontWeight.Medium
+                        color = textPrimaryColor,
+                        maxLines = 1
                     )
                 }
                 
-                // Heart icon for favorites
+                // Favorite heart icon
                 IconButton(
                     onClick = {
                         scope.launch {
-                            PatientFavoritesRepository.toggleFavorite(doctor.id)
-                            isFavorite = !isFavorite
+                            try {
+                                PatientFavoritesRepository.toggleFavorite(doctor.id)
+                                isFavorite = !isFavorite
+                            } catch (e: Exception) {
+                                android.util.Log.e("DoctorCard", "Error toggling favorite: ${e.message}", e)
+                            }
                         }
                     },
-                    modifier = Modifier.size(36.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(
                         imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                         contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                        tint = if (isFavorite) Color(0xFFE91E63) else StatTextColor,
-                        modifier = Modifier.size(24.dp)
+                        tint = if (isFavorite) Color(0xFFE91E63) else textSecondaryColor,
+                        modifier = Modifier.size(22.dp)
                     )
                 }
             }
-
+            
             Spacer(modifier = Modifier.height(8.dp))
-
+            
+            // Specialty and experience
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 70.dp) // Align with name
             ) {
-                // Availability info
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = BackgroundColor,
-                    modifier = Modifier.weight(1f)
+                Text(
+                    text = doctor.speciality.ifEmpty { "General Physician" },
+                    fontSize = 14.sp,
+                    color = textSecondaryColor,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Availability pill
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                    Color(0xFFFFEBEE)
+                } else {
+                    Color(0xFFE8F5E9)
+                },
+                modifier = Modifier.padding(start = 70.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
-                    Text(
-                        text = "Available: ${doctor.days} • ${doctor.timings}",
-                        fontSize = 13.sp,
-                        color = StatTextColor,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    Icon(
+                        imageVector = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                            Icons.Default.EventBusy
+                        } else {
+                            Icons.Default.AccessTime
+                        },
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                            Color(0xFFD32F2F)
+                        } else {
+                            Color(0xFF4CAF50)
+                        }
                     )
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                // Price badge
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFF4CAF50)
-                ) {
+                    Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Rs. 1,500",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.White,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        text = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                            availabilityText
+                        } else {
+                            "Next: $availabilityText"
+                        },
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
+                            Color(0xFFD32F2F)
+                        } else {
+                            Color(0xFF2E7D32)
+                        }
                     )
                 }
             }
-
+            
             Spacer(modifier = Modifier.height(12.dp))
-
-            // View Slots button
+            
+            // Consultation fee chip
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(start = 70.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = AccentColor.copy(alpha = 0.12f)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountBalanceWallet,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = AccentColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "PKR 1,500",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = textPrimaryColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "•",
+                            fontSize = 13.sp,
+                            color = textSecondaryColor
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "In person",
+                            fontSize = 12.sp,
+                            color = textSecondaryColor
+                        )
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Separator line
+            Divider(
+                color = if (isDarkMode) Color(0xFF37474F) else Color(0xFFE0E0E0),
+                thickness = 1.dp
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            // Full-width CTA button
             Button(
                 onClick = onViewSlots,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(44.dp),
+                    .height(48.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = ButtonColor,
                     contentColor = Color.White
                 ),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(12.dp),
+                elevation = ButtonDefaults.buttonElevation(
+                    defaultElevation = 2.dp,
+                    pressedElevation = 4.dp
+                )
             ) {
+                Icon(
+                    imageVector = Icons.Default.EventAvailable,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "View Available Slots",
                     fontSize = 15.sp,

@@ -423,7 +423,16 @@ suspend fun fetchDoctorsFromFirestore(): List<DoctorFull> {
         querySnapshot.documents.mapNotNull { doc ->
             val firstName = doc.getString("firstName") ?: ""
             val lastName = doc.getString("lastName") ?: ""
-            println("fetchDoctorsFromFirestore: Doctor ${doc.id} - Name: '$firstName $lastName'")
+            val timings = doc.getString("timings") ?: ""
+            val days = doc.getString("days") ?: ""
+            val speciality = doc.getString("speciality") ?: "General Physician"
+            
+            println("fetchDoctorsFromFirestore: Doctor ${doc.id} - Name: '$firstName $lastName', Speciality: '$speciality', Timings: '$timings', Days: '$days'")
+            
+            // Warn if critical booking data is missing
+            if (timings.isBlank() || days.isBlank()) {
+                println("⚠️ WARNING: Doctor ${doc.id} ($firstName $lastName) missing booking data - Timings: '$timings', Days: '$days'")
+            }
             
             // Only include doctors with at least a first name or last name
             if (firstName.isNotEmpty() || lastName.isNotEmpty()) {
@@ -433,9 +442,9 @@ suspend fun fetchDoctorsFromFirestore(): List<DoctorFull> {
                     lastName = lastName,
                     email = doc.getString("email") ?: "",
                     phone = doc.getString("phone") ?: "",
-                    speciality = doc.getString("speciality") ?: "General Physician",
-                    days = doc.getString("days") ?: "",
-                    timings = doc.getString("timings") ?: ""
+                    speciality = speciality,
+                    days = days,
+                    timings = timings
                 )
             } else {
                 println("fetchDoctorsFromFirestore: Skipping doctor ${doc.id} - empty name")

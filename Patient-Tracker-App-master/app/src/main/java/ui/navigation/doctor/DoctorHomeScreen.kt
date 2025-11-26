@@ -1034,8 +1034,14 @@ private suspend fun fetchTodayAppointments(): List<DoctorAppointment> {
                 false
             }
         }.map { appointment ->
+            // Use dependent name if this is a dependent appointment
+            val displayName = if (appointment.recipientType == "dependent" && appointment.dependentName.isNotBlank()) {
+                "${appointment.dependentName} (via ${appointment.patientName})"
+            } else {
+                appointment.patientName
+            }
             DoctorAppointment(
-                patientName = appointment.patientName,
+                patientName = displayName,
                 time = formatTimeRange(appointment.timeSlot),
                 type = appointment.speciality,
                 status = appointment.status.lowercase()

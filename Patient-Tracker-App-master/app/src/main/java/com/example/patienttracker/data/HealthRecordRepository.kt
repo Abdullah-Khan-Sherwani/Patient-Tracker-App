@@ -31,6 +31,8 @@ object HealthRecordRepository {
      * @param isPrivate Whether record is private (only patient can see)
      * @param notes Optional notes
      * @param pastMedication Optional past medication info
+     * @param dependentId Optional dependent ID if uploading for a dependent
+     * @param dependentName Optional dependent name if uploading for a dependent
      */
     suspend fun uploadRecord(
         fileUri: Uri,
@@ -42,7 +44,9 @@ object HealthRecordRepository {
         tags: List<String> = emptyList(),
         isPrivate: Boolean = false,
         notes: String = "",
-        pastMedication: String = ""
+        pastMedication: String = "",
+        dependentId: String = "",
+        dependentName: String = ""
     ): Result<HealthRecord> {
         return try {
             val currentUser = auth.currentUser
@@ -71,6 +75,8 @@ object HealthRecordRepository {
                 recordId = recordId,
                 patientUid = currentUser.uid,
                 patientName = patientName,
+                dependentId = dependentId,
+                dependentName = dependentName,
                 fileName = fileName,
                 fileUrl = fileUrl,
                 fileType = fileType,
@@ -101,7 +107,7 @@ object HealthRecordRepository {
     }
     
     /**
-     * Get all health records for the current patient
+     * Get all health records for the current patient (self, not dependents)
      */
     suspend fun getPatientRecords(): Result<List<HealthRecord>> {
         return try {
@@ -110,6 +116,33 @@ object HealthRecordRepository {
             
             val snapshot = db.collection(COLLECTION)
                 .whereEqualTo("patientUid", currentUser.uid)
+                .whereEqualTo("dependentId", "") // Only self records
+                .orderBy("uploadDate", Query.Direction.DESCENDING)
+                .get()
+                .await()
+            
+            val records = snapshot.documents.mapNotNull { doc ->
+                HealthRecord.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
+            }
+            
+            Result.success(records)
+            
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get health records for a specific dependent
+     */
+    suspend fun getDependentRecords(dependentId: String): Result<List<HealthRecord>> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            val snapshot = db.collection(COLLECTION)
+                .whereEqualTo("patientUid", currentUser.uid)
+                .whereEqualTo("dependentId", dependentId)
                 .orderBy("uploadDate", Query.Direction.DESCENDING)
                 .get()
                 .await()

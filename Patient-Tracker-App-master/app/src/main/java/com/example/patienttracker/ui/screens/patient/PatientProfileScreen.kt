@@ -138,6 +138,16 @@ fun PatientProfileScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
+            // Dependents
+            SettingItem(
+                title = "Dependents",
+                icon = Icons.Default.Person,
+                onClick = { navController.navigate("patient_dependents") },
+                isDarkMode = isDarkMode
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
             // Change Password
             SettingItem(
                 title = "Change Password",

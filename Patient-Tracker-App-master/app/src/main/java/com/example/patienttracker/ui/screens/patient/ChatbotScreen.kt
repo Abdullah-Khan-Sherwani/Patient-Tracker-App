@@ -975,6 +975,34 @@ private fun generateBotResponse(
     }
     
     // ============================================
+    // 2.5 DEPENDENT/CHILD BOOKING (NEW FEATURE)
+    // ============================================
+    val dependentKeywords = listOf(
+        "child", "kid", "baby", "son", "daughter", "children", "kids", 
+        "dependent", "infant", "toddler", "nephew", "niece", "family member",
+        "book for my child", "appointment for my child", "my son", "my daughter",
+        "for my kid", "for child", "for baby"
+    )
+    
+    val isDependentBooking = dependentKeywords.any { query.contains(it) }
+    
+    if (isDependentBooking) {
+        return ChatMessage(
+            text = "Great! I can help you book an appointment for your child or dependent.\n\n" +
+                   "First, let's set up or select your dependent. Once added, you'll be able to:\n" +
+                   "• Book appointments for them\n" +
+                   "• View their medical records\n" +
+                   "• Track their appointment history\n\n" +
+                   "Let me take you to your dependents section.",
+            isFromUser = false,
+            actionButtons = listOf(
+                ChatAction("Manage Dependents", "patient_dependents"),
+                ChatAction("Browse Doctors Instead", "doctor_catalogue")
+            )
+        )
+    }
+    
+    // ============================================
     // 3. CONTEXT-AWARE BOOKING REUSE
     // ============================================
     val bookingKeywords = listOf("book", "appointment", "need appointment", "want to see", 

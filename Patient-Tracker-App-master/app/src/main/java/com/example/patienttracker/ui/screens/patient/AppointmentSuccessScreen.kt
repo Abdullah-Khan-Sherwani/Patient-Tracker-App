@@ -14,6 +14,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.FileUpload
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,7 +49,8 @@ fun AppointmentSuccessScreen(
     doctorName: String,
     date: String,
     blockName: String,
-    timeRange: String
+    timeRange: String,
+    recipientType: String = "self"
 ) {
     var uploadedFiles by remember { mutableStateOf<List<UploadedFile>>(emptyList()) }
     var isUploading by remember { mutableStateOf(false) }
@@ -261,6 +263,38 @@ fun AppointmentSuccessScreen(
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            // Vaccination Reminder for Dependent Appointments
+            if (recipientType == "dependent") {
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFFF3E0),
+                    tonalElevation = 1.dp
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Info,
+                            contentDescription = null,
+                            tint = Color(0xFFF57C00),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Please bring your child's vaccination card to the appointment.",
+                            fontSize = 13.sp,
+                            color = Color(0xFFE65100),
+                            lineHeight = 18.sp
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+            }
 
             // Upload Records Section
             Surface(

@@ -53,7 +53,9 @@ fun ConfirmAppointmentScreen(
     specialty: String,
     dateStr: String,
     blockName: String,
-    timeRange: String
+    timeRange: String,
+    dependentId: String = "",
+    dependentName: String = ""
 ) {
     val scope = rememberCoroutineScope()
     
@@ -148,26 +150,67 @@ fun ConfirmAppointmentScreen(
                                 val currentUser = Firebase.auth.currentUser
                                 if (currentUser != null) {
                                     val dateStr = date.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
-                                    val existingAppointments = Firebase.firestore.collection("appointments")
+                                    
+                                    // Determine if this booking is for self or a dependent
+                                    val isBookingForSelf = dependentId.isBlank() || dependentId == "self"
+                                    val targetDependentId = if (isBookingForSelf) "" else dependentId
+                                    
+                                    android.util.Log.d("DuplicateCheck", "=== Starting duplicate check ===")
+                                    android.util.Log.d("DuplicateCheck", "isBookingForSelf=$isBookingForSelf, targetDependentId='$targetDependentId', incoming dependentId='$dependentId'")
+                                    android.util.Log.d("DuplicateCheck", "Looking for: doctorId=$doctorId, date=$dateStr, block=$blockName")
+                                    
+                                    // Query for existing appointments matching: patientUid and doctorUid
+                                    val allAppointments = Firebase.firestore.collection("appointments")
                                         .whereEqualTo("patientUid", currentUser.uid)
                                         .whereEqualTo("doctorUid", doctorId)
                                         .get()
                                         .await()
                                     
-                                    val hasDuplicate = existingAppointments.documents.any { doc ->
-                                        val apptDate = doc.getTimestamp("appointmentDate")
-                                        val apptBlockName = doc.getString("blockName") ?: ""
+                                    android.util.Log.d("DuplicateCheck", "Found ${allAppointments.documents.size} total appointments with this doctor")
+                                    
+                                    // Filter by recipient and active status
+                                    val matchingAppointments = allAppointments.documents.filter { doc ->
+                                        val apptDependentId = doc.getString("dependentId") ?: ""
+                                        val apptRecipientType = doc.getString("recipientType") ?: "self"
                                         val status = doc.getString("status")?.lowercase() ?: ""
                                         
-                                        if (apptDate != null && (status == "scheduled" || status == "confirmed")) {
+                                        android.util.Log.d("DuplicateCheck", "Appointment: recipientType='$apptRecipientType', dependentId='$apptDependentId', status='$status'")
+                                        
+                                        // Check if this appointment is for the same person we're booking for
+                                        val isSameRecipient = if (isBookingForSelf) {
+                                            // For self booking: match if recipientType is "self" OR dependentId is empty/blank/"self"
+                                            apptRecipientType == "self" || apptDependentId.isBlank() || apptDependentId == "self"
+                                        } else {
+                                            // For dependent booking: match only if dependentId matches exactly
+                                            apptDependentId == targetDependentId
+                                        }
+                                        
+                                        val isActive = status == "scheduled" || status == "confirmed"
+                                        
+                                        android.util.Log.d("DuplicateCheck", "  -> isSameRecipient=$isSameRecipient, isActive=$isActive")
+                                        
+                                        isSameRecipient && isActive
+                                    }
+                                    
+                                    android.util.Log.d("DuplicateCheck", "Found ${matchingAppointments.size} matching appointments for same recipient")
+                                    
+                                    val hasDuplicate = matchingAppointments.any { doc ->
+                                        val apptDate = doc.getTimestamp("appointmentDate")
+                                        val apptBlockName = doc.getString("blockName") ?: ""
+                                        
+                                        if (apptDate != null) {
                                             val apptLocalDate = apptDate.toDate().toInstant()
                                                 .atZone(ZoneId.systemDefault()).toLocalDate()
                                             val apptDateStr = apptLocalDate.format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
-                                            apptDateStr == dateStr && apptBlockName == blockName
+                                            val isDuplicate = apptDateStr == dateStr && apptBlockName == blockName
+                                            android.util.Log.d("DuplicateCheck", "  Date check: apptDate=$apptDateStr, targetDate=$dateStr, apptBlock=$apptBlockName, targetBlock=$blockName -> isDuplicate=$isDuplicate")
+                                            isDuplicate
                                         } else {
                                             false
                                         }
                                     }
+                                    
+                                    android.util.Log.d("DuplicateCheck", "=== Final result: hasDuplicate=$hasDuplicate ===")
                                     
                                     if (hasDuplicate) {
                                         Toast.makeText(context, "You already have an appointment with this doctor in the $blockName time slot on this date.", Toast.LENGTH_LONG).show()
@@ -178,6 +221,12 @@ fun ConfirmAppointmentScreen(
                                 
                                 // Create appointment with actual time range formatted
                                 val formattedTimeRange = formatTimeRange(timeRange)
+                                
+                                // Normalize dependentId: convert "self" to empty string for consistency
+                                val normalizedDependentId = if (dependentId.isBlank() || dependentId == "self") "" else dependentId
+                                val normalizedDependentName = if (dependentId.isBlank() || dependentId == "self") "" else dependentName
+                                
+                                val recipientType = if (normalizedDependentId.isBlank()) "self" else "dependent"
                                 val result = AppointmentRepository.createAppointment(
                                     doctorUid = doctorId,
                                     doctorName = doctorName,
@@ -185,6 +234,9 @@ fun ConfirmAppointmentScreen(
                                     appointmentDate = timestamp,
                                     timeSlot = formattedTimeRange, // Store formatted doctor's time range
                                     blockName = blockName, // Store block name for slot counting
+                                    recipientType = recipientType,
+                                    dependentId = normalizedDependentId,
+                                    dependentName = normalizedDependentName,
                                     notes = notes
                                 )
                                 
@@ -202,9 +254,13 @@ fun ConfirmAppointmentScreen(
                                                 patientUid = currentUser.uid,
                                                 doctorUid = doctorId,
                                                 patientTitle = "Appointment Booked",
-                                                patientMessage = "Your appointment with $doctorName on $formattedDate ($blockName block: $timeRange) has been confirmed. Appointment #${appointment.appointmentNumber}",
+                                                patientMessage = "Your appointment with $doctorName on $formattedDate ($blockName block: $timeRange) has been confirmed. Appointment #${appointment.appointmentNumber}".let {
+                                                    if (dependentName.isNotBlank()) "$it (for $dependentName)" else it
+                                                },
                                                 doctorTitle = "New Appointment",
-                                                doctorMessage = "New appointment booked by patient on $formattedDate ($blockName block: $timeRange). Appointment #${appointment.appointmentNumber}",
+                                                doctorMessage = "New appointment booked by patient on $formattedDate ($blockName block: $timeRange). Appointment #${appointment.appointmentNumber}".let {
+                                                    if (dependentName.isNotBlank()) "$it (for $dependentName)" else it
+                                                },
                                                 type = "appointment_created",
                                                 appointmentId = appointment.appointmentId
                                             )
@@ -219,7 +275,8 @@ fun ConfirmAppointmentScreen(
                                     }
                                     
                                     // Navigate to success screen and clear booking flow from back stack
-                                    navController.navigate("appointment_success/${appointment?.appointmentNumber ?: "000"}/$doctorName/$formattedDate/$blockName/$timeRange") {
+                                    val recipientType = if (dependentId.isBlank() || dependentId == "self") "self" else "dependent"
+                                    navController.navigate("appointment_success/${appointment?.appointmentNumber ?: "000"}/$doctorName/$formattedDate/$blockName/$timeRange/$recipientType") {
                                         popUpTo("patient_home") { inclusive = false }
                                     }
                                 } else {
@@ -290,11 +347,25 @@ fun ConfirmAppointmentScreen(
                         color = StatTextColor
                     )
 
-                    DetailRow(
-                        icon = Icons.Default.Person,
-                        label = "Patient",
-                        value = patientName
-                    )
+                    // Show who the appointment is for
+                    if (dependentId.isNotBlank() && dependentId != "self" && dependentName.isNotBlank()) {
+                        DetailRow(
+                            icon = Icons.Default.Person,
+                            label = "Appointment For",
+                            value = dependentName
+                        )
+                        DetailRow(
+                            icon = Icons.Default.Person,
+                            label = "Booked By",
+                            value = patientName
+                        )
+                    } else {
+                        DetailRow(
+                            icon = Icons.Default.Person,
+                            label = "Patient",
+                            value = patientName
+                        )
+                    }
 
                     DetailRow(
                         icon = Icons.Default.Phone,

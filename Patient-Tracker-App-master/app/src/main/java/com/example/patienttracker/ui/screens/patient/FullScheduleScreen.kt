@@ -386,6 +386,17 @@ fun AppointmentCard(
                         color = HeaderBottomColor
                     )
                     
+                    // Show dependent name if this is a dependent appointment
+                    if (appointment.recipientType == "dependent" && appointment.dependentName.isNotBlank()) {
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            text = "For: ${appointment.dependentName}",
+                            color = HeaderTopColor,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
                     // Show appointment number if available
                     if (appointment.appointmentNumber.isNotEmpty()) {
                         Spacer(Modifier.height(4.dp))

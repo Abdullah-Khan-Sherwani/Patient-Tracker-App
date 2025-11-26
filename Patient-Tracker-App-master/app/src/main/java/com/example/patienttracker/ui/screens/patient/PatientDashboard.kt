@@ -527,8 +527,14 @@ fun AppointmentInfoBlock(navController: NavController, isDarkMode: Boolean = fal
                 } else {
                     "${appointment.timeSlot} • ${getTimeRangeForBlock(appointment.timeSlot)}"
                 }
+                // Show dependent name if this is a dependent appointment
+                val forWhom = if (appointment.recipientType == "dependent" && appointment.dependentName.isNotBlank()) {
+                    " (for ${appointment.dependentName})"
+                } else {
+                    ""
+                }
                 Text(
-                    text = "$displayTime • ${appointment.doctorName}, ${appointment.speciality}",
+                    text = "$displayTime • ${appointment.doctorName}, ${appointment.speciality}$forWhom",
                     fontSize = 18.sp,
                     color = statTextCol.copy(alpha = 0.85f),
                     modifier = Modifier.padding(top = 6.dp)

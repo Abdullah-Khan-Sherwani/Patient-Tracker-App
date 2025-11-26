@@ -38,6 +38,12 @@ service cloud.firestore {
 
       allow update, delete: if request.auth != null &&
         (isOwn(uid) || isAdmin());
+
+      // Dependents subcollection - patients can manage their own dependents
+      match /dependents/{dependentId} {
+        allow read, write: if request.auth != null && isOwn(uid);
+        allow read, write: if isAdmin();
+      }
     }
 
     // appointments
@@ -76,16 +82,18 @@ service cloud.firestore {
         (request.resource.data.patientUid == request.auth.uid)
       );
       
-      // Patients can read their own notifications
+      // Read notifications - patients can read their own, doctors can read theirs, admins can read all
       allow read: if request.auth != null && (
         resource.data.patientUid == request.auth.uid ||
+        resource.data.doctorUid == request.auth.uid ||
         isAdmin()
       );
       
-      // Patients can update their own notifications (mark as read)
-      // Admin can update all
+      // Update notifications - mark as read
+      // Patients and doctors can update their own notifications, admins can update all
       allow update: if request.auth != null && (
         resource.data.patientUid == request.auth.uid ||
+        resource.data.doctorUid == request.auth.uid ||
         isAdmin()
       );
       

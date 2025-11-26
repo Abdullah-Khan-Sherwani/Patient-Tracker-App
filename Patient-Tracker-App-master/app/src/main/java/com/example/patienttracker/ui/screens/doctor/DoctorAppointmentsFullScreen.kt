@@ -349,12 +349,26 @@ private fun AppointmentCard(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    // Use dependent name if this is a dependent appointment
+                    val displayName = if (appointment.recipientType == "dependent" && appointment.dependentName.isNotBlank()) {
+                        appointment.dependentName
+                    } else {
+                        appointment.patientName
+                    }
                     Text(
-                        text = appointment.patientName,
+                        text = displayName,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextPrimary
                     )
+                    // Show parent info if dependent
+                    if (appointment.recipientType == "dependent" && appointment.dependentName.isNotBlank()) {
+                        Text(
+                            text = "Parent: ${appointment.patientName}",
+                            fontSize = 12.sp,
+                            color = TextSecondary.copy(alpha = 0.7f)
+                        )
+                    }
                     Spacer(Modifier.height(4.dp))
                     Text(
                         text = appointment.speciality,

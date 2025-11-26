@@ -81,6 +81,9 @@ object AppointmentRepository {
         appointmentDate: Timestamp,
         timeSlot: String,
         blockName: String = "",
+        recipientType: String = "self",
+        dependentId: String = "",
+        dependentName: String = "",
         notes: String = ""
     ): Result<Appointment> {
         return try {
@@ -113,15 +116,21 @@ object AppointmentRepository {
                 timeSlot = timeSlot,
                 status = "scheduled",
                 notes = notes,
+                recipientType = recipientType,
+                dependentId = dependentId,
+                dependentName = dependentName,
                 price = consultationFee,
                 createdAt = Timestamp.now(),
                 updatedAt = Timestamp.now()
             )
             
-            // Save to Firestore with blockName for slot counting
+            // Save to Firestore with blockName and dependent info for slot counting
             val appointmentData = appointment.toFirestore().toMutableMap()
             appointmentData["blockName"] = blockName
-            
+            appointmentData["recipientType"] = recipientType
+            appointmentData["dependentId"] = dependentId
+            appointmentData["dependentName"] = dependentName
+
             db.collection(COLLECTION)
                 .document(appointmentId)
                 .set(appointmentData)
@@ -170,6 +179,35 @@ object AppointmentRepository {
         } catch (e: Exception) {
             android.util.Log.e("AppointmentRepository", "Error fetching appointments: ${e.message}", e)
             e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get all appointments for a specific dependent
+     */
+    suspend fun getDependentAppointments(dependentId: String): Result<List<Appointment>> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            val snapshot = db.collection(COLLECTION)
+                .whereEqualTo("patientUid", currentUser.uid)
+                .whereEqualTo("dependentId", dependentId)
+                .get()
+                .await()
+            
+            val appointments = snapshot.documents.mapNotNull { doc ->
+                try {
+                    Appointment.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
+                } catch (e: Exception) {
+                    null
+                }
+            }.sortedByDescending { it.appointmentDate }
+            
+            Result.success(appointments)
+            
+        } catch (e: Exception) {
             Result.failure(e)
         }
     }

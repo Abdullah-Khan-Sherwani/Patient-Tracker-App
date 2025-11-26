@@ -20,6 +20,9 @@ data class Appointment(
     val timeSlot: String = "", // e.g., "09:00 AM - 10:00 AM"
     val status: String = "scheduled", // scheduled, completed, cancelled
     val cancelledBy: String = "", // patient, doctor, or admin - who cancelled the appointment
+    val recipientType: String = "self", // "self" or "dependent"
+    val dependentId: String = "",
+    val dependentName: String = "",
     val notes: String = "",
     val price: Int = 1500, // Fixed price in PKR
     val createdAt: Timestamp = Timestamp.now(),
@@ -41,6 +44,9 @@ data class Appointment(
                 timeSlot = data["timeSlot"] as? String ?: "",
                 status = data["status"] as? String ?: "scheduled",
                 cancelledBy = data["cancelledBy"] as? String ?: "",
+                recipientType = data["recipientType"] as? String ?: "self",
+                dependentId = data["dependentId"] as? String ?: "",
+                dependentName = data["dependentName"] as? String ?: "",
                 notes = data["notes"] as? String ?: "",
                 price = (data["price"] as? Long)?.toInt() ?: 1500,
                 createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
@@ -59,6 +65,9 @@ data class Appointment(
             "speciality" to speciality,
             "appointmentDate" to appointmentDate,
             "timeSlot" to timeSlot,
+            "recipientType" to recipientType,
+            "dependentId" to dependentId,
+            "dependentName" to dependentName,
             "status" to status,
             "cancelledBy" to cancelledBy,
             "notes" to notes,

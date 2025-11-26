@@ -36,6 +36,8 @@ data class HealthRecord(
     val recordId: String = "",
     val patientUid: String = "",
     val patientName: String = "",
+    val dependentId: String = "", // Optional: if record belongs to a dependent
+    val dependentName: String = "", // Optional: name of the dependent
     val fileName: String = "",
     val fileUrl: String = "",
     val fileType: String = "", // "image/jpeg", "image/png", "application/pdf", etc.
@@ -122,6 +124,8 @@ data class HealthRecord(
                 recordId = recordId,
                 patientUid = data["patientUid"] as? String ?: "",
                 patientName = data["patientName"] as? String ?: "",
+                dependentId = data["dependentId"] as? String ?: "",
+                dependentName = data["dependentName"] as? String ?: "",
                 fileName = data["fileName"] as? String ?: "",
                 fileUrl = data["fileUrl"] as? String ?: "",
                 fileType = data["fileType"] as? String ?: "",
@@ -150,6 +154,8 @@ data class HealthRecord(
         return hashMapOf(
             "patientUid" to patientUid,
             "patientName" to patientName,
+            "dependentId" to dependentId,
+            "dependentName" to dependentName,
             "fileName" to fileName,
             "fileUrl" to fileUrl,
             "fileType" to fileType,

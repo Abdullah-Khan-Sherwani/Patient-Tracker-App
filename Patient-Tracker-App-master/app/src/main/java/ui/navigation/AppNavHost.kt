@@ -72,6 +72,14 @@ import com.example.patienttracker.ui.screens.patient.SelectDateTimeScreen
 import com.example.patienttracker.ui.screens.patient.ConfirmAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.AppointmentSuccessScreen
 import com.example.patienttracker.ui.screens.patient.ChatbotScreen
+import com.example.patienttracker.ui.screens.patient.PatientDependentsScreen
+import com.example.patienttracker.ui.screens.patient.AddDependentScreen
+import com.example.patienttracker.ui.screens.patient.ViewDependentScreen
+import com.example.patienttracker.ui.screens.patient.EditDependentScreen
+import com.example.patienttracker.ui.screens.patient.ChoosePatientForAppointmentScreen
+import com.example.patienttracker.ui.screens.patient.DependentUploadRecordsScreen
+import com.example.patienttracker.ui.screens.patient.DependentViewRecordsScreen
+import com.example.patienttracker.ui.screens.patient.DependentAppointmentHistoryScreen
 import com.example.patienttracker.ui.screens.guest.GuestHomeScreen
 import com.example.patienttracker.ui.screens.guest.GuestDoctorsScreen
 import com.example.patienttracker.ui.screens.guest.GuestDoctorDetailsScreen
@@ -268,6 +276,57 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             PatientNotificationsScreen(navController, context)
         }
 
+        composable("patient_dependents") {
+            PatientDependentsScreen(navController, context)
+        }
+
+        composable("add_dependent") {
+            AddDependentScreen(navController, context)
+        }
+
+        composable("view_dependent/{dependentId}") { backStackEntry ->
+            val dependentId = backStackEntry.arguments?.getString("dependentId") ?: ""
+            ViewDependentScreen(navController, context, dependentId)
+        }
+
+        composable("edit_dependent/{dependentId}") { backStackEntry ->
+            val dependentId = backStackEntry.arguments?.getString("dependentId") ?: ""
+            EditDependentScreen(navController, context, dependentId)
+        }
+
+        composable("dependent_upload_records/{dependentId}/{dependentName}") { backStackEntry ->
+            val dependentId = backStackEntry.arguments?.getString("dependentId") ?: ""
+            val dependentName = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("dependentName") ?: "",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("dependentName") ?: "" }
+            DependentUploadRecordsScreen(navController, context, dependentId, dependentName)
+        }
+
+        composable("dependent_view_records/{dependentId}/{dependentName}") { backStackEntry ->
+            val dependentId = backStackEntry.arguments?.getString("dependentId") ?: ""
+            val dependentName = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("dependentName") ?: "",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("dependentName") ?: "" }
+            DependentViewRecordsScreen(navController, context, dependentId, dependentName)
+        }
+
+        composable("dependent_appointments/{dependentId}/{dependentName}") { backStackEntry ->
+            val dependentId = backStackEntry.arguments?.getString("dependentId") ?: ""
+            val dependentName = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("dependentName") ?: "",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("dependentName") ?: "" }
+            DependentAppointmentHistoryScreen(navController, context, dependentId, dependentName)
+        }
+
         composable("terms_and_conditions") {
             TermsAndConditionsScreen(navController)
         }
@@ -454,24 +513,61 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             val specialty = backStackEntry.arguments?.getString("specialty") ?: ""
             SelectDateTimeScreen(navController, context, doctorId, doctorFirstName, doctorLastName, specialty)
         }
-
-        composable("confirm_appointment/{doctorId}/{doctorName}/{specialty}/{date}/{blockName}/{timeRange}") { backStackEntry ->
+        composable("choose_patient_for_appointment/{doctorId}/{doctorName}/{specialty}/{date}/{blockName}/{timeRange}") { backStackEntry ->
             val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
             val doctorName = backStackEntry.arguments?.getString("doctorName") ?: ""
             val specialty = backStackEntry.arguments?.getString("specialty") ?: ""
             val date = backStackEntry.arguments?.getString("date") ?: ""
             val blockName = backStackEntry.arguments?.getString("blockName") ?: ""
             val timeRange = backStackEntry.arguments?.getString("timeRange") ?: ""
-            ConfirmAppointmentScreen(navController, context, doctorId, doctorName, specialty, date, blockName, timeRange)
+            com.example.patienttracker.ui.screens.patient.ChoosePatientForAppointmentScreen(navController, context, doctorId, doctorName, specialty, date, blockName, timeRange)
         }
 
-        composable("appointment_success/{appointmentNumber}/{doctorName}/{date}/{blockName}/{timeRange}") { backStackEntry ->
-            val appointmentNumber = backStackEntry.arguments?.getString("appointmentNumber") ?: "000"
-            val doctorName = backStackEntry.arguments?.getString("doctorName") ?: ""
+        composable("confirm_appointment/{doctorId}/{doctorName}/{specialty}/{date}/{blockName}/{timeRange}/{dependentId}/{dependentName}") { backStackEntry ->
+            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
+            val doctorName = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("doctorName") ?: "",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("doctorName") ?: "" }
+            val specialty = backStackEntry.arguments?.getString("specialty") ?: ""
             val date = backStackEntry.arguments?.getString("date") ?: ""
             val blockName = backStackEntry.arguments?.getString("blockName") ?: ""
-            val timeRange = backStackEntry.arguments?.getString("timeRange") ?: ""
-            AppointmentSuccessScreen(navController, context, appointmentNumber, doctorName, date, blockName, timeRange)
+            val timeRange = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("timeRange") ?: "",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("timeRange") ?: "" }
+            val dependentId = backStackEntry.arguments?.getString("dependentId") ?: ""
+            val dependentName = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("dependentName") ?: "",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("dependentName") ?: "" }
+            com.example.patienttracker.ui.screens.patient.ConfirmAppointmentScreen(navController, context, doctorId, doctorName, specialty, date, blockName, timeRange, dependentId, dependentName)
+        }
+
+        composable("appointment_success/{appointmentNumber}/{doctorName}/{date}/{blockName}/{timeRange}/{recipientType}") { backStackEntry ->
+            val appointmentNumber = backStackEntry.arguments?.getString("appointmentNumber") ?: "000"
+            val doctorName = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("doctorName") ?: "",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("doctorName") ?: "" }
+            val date = backStackEntry.arguments?.getString("date") ?: ""
+            val blockName = backStackEntry.arguments?.getString("blockName") ?: ""
+            val timeRange = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("timeRange") ?: "",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("timeRange") ?: "" }
+            val recipientType = backStackEntry.arguments?.getString("recipientType") ?: "self"
+            AppointmentSuccessScreen(navController, context, appointmentNumber, doctorName, date, blockName, timeRange, recipientType)
         }
 
         // Chatbot Route

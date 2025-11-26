@@ -193,7 +193,7 @@ fun SelectDateTimeScreen(
                             // URL encode the time range to handle special characters
                             val encodedTimeRange = java.net.URLEncoder.encode(timeRange, "UTF-8")
                             // Navigate with block name and time range
-                            navController.navigate("confirm_appointment/$doctorId/$doctorFullName/$specialty/$dateStr/${block.name}/$encodedTimeRange")
+                            navController.navigate("choose_patient_for_appointment/$doctorId/$doctorFullName/$specialty/$dateStr/${block.name}/$encodedTimeRange")
                         }
                     },
                     modifier = Modifier

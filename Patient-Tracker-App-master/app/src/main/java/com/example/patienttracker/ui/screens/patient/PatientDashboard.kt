@@ -306,7 +306,7 @@ fun DashboardBottomNavigationBar(
         val tabs = listOf(
             Triple("Home", Icons.Default.Home, { /* Stay on dashboard */ }),
             Triple("Favorites", Icons.Default.Favorite, { navController.navigate("favorite_doctors") }),
-            Triple("Reports", Icons.Default.Assessment, { navController.navigate("patient_health_records") }),
+            Triple("Doctors", Icons.Default.LocalHospital, { navController.navigate("doctor_catalogue") }),
             Triple("Profile", Icons.Default.Person, { navController.navigate("patient_profile/$userName/$userLastName") })
         )
 
@@ -574,22 +574,16 @@ fun FloatingCardGrid(navController: NavController, fullName: String = "Patient",
             route = "patient_health_records"
         ),
         FeatureCardData(
-            title = "Doctor Catalogue",
-            subtitle = "Browse specialists",
-            icon = Icons.Default.LocalHospital,
-            route = "doctor_catalogue"
-        ),
-        FeatureCardData(
             title = "My Appointments",
             subtitle = "Latest checkups",
             icon = Icons.Default.DateRange,
             route = "full_schedule"
         ),
         FeatureCardData(
-            title = "Book Appointment",
-            subtitle = "Schedule a visit",
-            icon = Icons.Default.AddCircle,
-            route = "select_specialty"
+            title = "Manage Dependents",
+            subtitle = "Add or view family",
+            icon = Icons.Default.People,
+            route = "patient_dependents"
         )
     )
 
@@ -599,7 +593,7 @@ fun FloatingCardGrid(navController: NavController, fullName: String = "Patient",
             .padding(horizontal = 16.dp)
             .offset(y = (-40).dp) // Negative margin to float over header
     ) {
-        // First row of cards
+        // First row of cards (2 columns)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -628,7 +622,7 @@ fun FloatingCardGrid(navController: NavController, fullName: String = "Patient",
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // Second row of cards
+        // Second row of cards (2 columns)
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -655,20 +649,70 @@ fun FloatingCardGrid(navController: NavController, fullName: String = "Patient",
             )
         }
 
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Third row - Full width Book Appointment card
-        FloatingCard(
-            cardData = cards[4],
+        // Full-width Book Appointment CTA
+        BookAppointmentCTA(
             navController = navController,
-            fullName = fullName,
-            isDarkMode = isDarkMode,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(140.dp)
+            isDarkMode = isDarkMode
         )
 
         Spacer(modifier = Modifier.height(40.dp))
+    }
+}
+
+@Composable
+fun BookAppointmentCTA(navController: NavController, isDarkMode: Boolean = false) {
+    val ctaColor = if (isDarkMode) DarkAccentColor else ButtonGreen
+    
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .height(80.dp)
+            .clickable { navController.navigate("select_specialty") },
+        color = ctaColor,
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 20.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Default.DateRange,
+                contentDescription = "Book Appointment",
+                tint = Color.White,
+                modifier = Modifier.size(32.dp)
+            )
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Book an Appointment",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+                Text(
+                    text = "Schedule a visit instantly",
+                    fontSize = 14.sp,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+            }
+            
+            Icon(
+                imageVector = Icons.Default.ArrowForward,
+                contentDescription = "Go to booking",
+                tint = Color.White,
+                modifier = Modifier.size(24.dp)
+            )
+        }
     }
 }
 
@@ -761,7 +805,6 @@ fun FloatingCard(
         }
     }
 }
-
 fun getCurrentDateFormatted(): String {
     val today = LocalDate.now()
     val dayOfWeek = today.format(DateTimeFormatter.ofPattern("EEEE"))

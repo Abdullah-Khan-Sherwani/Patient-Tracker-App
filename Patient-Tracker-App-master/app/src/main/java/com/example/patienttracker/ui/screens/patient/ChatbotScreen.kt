@@ -1381,19 +1381,24 @@ suspend fun findBestUrgentSlot(
         for (dayOffset in 0..6) {
             val checkDate = today.plusDays(dayOffset.toLong())
             val dateStr = checkDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"))
-            val dayOfWeek = checkDate.dayOfWeek.toString().lowercase()
+            val dayOfWeekNumber = checkDate.dayOfWeek.value // 1=Monday, 7=Sunday
             
             for (doctor in doctorsToCheck) {
-                // Check if doctor works on this day
-                val doctorDays = doctor.days.lowercase().split(",").map { it.trim() }
-                if (!doctorDays.any { dayOfWeek.startsWith(it) }) continue
+                // REAL AVAILABILITY: Fetch from doctor_availability collection for this day
+                val availabilitySnapshot = db.collection("doctor_availability")
+                    .whereEqualTo("doctorUid", doctor.id)
+                    .whereEqualTo("dayOfWeek", dayOfWeekNumber)
+                    .whereEqualTo("isActive", true)
+                    .get()
+                    .await()
                 
-                // Parse doctor timings
-                val timings = doctor.timings.split("-").map { it.trim() }
-                if (timings.size != 2) continue
+                // If no real availability data, skip this doctor for this day
+                if (availabilitySnapshot.isEmpty) continue
                 
-                val doctorStart = timings[0]
-                val doctorEnd = timings[1]
+                // Parse real availability times
+                val availDoc = availabilitySnapshot.documents.first()
+                val doctorStart = availDoc.getString("startTime") ?: continue
+                val doctorEnd = availDoc.getString("endTime") ?: continue
                 
                 // Check each time block
                 for (block in timeBlocks) {

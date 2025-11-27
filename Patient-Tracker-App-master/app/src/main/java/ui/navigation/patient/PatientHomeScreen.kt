@@ -15,12 +15,15 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.People
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -83,53 +86,73 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
                 lastName = lastNameArg
             ) 
         },
-        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top)
+        contentWindowInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal + WindowInsetsSides.Top),
+        containerColor = Color.Transparent,
+        contentColor = Color.Unspecified
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+                .padding(
+                    top = innerPadding.calculateTopPadding(),
+                    start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
+                    end = innerPadding.calculateEndPadding(LocalLayoutDirection.current)
+                    // Bottom padding is handled by Scaffold's bottomBar
+                ),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = innerPadding.calculateBottomPadding())
         ) {
-            HeaderCard(
-                gradient = gradient, 
-                firstName = firstNameArg, 
-                lastName = lastNameArg,
-                navController = navController
-            )
+            item {
+                HeaderCard(
+                    gradient = gradient, 
+                    firstName = firstNameArg, 
+                    lastName = lastNameArg,
+                    navController = navController
+                )
+            }
 
-            CategoriesRow(
-                items = listOf(
-                    Category("Favorite", R.drawable.ic_favourites),
-                    Category("Doctors", R.drawable.ic_doctors),
-                    Category("Specialties", R.drawable.ic_specialties),
-                    Category("Record", R.drawable.ic_records),
-                ),
-                onCategoryClick = { category ->
-                    when (category.label) {
-                        "Doctors" -> navController.navigate("doctor_list/All")
-                        "Specialties" -> navController.navigate("doctor_list/All") // optional
-                        "Record" -> navController.navigate("my_records")
+            item {
+                CategoriesRow(
+                    items = listOf(
+                        Category("Favorite", R.drawable.ic_favourites),
+                        Category("Doctors", R.drawable.ic_doctors),
+                        Category("Specialties", R.drawable.ic_specialties),
+                        Category("Record", R.drawable.ic_records),
+                    ),
+                    onCategoryClick = { category ->
+                        when (category.label) {
+                            "Doctors" -> navController.navigate("doctor_list/All")
+                            "Specialties" -> navController.navigate("doctor_list/All") // optional
+                            "Record" -> navController.navigate("my_records")
+                        }
                     }
-                }
-            )
+                )
+            }
 
-            UpcomingSchedule(gradient = gradient, navController = navController)
+            item {
+                ManageDependentsCard(navController = navController)
+            }
 
-            SpecialtiesGrid(
-                titleGradient = gradient,
-                specialties = listOf(
-                    Spec("Cardiology", R.drawable.ic_cardiology),
-                    Spec("Dermatology", R.drawable.ic_dermatology),
-                    Spec("General Medicine", R.drawable.ic_general_medicine),
-                    Spec("Gynecology", R.drawable.ic_gynecology),
-                    Spec("Odontology", R.drawable.ic_odontology),
-                    Spec("Oncology", R.drawable.ic_oncology),
-                ),
-                onSpecialtyClick = { spec ->
-                    navController.navigate("doctor_list/${spec.title}")
-                }
-            )
+            item {
+                UpcomingSchedule(gradient = gradient, navController = navController)
+            }
+
+            item {
+                SpecialtiesGrid(
+                    titleGradient = gradient,
+                    specialties = listOf(
+                        Spec("Cardiology", R.drawable.ic_cardiology),
+                        Spec("Dermatology", R.drawable.ic_dermatology),
+                        Spec("General Medicine", R.drawable.ic_general_medicine),
+                        Spec("Gynecology", R.drawable.ic_gynecology),
+                        Spec("Odontology", R.drawable.ic_odontology),
+                        Spec("Oncology", R.drawable.ic_oncology),
+                    ),
+                    onSpecialtyClick = { spec ->
+                        navController.navigate("doctor_list/${spec.title}")
+                    }
+                )
+            }
         }
     }
 }
@@ -334,6 +357,63 @@ private fun CategoryChip(
                 .padding(top = 4.dp),
             contentScale = ContentScale.Fit
         )
+    }
+}
+
+/* ----------------------- Manage Dependents Card ----------------------- */
+
+@Composable
+private fun ManageDependentsCard(navController: NavController) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .clickable { navController.navigate("patient_dependents") },
+        color = Color(0xFFFFEBEE),
+        shape = RoundedCornerShape(16.dp),
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "Manage Dependents",
+                    style = MaterialTheme.typography.titleMedium.copy(
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFFD32F2F)
+                    )
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Add, edit, or view family members",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = Color(0xFFC62828)
+                    )
+                )
+            }
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFE91E63)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.People,
+                    contentDescription = "Dependents",
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package com.example.patienttracker.ui.screens.patient
 import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -10,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,6 +39,9 @@ import com.example.patienttracker.data.SearchRepository
 import com.example.patienttracker.ui.components.SearchBar
 import com.example.patienttracker.ui.components.ChatFloatingButton
 import androidx.compose.ui.graphics.vector.ImageVector
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 
 // Color scheme
 private val HeaderTopColor = Color(0xFFD4AF8C)
@@ -634,9 +639,15 @@ fun DoctorListCard(
     onBookAppointment: () -> Unit
 ) {
     var isFavorite by remember { mutableStateOf(false) }
-    var availabilityText by remember { mutableStateOf("Loading...") }
+    var weeklyAvailability by remember { mutableStateOf<List<DayAvailability>>(emptyList()) }
+    var isLoadingAvailability by remember { mutableStateOf(true) }
+    var isAvailableNow by remember { mutableStateOf<Boolean?>(null) } // null = unknown/loading
     val scope = rememberCoroutineScope()
     val isDarkMode = androidx.compose.foundation.isSystemInDarkTheme()
+    
+    // Availability chip colors
+    val AvailabilityChipBg = if (isDarkMode) Color(0xFF3A3A3C) else Color(0xFFF5EDE4)
+    val AvailabilityChipText = if (isDarkMode) Color(0xFFE5E5E5) else Color(0xFF5C4A42)
     
     // Check favorite status
     LaunchedEffect(doctor.id) {
@@ -647,41 +658,75 @@ fun DoctorListCard(
         }
     }
     
-    // Fetch real availability from doctor_availability collection
+    // Fetch weekly availability from doctor_availability collection
     LaunchedEffect(doctor.id) {
         try {
             val db = Firebase.firestore
-            val today = java.time.LocalDate.now()
-            val dayOfWeek = today.dayOfWeek.value // 1=Mon, 7=Sun
+            val today = LocalDate.now()
+            val todayDayOfWeek = today.dayOfWeek.value // 1=Mon, 7=Sun
             
             val availabilitySnapshot = db.collection("doctor_availability")
                 .whereEqualTo("doctorUid", doctor.id)
-                .whereEqualTo("dayOfWeek", dayOfWeek)
                 .whereEqualTo("isActive", true)
                 .get()
                 .await()
             
-            if (availabilitySnapshot.documents.isNotEmpty()) {
-                val doc = availabilitySnapshot.documents.first()
-                val startTime = doc.getString("startTime") // "09:00"
-                val endTime = doc.getString("endTime") // "17:00"
+            val dayAbbreviations = mapOf(
+                1 to "Mon", 2 to "Tue", 3 to "Wed", 4 to "Thu",
+                5 to "Fri", 6 to "Sat", 7 to "Sun"
+            )
+            
+            val formatter12 = DateTimeFormatter.ofPattern("h a")
+            val formatter24 = DateTimeFormatter.ofPattern("HH:mm")
+            
+            val availList = availabilitySnapshot.documents.mapNotNull { doc ->
+                val dayOfWeek = doc.getLong("dayOfWeek")?.toInt() ?: return@mapNotNull null
+                val startTime = doc.getString("startTime") ?: return@mapNotNull null
+                val endTime = doc.getString("endTime") ?: return@mapNotNull null
                 
-                if (startTime != null && endTime != null) {
-                    // Convert to 12-hour format
-                    val formatter12 = java.time.format.DateTimeFormatter.ofPattern("h:mm a")
-                    val start = java.time.LocalTime.parse(startTime, java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
-                    val end = java.time.LocalTime.parse(endTime, java.time.format.DateTimeFormatter.ofPattern("HH:mm"))
+                try {
+                    val start = LocalTime.parse(startTime, formatter24)
+                    val end = LocalTime.parse(endTime, formatter24)
+                    val timeRange = "${start.format(formatter12)}–${end.format(formatter12)}"
                     
-                    availabilityText = "${start.format(formatter12)} – ${end.format(formatter12)}"
-                } else {
-                    availabilityText = "Timings not provided"
+                    DayAvailability(
+                        dayOfWeek = dayOfWeek,
+                        dayAbbrev = dayAbbreviations[dayOfWeek] ?: "",
+                        timeRange = timeRange,
+                        isActive = true
+                    )
+                } catch (e: Exception) {
+                    null
                 }
-            } else {
-                availabilityText = "Not available today"
+            }.sortedBy { it.dayOfWeek }
+            
+            weeklyAvailability = availList
+            
+            // Check real-time availability: is current time within any active block?
+            val currentTime = LocalTime.now()
+            val todayAvailability = availabilitySnapshot.documents.find { doc ->
+                doc.getLong("dayOfWeek")?.toInt() == todayDayOfWeek
             }
+            
+            isAvailableNow = if (todayAvailability != null) {
+                val startTimeStr = todayAvailability.getString("startTime")
+                val endTimeStr = todayAvailability.getString("endTime")
+                if (startTimeStr != null && endTimeStr != null) {
+                    try {
+                        val startTime = LocalTime.parse(startTimeStr, formatter24)
+                        val endTime = LocalTime.parse(endTimeStr, formatter24)
+                        currentTime.isAfter(startTime) && currentTime.isBefore(endTime)
+                    } catch (e: Exception) {
+                        false
+                    }
+                } else false
+            } else false
+            
+            isLoadingAvailability = false
         } catch (e: Exception) {
             android.util.Log.e("DoctorCard", "Error loading availability: ${e.message}", e)
-            availabilityText = "Availability unknown"
+            isAvailableNow = null
+            isLoadingAvailability = false
         }
     }
     
@@ -700,7 +745,7 @@ fun DoctorListCard(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp)
+                .padding(16.dp)
         ) {
             // Top row: Profile picture + Name + Heart
             Row(
@@ -709,7 +754,7 @@ fun DoctorListCard(
             ) {
                 // Profile picture with initials
                 Surface(
-                    modifier = Modifier.size(56.dp),
+                    modifier = Modifier.size(52.dp),
                     shape = CircleShape,
                     color = AccentColor.copy(alpha = 0.2f)
                 ) {
@@ -719,160 +764,158 @@ fun DoctorListCard(
                     ) {
                         Text(
                             text = "${doctor.firstName.firstOrNull()?.uppercaseChar() ?: "D"}${doctor.lastName.firstOrNull()?.uppercaseChar() ?: ""}",
-                            fontSize = 22.sp,
+                            fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = AccentColor
                         )
                     }
                 }
                 
-                Spacer(modifier = Modifier.width(14.dp))
+                Spacer(modifier = Modifier.width(12.dp))
                 
-                // Doctor name
+                // Doctor name and specialty
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.Center
                 ) {
                     Text(
                         text = "Dr. ${doctor.firstName} ${doctor.lastName}",
-                        fontSize = 17.sp,
+                        fontSize = 16.sp,
                         fontWeight = FontWeight.Bold,
                         color = textPrimaryColor,
                         maxLines = 1
                     )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = doctor.speciality.ifEmpty { "General Physician" },
+                        fontSize = 13.sp,
+                        color = textSecondaryColor,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
                 
-                // Favorite heart icon
-                IconButton(
-                    onClick = {
-                        scope.launch {
-                            try {
-                                PatientFavoritesRepository.toggleFavorite(doctor.id)
-                                isFavorite = !isFavorite
-                            } catch (e: Exception) {
-                                android.util.Log.e("DoctorCard", "Error toggling favorite: ${e.message}", e)
-                            }
-                        }
-                    },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
-                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                        tint = if (isFavorite) Color(0xFFE91E63) else textSecondaryColor,
-                        modifier = Modifier.size(22.dp)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Specialty and experience
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 70.dp) // Align with name
-            ) {
-                Text(
-                    text = doctor.speciality.ifEmpty { "General Physician" },
-                    fontSize = 14.sp,
-                    color = textSecondaryColor,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Availability pill
-            Surface(
-                shape = RoundedCornerShape(20.dp),
-                color = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
-                    Color(0xFFFFEBEE)
-                } else {
-                    Color(0xFFE8F5E9)
-                },
-                modifier = Modifier.padding(start = 70.dp)
-            ) {
+                // Status dot + Favorite heart icon
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
-                            Icons.Default.EventBusy
-                        } else {
-                            Icons.Default.AccessTime
+                    // Status indicator dot
+                    val statusColor = when (isAvailableNow) {
+                        true -> Color(0xFF4CAF50) // Green - available now
+                        false -> Color(0xFFE53935) // Red - not available now
+                        null -> Color(0xFFFFC107) // Yellow - unknown/loading
+                    }
+                    val statusTooltip = when (isAvailableNow) {
+                        true -> "Available now"
+                        false -> "Not available now"
+                        null -> "Checking availability..."
+                    }
+                    Surface(
+                        modifier = Modifier.size(10.dp),
+                        shape = CircleShape,
+                        color = statusColor
+                    ) {}
+                    
+                    IconButton(
+                        onClick = {
+                            scope.launch {
+                                try {
+                                    PatientFavoritesRepository.toggleFavorite(doctor.id)
+                                    isFavorite = !isFavorite
+                                } catch (e: Exception) {
+                                    android.util.Log.e("DoctorCard", "Error toggling favorite: ${e.message}", e)
+                                }
+                            }
                         },
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
-                            Color(0xFFD32F2F)
-                        } else {
-                            Color(0xFF4CAF50)
-                        }
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(
-                        text = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
-                            availabilityText
-                        } else {
-                            "Next: $availabilityText"
-                        },
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = if (availabilityText.contains("Not available") || availabilityText.contains("unknown")) {
-                            Color(0xFFD32F2F)
-                        } else {
-                            Color(0xFF2E7D32)
-                        }
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Consultation fee chip
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.padding(start = 70.dp)
-            ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = AccentColor.copy(alpha = 0.12f)
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.AccountBalanceWallet,
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
-                            tint = AccentColor
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "PKR 1,500",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = textPrimaryColor
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "•",
-                            fontSize = 13.sp,
-                            color = textSecondaryColor
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "In person",
-                            fontSize = 12.sp,
-                            color = textSecondaryColor
+                            imageVector = if (isFavorite) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                            tint = if (isFavorite) Color(0xFFE91E63) else textSecondaryColor,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Weekly availability bar - horizontally scrollable
+            if (isLoadingAvailability) {
+                Text(
+                    text = "Availability loading…",
+                    fontSize = 11.sp,
+                    color = textSecondaryColor.copy(alpha = 0.6f),
+                    modifier = Modifier.padding(start = 64.dp)
+                )
+            } else if (weeklyAvailability.isEmpty()) {
+                // Not available - show "Not Available Today" state
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFFFEBEE),
+                    modifier = Modifier.padding(start = 64.dp)
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.EventBusy,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = Color(0xFFD32F2F)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Not Available",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color(0xFFD32F2F)
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 64.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    weeklyAvailability.forEach { dayAvail ->
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = AvailabilityChipBg
+                        ) {
+                            Text(
+                                text = "${dayAvail.dayAbbrev} ${dayAvail.timeRange}",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = AvailabilityChipText,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            // Fee display - plain text, right-aligned
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                Text(
+                    text = "RS 1500",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = textPrimaryColor
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(10.dp))
             
             // Separator line
             Divider(
@@ -880,14 +923,14 @@ fun DoctorListCard(
                 thickness = 1.dp
             )
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(12.dp))
             
             // Full-width CTA button
             Button(
                 onClick = onBookAppointment,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(48.dp),
+                    .height(44.dp),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = ButtonColor,
                     contentColor = Color.White
@@ -901,12 +944,12 @@ fun DoctorListCard(
                 Icon(
                     imageVector = Icons.Default.EventAvailable,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.width(8.dp))
+                Spacer(modifier = Modifier.width(6.dp))
                 Text(
-                    text = "Book Appointment",
-                    fontSize = 15.sp,
+                    text = "View Available Slots",
+                    fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold
                 )
             }

@@ -192,17 +192,71 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
             onDismissRequest = { if (!isRemoving) showRemoveDialog = false },
             containerColor = Color(0xFFF5F0E8),
             title = {
-                Text(
-                    "Remove User",
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF2F2019)
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = "Warning",
+                        tint = Color(0xFFF59E0B),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Remove User",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2F2019)
+                    )
+                }
             },
             text = {
-                Text(
-                    "Are you sure you want to permanently remove this user from the system? This action cannot be undone.",
-                    color = Color(0xFF2F2019)
-                )
+                Column {
+                    Text(
+                        "Are you sure you want to remove this user from the system?",
+                        color = Color(0xFF2F2019),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEF3C7)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = "Recovery info",
+                                tint = Color(0xFFF59E0B),
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .padding(top = 2.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    "Account moved to Recovery",
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF92400E),
+                                    fontSize = 14.sp
+                                )
+                                Spacer(Modifier.height(4.dp))
+                                Text(
+                                    "This account will be moved to Recovery and permanently deleted in 30 days.",
+                                    color = Color(0xFF92400E),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                    }
+                }
             },
             confirmButton = {
                 Button(

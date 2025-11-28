@@ -156,14 +156,14 @@ fun DoctorCard(doctor: DoctorFull, onBookClick: () -> Unit) {
     val DarkTextColor = Color(0xFFE5E5E5)
     val DarkSecondaryTextColor = Color(0xFFB0B0B0)
     val DarkIconTint = Color(0xFF8E8E93)
-    val AccentColor = Color(0xFFB8956A)
-    val ButtonColor = Color(0xFFC9956E)
+    val AccentColor = Color(0xFF0E4944)       // Deep Teal
+    val ButtonColor = Color(0xFF76DCB0)       // Mint accent
     val CardWhite = Color(0xFFFFFFFF)
-    val StatTextColor = Color(0xFF5C4A42)
+    val StatTextColor = Color(0xFF1F2937)     // Dark charcoal
     
     // Availability chip colors
-    val AvailabilityChipBg = if (isDarkMode) Color(0xFF3A3A3C) else Color(0xFFF5EDE4)
-    val AvailabilityChipText = if (isDarkMode) Color(0xFFE5E5E5) else Color(0xFF5C4A42)
+    val AvailabilityChipBg = if (isDarkMode) Color(0xFF3A3A3C) else Color(0xFFE6F4F1)  // Light mint tint
+    val AvailabilityChipText = if (isDarkMode) Color(0xFFE5E5E5) else Color(0xFF0E4944)
     
     var isFavorite by remember { mutableStateOf(false) }
     var weeklyAvailability by remember { mutableStateOf<List<DayAvailability>>(emptyList()) }

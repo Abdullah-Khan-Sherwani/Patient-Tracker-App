@@ -116,7 +116,7 @@ fun PatientNotificationsScreen(navController: NavController, context: Context) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFD4AF8C),
+                    containerColor = Color(0xFF0E4944),  // Deep Teal
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -127,13 +127,13 @@ fun PatientNotificationsScreen(navController: NavController, context: Context) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .background(Color(0xFFF5F1ED))
+                .background(Color(0xFFF0F5F4))  // Dim background
         ) {
             when {
                 isLoading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
-                        color = Color(0xFFC9956E)
+                        color = Color(0xFF0E4944)  // Deep Teal
                     )
                 }
                 notifications.isEmpty() -> {
@@ -201,9 +201,9 @@ private fun NotificationCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(24.dp),  // 24dp radius per design spec
         colors = CardDefaults.cardColors(
-            containerColor = if (notification.isRead) Color.White else Color(0xFFFAF8F3)
+            containerColor = if (notification.isRead) Color.White else Color(0xFFE8F5F3)  // Light teal tint for unread
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
@@ -243,7 +243,7 @@ private fun NotificationCard(
                         text = notification.title,
                         fontWeight = if (notification.isRead) FontWeight.Normal else FontWeight.Bold,
                         fontSize = 17.sp,
-                        color = Color(0xFF1C3D5A),
+                        color = Color(0xFF0E4944),  // Deep Teal
                         maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                         modifier = Modifier.weight(1f)
@@ -253,7 +253,7 @@ private fun NotificationCard(
                             modifier = Modifier
                                 .size(10.dp)
                                 .clip(CircleShape)
-                                .background(Color(0xFFB8956A))
+                                .background(Color(0xFF76DCB0))  // Mint accent
                         )
                     }
                 }
@@ -261,14 +261,14 @@ private fun NotificationCard(
                 Text(
                     text = notification.message,
                     fontSize = 14.sp,
-                    color = Color(0xFF6C7A89),
+                    color = Color(0xFF4B5563),
                     lineHeight = 18.sp
                 )
                 
                 Text(
                     text = formattedDate,
                     fontSize = 12.sp,
-                    color = Color(0xFF9BA4B0),
+                    color = Color(0xFF6B7280),  // Subtle text
                     fontWeight = FontWeight.Light
                 )
             }
@@ -287,20 +287,20 @@ private fun EmptyNotificationsView() {
             imageVector = Icons.Default.Notifications,
             contentDescription = null,
             modifier = Modifier.size(80.dp),
-            tint = Color(0xFFE8D9CC)
+            tint = Color(0xFF76DCB0).copy(alpha = 0.5f)  // Faded mint
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
             text = "No notifications yet",
             fontSize = 18.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF6C7A89)
+            color = Color(0xFF0E4944)  // Deep Teal
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "You'll see notifications about your appointments here",
             fontSize = 14.sp,
-            color = Color(0xFF9BA4B0),
+            color = Color(0xFF6B7280),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             modifier = Modifier.padding(horizontal = 32.dp)
         )

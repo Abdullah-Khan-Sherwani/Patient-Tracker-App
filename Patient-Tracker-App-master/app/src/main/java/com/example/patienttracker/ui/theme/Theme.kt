@@ -12,42 +12,62 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
-// Beige/Brown light theme colors
-private val BeigeLight = Color(0xFFD4AF8C)
-private val BeigeLight2 = Color(0xFFC9956E)
-private val BeigeBackground = Color(0xFFF7EFE7)
-private val BeigeCard = Color(0xFFFFFFFF)
+// ============================================================
+// Deep Teal & Mint Design System
+// WCAG Compliant - Professional Healthcare Theme
+// ============================================================
+
+// Light theme colors
+private val TealPrimary = Color(0xFF0E4944)        // Deep Teal - headers, primary
+private val TealPrimaryLight = Color(0xFF16605A)   // Lighter Teal - secondary
+private val MintAccent = Color(0xFF76DCB0)         // Mint Green - CTAs, accents
+private val BackgroundLight = Color(0xFFF0F5F4)    // Dim background
+private val SurfaceLight = Color(0xFFFFFFFF)       // Card surface
+private val TextDark = Color(0xFF1F2937)           // Dark charcoal text
 
 // Dark theme colors
-private val DarkPrimary = Color(0xFF2C2C2C)
-private val DarkSecondary = Color(0xFF1F1F1F)
-private val DarkBackground = Color(0xFF121212)
-private val DarkCard = Color(0xFF1E1E1E)
+private val DarkPrimary = Color(0xFF76DCB0)        // Mint accent in dark
+private val DarkSecondary = Color(0xFF16605A)      // Lighter teal
+private val DarkBackground = Color(0xFF0B1F1D)     // Very dark teal
+private val DarkSurface = Color(0xFF112B28)        // Dark teal surface
+private val DarkText = Color(0xFFE8F5F3)           // Light text
 
 private val DarkColorScheme = darkColorScheme(
-    primary = BeigeLight,
-    secondary = BeigeLight2,
-    tertiary = BeigeLight,
+    primary = DarkPrimary,
+    secondary = DarkSecondary,
+    tertiary = MintAccent,
     background = DarkBackground,
-    surface = DarkCard,
-    onPrimary = DarkPrimary,
+    surface = DarkSurface,
+    surfaceVariant = Color(0xFF1A3D38),
+    onPrimary = Color(0xFF0B1F1D),
     onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color.White,
-    onSurface = Color.White
+    onTertiary = Color(0xFF0E4944),
+    onBackground = DarkText,
+    onSurface = DarkText,
+    onSurfaceVariant = Color(0xFFA3C9C4),
+    primaryContainer = Color(0xFF1A3D38),
+    onPrimaryContainer = MintAccent,
+    error = Color(0xFFEF4444),
+    onError = Color.White
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = BeigeLight,
-    secondary = BeigeLight2,
-    tertiary = BeigeLight,
-    background = BeigeBackground,
-    surface = BeigeCard,
+    primary = TealPrimary,
+    secondary = TealPrimaryLight,
+    tertiary = MintAccent,
+    background = BackgroundLight,
+    surface = SurfaceLight,
+    surfaceVariant = Color(0xFFE8F5F3),
     onPrimary = Color.White,
     onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF333333),
-    onSurface = Color(0xFF333333)
+    onTertiary = TealPrimary,
+    onBackground = TextDark,
+    onSurface = TextDark,
+    onSurfaceVariant = Color(0xFF6B7280),
+    primaryContainer = Color(0xFFE8F5F3),
+    onPrimaryContainer = TealPrimary,
+    error = Color(0xFFEF4444),
+    onError = Color.White
 )
 
 @Composable

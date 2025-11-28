@@ -29,23 +29,26 @@ import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import com.example.patienttracker.ui.viewmodel.ThemeViewModel
 
-// Beige color scheme matching dashboard
-private val ProfileHeaderTopColor = Color(0xFFD4AF8C)
-private val ProfileHeaderBottomColor = Color(0xFFC9956E)
-private val ProfileBackgroundColor = Color(0xFFF7EFE7)
-private val CardWhiteColor = Color(0xFFFFFFFF)
-private val TextDarkColor = Color(0xFF5C4A42)
-private val TextLightColor = Color(0xFF999999)
-private val ButtonBeigeColor = Color(0xFFC9956E)
+// ============================================================
+// Deep Teal & Mint Design System
+// ============================================================
+private val ProfileHeaderTopColor = Color(0xFF0E4944)    // Deep Teal
+private val ProfileHeaderBottomColor = Color(0xFF16605A) // Lighter Teal
+private val ProfileBackgroundColor = Color(0xFFF0F5F4)   // Dim background
+private val CardWhiteColor = Color(0xFFFFFFFF)           // Card surface
+private val TextDarkColor = Color(0xFF1F2937)            // Dark charcoal text
+private val TextLightColor = Color(0xFF6B7280)           // Subtle gray
+private val ButtonBeigeColor = Color(0xFF76DCB0)         // Mint accent for buttons
+private val ButtonTextColor = Color(0xFF0E4944)          // Deep teal text on mint
 
-// Dark mode colors
-private val DarkHeaderTopColor = Color(0xFF2C2C2C)
-private val DarkHeaderBottomColor = Color(0xFF1F1F1F)
-private val DarkBackgroundColor = Color(0xFF121212)
-private val DarkCardColor = Color(0xFF1E1E1E)
-private val DarkTextColor = Color(0xFFE0E0E0)
-private val DarkTextLightColor = Color(0xFF999999)
-private val DarkButtonColor = Color(0xFF424242)
+// Dark mode colors - Deep Teal Dark Theme
+private val DarkHeaderTopColor = Color(0xFF112B28)
+private val DarkHeaderBottomColor = Color(0xFF0B1F1D)
+private val DarkBackgroundColor = Color(0xFF0B1F1D)
+private val DarkCardColor = Color(0xFF112B28)
+private val DarkTextColor = Color(0xFFE8F5F3)
+private val DarkTextLightColor = Color(0xFFA3C9C4)
+private val DarkButtonColor = Color(0xFF76DCB0)
 
 @Composable
 fun PatientProfileScreen(

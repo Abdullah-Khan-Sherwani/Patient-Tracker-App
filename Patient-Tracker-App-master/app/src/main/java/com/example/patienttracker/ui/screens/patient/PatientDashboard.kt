@@ -33,29 +33,33 @@ import java.time.format.TextStyle
 import java.util.*
 import com.example.patienttracker.ui.components.ChatFloatingButton
 
-// Color scheme - softer teal palette
-private val HeaderTopColor = Color(0xFF00B8B8)
-private val HeaderBottomColor = Color(0xFF006B6B)
-private val BackgroundColor = Color(0xFFF5F1ED)
-private val CardWhite = Color(0xFFFFFFFF)
-private val StatTextColor = Color(0xFFFFFFFF)
-private val CardTitleColor = Color(0xFF082026)
-private val CardSubtitleColor = Color(0xFF666666)
-private val ButtonGreen = Color(0xFF00B8B8)
-private val IconBgTeal = Color(0xFFE0F2F2)
+// ============================================================
+// Deep Teal & Mint Design System - Light Mode
+// WCAG Compliant - Professional Healthcare Theme
+// ============================================================
+private val HeaderTopColor = Color(0xFF0E4944)      // Deep Teal
+private val HeaderBottomColor = Color(0xFF16605A)   // Lighter Teal
+private val BackgroundColor = Color(0xFFF0F5F4)     // Dim background
+private val CardWhite = Color(0xFFFFFFFF)           // Card surface
+private val StatTextColor = Color(0xFFFFFFFF)       // Text on dark headers
+private val CardTitleColor = Color(0xFF0E4944)      // Deep teal for card titles
+private val CardSubtitleColor = Color(0xFF6B7280)   // Subtle gray
+private val ButtonGreen = Color(0xFF76DCB0)         // Mint accent for CTAs
+private val IconBgTeal = Color(0xFF0E4944)          // Deep teal for icon backgrounds
+private val ButtonTextColor = Color(0xFF0E4944)    // Deep teal text on mint buttons
 
-// Dark mode colors - required spec
-private val DarkBackgroundColor = Color(0xFF0B0F12)  // very dark charcoal
-private val DarkCardColor = Color(0xFF1A2228)  // dark slate with soft contrast
-private val DarkDividerColor = Color(0xFF2A343C)  // card border/divider
-private val DarkTextColor = Color(0xFFFFFFFF)  // primary text white
-private val DarkSecondaryTextColor = Color(0xFFC3CCD2)  // secondary text
-private val DarkIconTint = Color(0xFFFFFFFF)  // icon tint white
-private val DarkDisabledIcon = Color(0xFF6F7A80)  // disabled icons
-private val DarkAccentColor = Color(0xFF4CCFD3)  // accent for highlights
-private val DarkBottomBarBg = Color(0xFF1A2228)  // bottom bar background
-private val DarkBottomBarActive = Color(0xFF4CCFD3)  // bottom bar active
-private val DarkBottomBarInactive = Color(0xFF849098)  // bottom bar inactive
+// Dark mode colors - Deep Teal Dark Theme
+private val DarkBackgroundColor = Color(0xFF0B1F1D)   // Very dark teal
+private val DarkCardColor = Color(0xFF112B28)         // Dark teal surface
+private val DarkDividerColor = Color(0xFF2A4A46)      // Divider
+private val DarkTextColor = Color(0xFFE8F5F3)         // Light text
+private val DarkSecondaryTextColor = Color(0xFFA3C9C4) // Muted text
+private val DarkIconTint = Color(0xFFE8F5F3)          // Light icon tint
+private val DarkDisabledIcon = Color(0xFF4A6B66)      // Disabled icons
+private val DarkAccentColor = Color(0xFF76DCB0)       // Mint accent
+private val DarkBottomBarBg = Color(0xFF112B28)       // Bottom bar background
+private val DarkBottomBarActive = Color(0xFF76DCB0)   // Active nav item
+private val DarkBottomBarInactive = Color(0xFF6B8A85) // Inactive nav item
 
 data class FeatureCardData(
     val title: String,
@@ -664,6 +668,7 @@ fun FloatingCardGrid(navController: NavController, fullName: String = "Patient",
 @Composable
 fun BookAppointmentCTA(navController: NavController, isDarkMode: Boolean = false) {
     val ctaColor = if (isDarkMode) DarkAccentColor else ButtonGreen
+    val ctaTextColor = if (isDarkMode) DarkBackgroundColor else HeaderTopColor // Deep teal text on mint
     
     Surface(
         modifier = Modifier
@@ -672,7 +677,7 @@ fun BookAppointmentCTA(navController: NavController, isDarkMode: Boolean = false
             .height(80.dp)
             .clickable { navController.navigate("select_specialty") },
         color = ctaColor,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(40.dp), // Pill shape as per design spec
         shadowElevation = 4.dp
     ) {
         Row(
@@ -684,7 +689,7 @@ fun BookAppointmentCTA(navController: NavController, isDarkMode: Boolean = false
             Icon(
                 imageVector = Icons.Default.DateRange,
                 contentDescription = "Book Appointment",
-                tint = Color.White,
+                tint = ctaTextColor,
                 modifier = Modifier.size(32.dp)
             )
             
@@ -697,19 +702,19 @@ fun BookAppointmentCTA(navController: NavController, isDarkMode: Boolean = false
                     text = "Book an Appointment",
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color.White
+                    color = ctaTextColor
                 )
                 Text(
                     text = "Schedule a visit instantly",
                     fontSize = 14.sp,
-                    color = Color.White.copy(alpha = 0.9f)
+                    color = ctaTextColor.copy(alpha = 0.8f)
                 )
             }
             
             Icon(
                 imageVector = Icons.Default.ArrowForward,
                 contentDescription = "Go to booking",
-                tint = Color.White,
+                tint = ctaTextColor,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -724,21 +729,21 @@ fun FloatingCard(
     isDarkMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val cardCol = if (isDarkMode) DarkCardColor else Color(0xFFFFFFFF)
-    val titleCol = if (isDarkMode) DarkTextColor else Color(0xFF00B8B8)
-    val subtitleCol = if (isDarkMode) DarkSecondaryTextColor else Color(0xFF666666)
-    val iconTintCol = if (isDarkMode) DarkIconTint else Color(0xFFFFFFFF)
-    val iconBgCol = if (isDarkMode) DarkDividerColor else Color(0xFF00B8B8)
+    val cardCol = if (isDarkMode) DarkCardColor else CardWhite
+    val titleCol = if (isDarkMode) DarkTextColor else HeaderTopColor  // Deep teal titles
+    val subtitleCol = if (isDarkMode) DarkSecondaryTextColor else CardSubtitleColor
+    val iconTintCol = if (isDarkMode) DarkAccentColor else Color.White
+    val iconBgCol = if (isDarkMode) DarkDividerColor else HeaderTopColor  // Deep teal icon bg
 
     Surface(
         modifier = modifier
             .then(
                 if (!isDarkMode) {
                     Modifier.shadow(
-                        elevation = 12.dp,
+                        elevation = 8.dp,
                         shape = RoundedCornerShape(24.dp),
-                        ambientColor = Color.Black.copy(alpha = 0.1f),
-                        spotColor = Color.Black.copy(alpha = 0.2f)
+                        ambientColor = Color(0xFF0E4944).copy(alpha = 0.08f),  // Design spec shadow
+                        spotColor = Color(0xFF0E4944).copy(alpha = 0.12f)
                     )
                 } else Modifier
             )
@@ -759,7 +764,7 @@ fun FloatingCard(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
-            // Icon in teal background
+            // Icon in deep teal background
             Surface(
                 modifier = Modifier
                     .size(50.dp)
@@ -781,11 +786,11 @@ fun FloatingCard(
 
             Spacer(modifier = Modifier.height(10.dp))
 
-            // Card title
+            // Card title - Deep teal, bold
             Text(
                 text = cardData.title,
                 fontSize = 15.sp,
-                fontWeight = FontWeight.SemiBold,
+                fontWeight = FontWeight.Bold,
                 color = titleCol,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()

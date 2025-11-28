@@ -1,6 +1,7 @@
 package com.example.patienttracker.data
 
 import android.net.Uri
+import android.util.Log
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
 import kotlinx.coroutines.tasks.await
@@ -12,7 +13,13 @@ import java.util.UUID
  */
 object StorageRepository {
     
-    private val storage: FirebaseStorage = FirebaseStorage.getInstance()
+    private const val TAG = "StorageRepository"
+    // Use the bucket from google-services.json
+    private val storage: FirebaseStorage by lazy {
+        val instance = FirebaseStorage.getInstance()
+        Log.d(TAG, "Storage instance bucket: ${instance.reference.bucket}")
+        instance
+    }
     
     /**
      * Upload a health record file to Firebase Storage
@@ -27,18 +34,49 @@ object StorageRepository {
         fileName: String
     ): Result<String> {
         return try {
+            Log.d(TAG, "=== UPLOAD DEBUG START ===")
+            Log.d(TAG, "File URI: $fileUri")
+            Log.d(TAG, "Patient UID: $patientUid")
+            Log.d(TAG, "File name: $fileName")
+            Log.d(TAG, "Storage bucket: ${storage.reference.bucket}")
+            Log.d(TAG, "Storage reference path: ${storage.reference.path}")
+            
             val recordId = UUID.randomUUID().toString()
             val storagePath = "healthRecords/$patientUid/$recordId/$fileName"
-            val storageRef: StorageReference = storage.reference.child(storagePath)
+            Log.d(TAG, "Full storage path: $storagePath")
             
-            // Upload file
-            val uploadTask = storageRef.putFile(fileUri).await()
+            val storageRef: StorageReference = storage.reference.child(storagePath)
+            Log.d(TAG, "Storage ref bucket: ${storageRef.bucket}")
+            Log.d(TAG, "Storage ref path: ${storageRef.path}")
+            
+            // Upload file with progress tracking
+            Log.d(TAG, "Starting putFile operation...")
+            val uploadTask = storageRef.putFile(fileUri)
+            
+            // Add progress listener for debugging
+            uploadTask.addOnProgressListener { snapshot ->
+                val progress = (100.0 * snapshot.bytesTransferred / snapshot.totalByteCount).toInt()
+                Log.d(TAG, "Upload progress: $progress% (${snapshot.bytesTransferred}/${snapshot.totalByteCount})")
+            }
+            
+            val taskSnapshot = uploadTask.await()
+            Log.d(TAG, "Upload complete! Bytes transferred: ${taskSnapshot.bytesTransferred}")
             
             // Get download URL
+            Log.d(TAG, "Getting download URL...")
             val downloadUrl = storageRef.downloadUrl.await().toString()
+            Log.d(TAG, "Download URL obtained: $downloadUrl")
+            Log.d(TAG, "=== UPLOAD DEBUG END - SUCCESS ===")
             
             Result.success(downloadUrl)
         } catch (e: Exception) {
+            Log.e(TAG, "=== UPLOAD DEBUG END - FAILED ===")
+            Log.e(TAG, "Upload failed: ${e.message}", e)
+            Log.e(TAG, "Exception type: ${e.javaClass.simpleName}")
+            if (e.cause != null) {
+                Log.e(TAG, "Cause: ${e.cause?.message}")
+                Log.e(TAG, "Cause type: ${e.cause?.javaClass?.simpleName}")
+            }
             Result.failure(e)
         }
     }

@@ -61,7 +61,7 @@ fun PatientHealthRecordsScreen(navController: NavController, context: Context) {
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFD4AF8C),
+                    containerColor = Color(0xFF0E4944),  // Deep Teal
                     titleContentColor = Color.White,
                     navigationIconContentColor = Color.White
                 )
@@ -70,8 +70,8 @@ fun PatientHealthRecordsScreen(navController: NavController, context: Context) {
         floatingActionButton = {
             FloatingActionButton(
                 onClick = { navController.navigate("upload_health_record_enhanced") },
-                containerColor = Color(0xFF4CAF50),
-                contentColor = Color.White
+                containerColor = Color(0xFF76DCB0),  // Mint accent
+                contentColor = Color(0xFF0E4944)     // Deep teal text/icon
             ) {
                 Icon(Icons.Default.Add, "Upload Record")
             }
@@ -86,7 +86,7 @@ fun PatientHealthRecordsScreen(navController: NavController, context: Context) {
                 isLoading -> {
                     CircularProgressIndicator(
                         modifier = Modifier.align(Alignment.Center),
-                        color = Color(0xFFD4AF8C)
+                        color = Color(0xFF0E4944)  // Deep Teal
                     )
                 }
                 records.isEmpty() -> {
@@ -163,9 +163,9 @@ fun HealthRecordCard(
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(24.dp),  // 24dp radius per design spec
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
             modifier = Modifier
@@ -189,7 +189,7 @@ fun HealthRecordCard(
                             else -> Icons.Default.AttachFile
                         },
                         contentDescription = null,
-                        tint = Color(0xFFD4AF8C),
+                        tint = Color(0xFF0E4944),  // Deep Teal
                         modifier = Modifier.size(32.dp)
                     )
                     
@@ -199,7 +199,8 @@ fun HealthRecordCard(
                         Text(
                             text = record.fileName,
                             fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF1F2937),  // Dark charcoal
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -215,10 +216,10 @@ fun HealthRecordCard(
                 // Action buttons
                 Row {
                     IconButton(onClick = onView) {
-                        Icon(Icons.Default.Visibility, "View", tint = Color(0xFFC9956E))
+                        Icon(Icons.Default.Visibility, "View", tint = Color(0xFF0E4944))  // Deep Teal
                     }
                     IconButton(onClick = onDelete) {
-                        Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFD32F2F))
+                        Icon(Icons.Default.Delete, "Delete", tint = Color(0xFFEF4444))  // Error red
                     }
                 }
             }
@@ -239,7 +240,7 @@ fun HealthRecordCard(
             Text(
                 text = "Uploaded: ${formatDate(record.uploadDate.toDate())}",
                 fontSize = 11.sp,
-                color = Color(0xFF9CA3AF)
+                color = Color(0xFF6B7280)  // Subtle text
             )
         }
     }

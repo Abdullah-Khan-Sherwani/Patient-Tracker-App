@@ -27,12 +27,14 @@ import androidx.navigation.NavController
 import com.example.patienttracker.data.HealthRecordRepository
 import kotlinx.coroutines.launch
 
-// Design Colors
-private val BackgroundColor = Color(0xFFDDD2CE)
-private val SurfaceColor = Color(0xFFF7ECE8)
-private val PrimaryColor = Color(0xFF2F2019)
-private val AccentColor = Color(0xFFB36B3C)
-private val BorderColor = Color(0xFF9E8B82)
+// ============================================================
+// Deep Teal & Mint Design System
+// ============================================================
+private val BackgroundColor = Color(0xFFF0F5F4)     // Dim background
+private val SurfaceColor = Color(0xFFFFFFFF)        // Card surface
+private val PrimaryColor = Color(0xFF0E4944)        // Deep Teal
+private val AccentColor = Color(0xFF76DCB0)         // Mint accent
+private val BorderColor = Color(0xFF16605A)         // Lighter Teal border
 
 data class FileSelection(
     val uri: Uri,

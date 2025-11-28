@@ -28,8 +28,8 @@ fun TimeSlotCategorySelector(
     slots: List<TimeSlot>,
     selectedSlot: TimeSlot?,
     onSlotSelected: (TimeSlot) -> Unit,
-    primaryColor: Color = Color(0xFFB8956A),
-    backgroundColor: Color = Color(0xFFF5F1ED)
+    primaryColor: Color = Color(0xFF0E4944),       // Deep Teal
+    backgroundColor: Color = Color(0xFFF0F5F4)     // Dim background
 ) {
     val slotsByCategory = slots.groupBy { it.category }
     
@@ -61,8 +61,8 @@ fun TimeslotCategorySection(
     slots: List<TimeSlot>,
     selectedSlot: TimeSlot?,
     onSlotSelected: (TimeSlot) -> Unit,
-    primaryColor: Color = Color(0xFFB8956A),
-    backgroundColor: Color = Color(0xFFF5F1ED)
+    primaryColor: Color = Color(0xFF0E4944),       // Deep Teal
+    backgroundColor: Color = Color(0xFFF0F5F4)     // Dim background
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -128,8 +128,8 @@ fun TimeSlotChip(
     slot: TimeSlot,
     isSelected: Boolean,
     onSelect: () -> Unit,
-    primaryColor: Color = Color(0xFFB8956A),
-    backgroundColor: Color = Color(0xFFF5F1ED),
+    primaryColor: Color = Color(0xFF0E4944),       // Deep Teal
+    backgroundColor: Color = Color(0xFFF0F5F4),    // Dim background
     modifier: Modifier = Modifier
 ) {
     Surface(
@@ -186,12 +186,12 @@ fun TimeSlotChip(
 fun TimeSlotDisplay(
     slot: TimeSlot,
     showCategory: Boolean = true,
-    primaryColor: Color = Color(0xFFB8956A),
+    primaryColor: Color = Color(0xFF0E4944),       // Deep Teal
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier
-            .background(Color(0xFFF5F1ED), RoundedCornerShape(8.dp))
+            .background(Color(0xFFF0F5F4), RoundedCornerShape(8.dp))
             .padding(12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.CenterVertically

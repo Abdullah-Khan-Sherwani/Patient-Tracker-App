@@ -28,11 +28,12 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
-private val BgColor = Color(0xFFFAF8F3)
-private val CardColor = Color(0xFFF5F0E8)
-private val AccentColor = Color(0xFFB8956A)
-private val TextPrimary = Color(0xFF2F2019)
-private val TextSecondary = Color(0xFF6B7280)
+// Deep Teal & Mint Design System
+private val BgColor = Color(0xFFF0F5F4)           // Dim background
+private val CardColor = Color(0xFFFFFFFF)         // Card surface
+private val AccentColor = Color(0xFF0E4944)       // Deep Teal
+private val TextPrimary = Color(0xFF1F2937)       // Dark charcoal
+private val TextSecondary = Color(0xFF4B5563)     // Medium gray
 
 data class AvailabilityDayState(
     val dayOfWeek: Int,

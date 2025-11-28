@@ -103,11 +103,13 @@ data class ChatAction(
     val messageAction: ((addMessage: (ChatMessage) -> Unit) -> Unit)? = null
 )
 
-// Color scheme
-private val LightPatientBubble = Color(0xFFD4AF8C)
-private val LightBotBubble = Color(0xFFF5F1ED)
-private val DarkPatientBubble = Color(0xFF607D8B)
-private val DarkBotBubble = Color(0xFF37474F)
+// ============================================================
+// Deep Teal & Mint Design System - Chatbot colors
+// ============================================================
+private val LightPatientBubble = Color(0xFF0E4944)    // Deep Teal for patient
+private val LightBotBubble = Color(0xFFE8F5F3)        // Light teal for bot
+private val DarkPatientBubble = Color(0xFF76DCB0)     // Mint for patient in dark
+private val DarkBotBubble = Color(0xFF1A3D38)         // Dark teal for bot
 
 @Composable
 fun ChatbotScreen(navController: NavController) {
@@ -505,13 +507,13 @@ fun ChatMessageBubble(
                                         modifier = Modifier.fillMaxWidth(),
                                         colors = ButtonDefaults.buttonColors(
                                             containerColor = if (isDarkMode)
-                                                Color(0xFF8D6E63)
+                                                Color(0xFF16605A)    // Lighter Teal in dark mode
                                             else
-                                                Color(0xFFD4AF8C),
+                                                Color(0xFF76DCB0),   // Mint accent
                                             contentColor = if (isDarkMode)
                                                 Color.White
                                             else
-                                                Color(0xFF3E2723)
+                                                Color(0xFF0E4944)    // Deep Teal text
                                         ),
                                         shape = RoundedCornerShape(20.dp),
                                         contentPadding = PaddingValues(

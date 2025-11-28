@@ -32,8 +32,8 @@ fun DateOfBirthPicker(
     maxDate: Long = System.currentTimeMillis(),
     minDate: Long = System.currentTimeMillis() - (100 * 365 * 24 * 60 * 60 * 1000L), // 100 years ago
     label: String = "Date of Birth",
-    primaryColor: Color = Color(0xFFB8956A),
-    backgroundColor: Color = Color(0xFFF5F1ED),
+    primaryColor: Color = Color(0xFF0E4944),       // Deep Teal
+    backgroundColor: Color = Color(0xFFF0F5F4),    // Dim background
     modifier: Modifier = Modifier,
     enabled: Boolean = true
 ) {

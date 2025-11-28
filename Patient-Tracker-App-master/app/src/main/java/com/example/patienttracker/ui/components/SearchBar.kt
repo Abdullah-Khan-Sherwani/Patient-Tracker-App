@@ -27,8 +27,8 @@ fun SearchBar(
     onValueChange: (String) -> Unit,
     placeholder: String = "Search doctors...",
     onSearch: (String) -> Unit = {},
-    backgroundColor: Color = Color(0xFFF5F1ED),
-    searchIconColor: Color = Color(0xFFC9956E),
+    backgroundColor: Color = Color(0xFFF0F5F4),    // Dim background
+    searchIconColor: Color = Color(0xFF0E4944),    // Deep Teal
     textColor: Color = Color.Black,
     modifier: Modifier = Modifier
 ) {
@@ -111,8 +111,8 @@ fun SearchBarWithSuggestions(
     suggestions: List<String> = emptyList(),
     onSuggestionSelected: (String) -> Unit = {},
     placeholder: String = "Search doctors...",
-    backgroundColor: Color = Color(0xFFF5F1ED),
-    searchIconColor: Color = Color(0xFFC9956E),
+    backgroundColor: Color = Color(0xFFF0F5F4),    // Dim background
+    searchIconColor: Color = Color(0xFF0E4944),    // Deep Teal
     textColor: Color = Color.Black,
     modifier: Modifier = Modifier
 ) {

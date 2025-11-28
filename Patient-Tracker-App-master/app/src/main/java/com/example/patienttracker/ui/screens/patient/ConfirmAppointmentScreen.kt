@@ -36,13 +36,15 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
 
-// Color scheme
-private val HeaderTopColor = Color(0xFFD4AF8C)
-private val HeaderBottomColor = Color(0xFFC9956E)
-private val BackgroundColor = Color(0xFFF5F1ED)
-private val CardWhite = Color(0xFFFFFFFF)
-private val StatTextColor = Color(0xFF5C4A42)
-private val ButtonColor = Color(0xFFC9956E)
+// ============================================================
+// Deep Teal & Mint Design System
+// ============================================================
+private val HeaderTopColor = Color(0xFF0E4944)      // Deep Teal
+private val HeaderBottomColor = Color(0xFF16605A)   // Lighter Teal
+private val BackgroundColor = Color(0xFFF0F5F4)     // Dim background
+private val CardWhite = Color(0xFFFFFFFF)           // Card surface
+private val StatTextColor = Color(0xFF1F2937)       // Dark charcoal text
+private val ButtonColor = Color(0xFF76DCB0)         // Mint accent
 
 @Composable
 fun ConfirmAppointmentScreen(

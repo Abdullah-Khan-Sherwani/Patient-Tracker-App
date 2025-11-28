@@ -18,7 +18,7 @@ import androidx.compose.ui.text.font.FontWeight
 fun SplashScreen() {
     Surface(
         modifier = Modifier.fillMaxSize(),
-        color = Color(0xFFF5F1ED)
+        color = Color(0xFFF0F5F4)  // Dim background
     ) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -28,13 +28,13 @@ fun SplashScreen() {
                 text = "MEDIFY",
                 fontSize = 42.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF8B6F47)
+                color = Color(0xFF0E4944)  // Deep Teal
             )
             CircularProgressIndicator(
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .offset(y = (-80).dp),
-                color = Color(0xFFD4AF8C)
+                color = Color(0xFF76DCB0)  // Mint accent
             )
         }
     }

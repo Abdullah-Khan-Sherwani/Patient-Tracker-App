@@ -15,11 +15,14 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 
-private val BackgroundColor = Color(0xFFF5F1ED)
-private val HeaderColor = Color(0xFFD4AF8C)
-private val CardWhite = Color(0xFFFFFFFF)
-private val TextColor = Color(0xFF333333)
-private val SubTextColor = Color(0xFF666666)
+// ============================================================
+// Deep Teal & Mint Design System
+// ============================================================
+private val BackgroundColor = Color(0xFFF0F5F4)     // Dim background
+private val HeaderColor = Color(0xFF0E4944)         // Deep Teal
+private val CardWhite = Color(0xFFFFFFFF)           // Card surface
+private val TextColor = Color(0xFF1F2937)           // Dark charcoal
+private val SubTextColor = Color(0xFF4B5563)        // Medium gray
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

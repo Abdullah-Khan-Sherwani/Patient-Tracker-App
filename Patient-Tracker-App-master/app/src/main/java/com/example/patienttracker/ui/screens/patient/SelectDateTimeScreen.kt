@@ -35,13 +35,15 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.isSystemInDarkTheme
 
-// Color scheme
-private val HeaderTopColor = Color(0xFFD4AF8C)
-private val HeaderBottomColor = Color(0xFFC9956E)
-private val BackgroundColor = Color(0xFFF5F1ED)
-private val CardWhite = Color(0xFFFFFFFF)
-private val StatTextColor = Color(0xFF5C4A42)
-private val ButtonColor = Color(0xFFC9956E)
+// ============================================================
+// Deep Teal & Mint Design System
+// ============================================================
+private val HeaderTopColor = Color(0xFF0E4944)      // Deep Teal
+private val HeaderBottomColor = Color(0xFF16605A)   // Lighter Teal
+private val BackgroundColor = Color(0xFFF0F5F4)     // Dim background
+private val CardWhite = Color(0xFFFFFFFF)           // Card surface
+private val StatTextColor = Color(0xFF1F2937)       // Dark charcoal text
+private val ButtonColor = Color(0xFF76DCB0)         // Mint accent
 
 /**
  * Time block definition with availability range
@@ -663,7 +665,7 @@ fun TimeBlockCard(
         isDisabled -> Color.Transparent
         isSelected -> Color.Transparent
         isDarkMode -> Color(0xFF555555)
-        else -> Color(0xFFD4AF8C).copy(alpha = 0.3f)
+        else -> Color(0xFF0E4944).copy(alpha = 0.3f)  // Deep Teal border
     }
     
     Surface(
@@ -714,7 +716,7 @@ fun TimeBlockCard(
                     isDisabled && isDarkMode -> Color(0xFF666666)
                     isDisabled -> Color.Gray
                     isSelected -> Color.White
-                    isDarkMode -> Color(0xFFD4AF8C)
+                    isDarkMode -> Color(0xFF76DCB0)  // Mint in dark mode
                     else -> ButtonColor
                 }
                 
@@ -753,7 +755,7 @@ fun TimeBlockCard(
                             fontWeight = FontWeight.Medium,
                             color = when {
                                 isSelected -> Color.White.copy(alpha = 0.9f)
-                                isDarkMode -> Color(0xFFD4AF8C)
+                                isDarkMode -> Color(0xFF76DCB0)  // Mint in dark mode
                                 else -> ButtonColor
                             }
                         )

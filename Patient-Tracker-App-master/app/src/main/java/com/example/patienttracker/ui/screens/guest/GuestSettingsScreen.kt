@@ -18,17 +18,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 
-// Light theme colors
-private val LightBgColor = Color(0xFFFAF8F3)
-private val LightCardColor = Color(0xFFF5F0E8)
-private val LightAccentColor = Color(0xFFB8956A)
-private val LightTextPrimary = Color(0xFF2F2019)
-private val LightTextSecondary = Color(0xFF6B7280)
+// Light theme colors - Deep Teal & Mint
+private val LightBgColor = Color(0xFFF0F5F4)         // Dim background
+private val LightCardColor = Color(0xFFFFFFFF)       // Card surface
+private val LightAccentColor = Color(0xFF0E4944)     // Deep Teal
+private val LightTextPrimary = Color(0xFF1F2937)     // Dark charcoal
+private val LightTextSecondary = Color(0xFF4B5563)   // Medium gray
 
 // Dark theme colors
 private val DarkBgColor = Color(0xFF1A1A1A)
 private val DarkCardColor = Color(0xFF2D2D2D)
-private val DarkAccentColor = Color(0xFFD4AF8C)
+private val DarkAccentColor = Color(0xFF76DCB0)   // Mint accent
 private val DarkTextPrimary = Color(0xFFE5E5E5)
 private val DarkTextSecondary = Color(0xFFB0B0B0)
 

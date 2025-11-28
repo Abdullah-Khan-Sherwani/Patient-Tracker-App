@@ -35,8 +35,8 @@ fun AMPMTimePicker(
     initialTime: String = "09:00 AM",
     onTimeSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    primaryColor: Color = Color(0xFFC9956E),
-    backgroundColor: Color = Color(0xFFF5F1ED)
+    primaryColor: Color = Color(0xFF0E4944),       // Deep Teal
+    backgroundColor: Color = Color(0xFFF0F5F4)     // Dim background
 ) {
     var hour by remember {
         mutableStateOf(extractHour(initialTime))
@@ -65,7 +65,7 @@ fun AMPMTimePicker(
             text = "Select Time",
             fontSize = 16.sp,
             fontWeight = FontWeight.SemiBold,
-            color = Color(0xFF5C4A42)
+            color = Color(0xFF0E4944)  // Deep Teal
         )
 
         // Time Display Card
@@ -95,7 +95,7 @@ fun AMPMTimePicker(
                     text = ":",
                     fontSize = 36.sp,
                     fontWeight = FontWeight.Bold,
-                    color = Color(0xFF5C4A42),
+                    color = Color(0xFF0E4944),  // Deep Teal
                     modifier = Modifier.padding(horizontal = 12.dp)
                 )
 
@@ -197,7 +197,7 @@ private fun TimeSpinner(
     onValueChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
     step: Int = 1,
-    primaryColor: Color = Color(0xFFC9956E)
+    primaryColor: Color = Color(0xFF0E4944)        // Deep Teal
 ) {
     Column(
         modifier = modifier,

@@ -46,8 +46,8 @@ fun LoginScreen(
                 // Logo + Title
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Image(
-                        painter = painterResource(id = R.drawable.ic_healthtrack_logo),
-                        contentDescription = "HealthTrack logo",
+                        painter = painterResource(id = R.drawable.medifylogo),
+                        contentDescription = "Medify logo",
                         modifier = Modifier
                             .size(180.dp)
                     )

@@ -33,16 +33,16 @@ import java.time.format.TextStyle
 import java.util.*
 import com.example.patienttracker.ui.components.ChatFloatingButton
 
-// Color scheme - light beige/beige gradient
-private val HeaderTopColor = Color(0xFFD4AF8C)
-private val HeaderBottomColor = Color(0xFFC9956E)
+// Color scheme - softer teal palette
+private val HeaderTopColor = Color(0xFF00B8B8)
+private val HeaderBottomColor = Color(0xFF006B6B)
 private val BackgroundColor = Color(0xFFF5F1ED)
 private val CardWhite = Color(0xFFFFFFFF)
-private val StatTextColor = Color(0xFF5C4A42)
-private val CardTitleColor = Color(0xFF1A1A1A)
-private val CardSubtitleColor = Color(0xFF757575)
-private val ButtonGreen = Color(0xFFC9956E)
-private val IconBgTeal = Color(0xFFE8D9CC)
+private val StatTextColor = Color(0xFFFFFFFF)
+private val CardTitleColor = Color(0xFF082026)
+private val CardSubtitleColor = Color(0xFF666666)
+private val ButtonGreen = Color(0xFF00B8B8)
+private val IconBgTeal = Color(0xFFE0F2F2)
 
 // Dark mode colors - required spec
 private val DarkBackgroundColor = Color(0xFF0B0F12)  // very dark charcoal
@@ -162,7 +162,7 @@ fun DashboardTopAppBar(
 ) {
     val scope = rememberCoroutineScope()
     val headerBgCol = if (isDarkMode) DarkBottomBarBg else HeaderTopColor
-    val textIconCol = if (isDarkMode) DarkIconTint else CardWhite
+    val textIconCol = if (isDarkMode) DarkIconTint else Color.White
     var unreadCount by remember { mutableStateOf(0) }
     
     // Fetch unread notification count
@@ -236,7 +236,7 @@ fun DashboardTopAppBar(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(RoundedCornerShape(8.dp)),
-                        color = if (isDarkMode) DarkCardColor else CardWhite
+                        color = if (isDarkMode) DarkCardColor else Color.White
                     ) {
                         Box(
                             modifier = Modifier.fillMaxSize(),
@@ -291,8 +291,8 @@ fun DashboardBottomNavigationBar(
     isDarkMode: Boolean = false
 ) {
     val navBarColor = if (isDarkMode) DarkBottomBarBg else CardWhite
-    val activeColor = if (isDarkMode) DarkBottomBarActive else HeaderTopColor
-    val inactiveColor = if (isDarkMode) DarkBottomBarInactive else StatTextColor.copy(alpha = 0.5f)
+    val activeColor = if (isDarkMode) DarkBottomBarActive else Color(0xFF00B8B8)
+    val inactiveColor = if (isDarkMode) DarkBottomBarInactive else Color(0xFF00B8B8)
     val indicatorColor = if (isDarkMode) DarkBackgroundColor else BackgroundColor
     
     NavigationBar(
@@ -724,12 +724,12 @@ fun FloatingCard(
     isDarkMode: Boolean = false,
     modifier: Modifier = Modifier
 ) {
-    val cardCol = if (isDarkMode) DarkCardColor else CardWhite
-    val titleCol = if (isDarkMode) DarkTextColor else CardTitleColor
-    val subtitleCol = if (isDarkMode) DarkSecondaryTextColor else CardSubtitleColor
-    val iconTintCol = if (isDarkMode) DarkIconTint else HeaderTopColor
-    val iconBgCol = if (isDarkMode) DarkDividerColor else IconBgTeal
-    
+    val cardCol = if (isDarkMode) DarkCardColor else Color(0xFFFFFFFF)
+    val titleCol = if (isDarkMode) DarkTextColor else Color(0xFF00B8B8)
+    val subtitleCol = if (isDarkMode) DarkSecondaryTextColor else Color(0xFF666666)
+    val iconTintCol = if (isDarkMode) DarkIconTint else Color(0xFFFFFFFF)
+    val iconBgCol = if (isDarkMode) DarkDividerColor else Color(0xFF00B8B8)
+
     Surface(
         modifier = modifier
             .then(

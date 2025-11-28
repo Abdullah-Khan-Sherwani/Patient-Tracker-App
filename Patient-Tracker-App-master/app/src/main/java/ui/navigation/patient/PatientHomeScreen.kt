@@ -61,13 +61,30 @@ import kotlinx.coroutines.tasks.await
 import java.time.Instant
 import kotlinx.coroutines.launch
 
+// Add patient color tokens to match design specification
+private val HeaderGradientStart = Color(0xFF04645A)    // #04645A rgb(4,100,90)
+private val HeaderGradientEnd = Color(0xFF0FB992)      // #0FB992 rgb(15,185,146)
+private val PageBg = Color(0xFFF4F6F7)                 // #F4F6F7 rgb(244,246,247)
+private val CardSurface = Color(0xFFFFFFFF)            // #FFFFFF white
+private val IconBgMint = Color(0xFFDFF7F0)             // #DFF7F0 rgb(223,247,240)
+private val IconGlyph = Color(0xFF04786A)              // #04786A rgb(4,120,106)
+private val CTAGreen = Color(0xFF18BC86)               // #18BC86 rgb(24,188,134)
+private val MutedDivider = Color(0xFFE9EDF0)           // #E9EDF0 rgb(233,237,240)
+
+// Aliases for existing code compatibility
+private val PatientAccent = IconGlyph                  // #04786A
+private val PatientBg = PageBg                         // #F4F6F7
+private val PatientText = Color(0xFF082026)            // Keep existing text color
+private val PatientNeutral = MutedDivider              // #E9EDF0
+
 // Data class for date selection chips - must be defined before use
 data class DayChip(val date: LocalDate, val day: String, val dow: String)
 
 @Composable
 fun PatientHomeScreen(navController: NavController, context: Context) {
     val gradient = Brush.verticalGradient(
-        listOf(Color(0xFF8DEBEE), Color(0xFF3CC7CD))
+        // use the mint/teal gradient from design spec
+        listOf(HeaderGradientStart, HeaderGradientEnd)
     )
 
     // Pull name from navigation arguments or saved state
@@ -93,6 +110,7 @@ fun PatientHomeScreen(navController: NavController, context: Context) {
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
+                .background(PageBg)
                 .padding(
                     top = innerPadding.calculateTopPadding(),
                     start = innerPadding.calculateStartPadding(LocalLayoutDirection.current),
@@ -180,7 +198,7 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
     }
     
     Surface(
-        color = Color(0xFFF6F8FC),
+        color = IconGlyph,
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(Modifier.fillMaxWidth().padding(16.dp)) {
@@ -202,14 +220,14 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
                     Text(
                         "Hi,",
                         style = MaterialTheme.typography.labelLarge.copy(
-                            color = Color(0xFF6AA8B0),
+                            color = PatientAccent,
                             fontWeight = FontWeight.SemiBold
                         )
                     )
                     Text(
                         firstName, // Changed from "$firstName $lastName" to just firstName
                         style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                        color = Color(0xFF1C3D5A)
+                        color = PatientText
                     )
                 }
                 Spacer(Modifier.width(12.dp))
@@ -218,8 +236,8 @@ private fun HeaderCard(gradient: Brush, firstName: String, lastName: String, nav
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFFCAD9E6))
-                        .clickable { 
+                        .background(IconBgMint)
+                        .clickable {
                             // Safe navigation with fallback
                             val safeFirstName = firstName.ifBlank { "Patient" }
                             val safeLastName = lastName.ifBlank { "" }
@@ -247,14 +265,15 @@ private fun IconBubble(
         modifier = Modifier
             .size(36.dp)
             .clip(CircleShape)
-            .background(Color(0xFFE9F3F6))
+            .background(IconBgMint)
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Image(
             painter = painterResource(id = iconRes),
             contentDescription = null,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier.size(20.dp),
+            colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(IconGlyph)
         )
     }
 }
@@ -271,14 +290,15 @@ private fun NotificationIconWithBadge(
             modifier = Modifier
                 .size(36.dp)
                 .clip(CircleShape)
-                .background(Color(0xFFE9F3F6))
+                .background(IconBgMint)
                 .clickable { onClick() },
             contentAlignment = Alignment.Center
         ) {
             Image(
                 painter = painterResource(id = R.drawable.ic_notifications),
                 contentDescription = "Notifications",
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(20.dp),
+                colorFilter = androidx.compose.ui.graphics.ColorFilter.tint(IconGlyph)
             )
         }
         
@@ -313,7 +333,7 @@ private fun CategoriesRow(items: List<Category>, onCategoryClick: (Category) -> 
         Text(
             "Categories",
             style = MaterialTheme.typography.titleMedium.copy(
-                color = Color(0xFF4CB7C2),
+                color = PatientAccent,
                 fontWeight = FontWeight.SemiBold
             )
         )
@@ -327,7 +347,7 @@ private fun CategoriesRow(items: List<Category>, onCategoryClick: (Category) -> 
                 CategoryChip(category) { onCategoryClick(it) }
             }
         }
-        Divider(Modifier.padding(top = 12.dp), color = Color(0xFFE5EFF3))
+        Divider(Modifier.padding(top = 12.dp), color = PatientNeutral)
     }
 }
 
@@ -343,7 +363,7 @@ private fun CategoryChip(
             .clip(RoundedCornerShape(12.dp))
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = true, color = Color(0xFF4CB7C2))
+                indication = ripple(bounded = true, color = PatientAccent)
             ) {
                 onClick(cat)
             },
@@ -370,7 +390,7 @@ private fun ManageDependentsCard(navController: NavController) {
             .padding(horizontal = 16.dp)
             .clip(RoundedCornerShape(16.dp))
             .clickable { navController.navigate("patient_dependents") },
-        color = Color(0xFFFFEBEE),
+        color = PatientNeutral,
         shape = RoundedCornerShape(16.dp),
         shadowElevation = 2.dp
     ) {
@@ -388,14 +408,14 @@ private fun ManageDependentsCard(navController: NavController) {
                     text = "Manage Dependents",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFFD32F2F)
+                        color = PatientAccent
                     )
                 )
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = "Add, edit, or view family members",
                     style = MaterialTheme.typography.bodySmall.copy(
-                        color = Color(0xFFC62828)
+                        color = PatientText
                     )
                 )
             }
@@ -552,8 +572,8 @@ private fun UpcomingSchedule(gradient: Brush, navController: NavController) {
 
 @Composable 
 private fun DayPill(item: DayChip, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) Color(0xFF4CCAD1) else Color(0xFFEAF7F8)
-    val fg = if (selected) Color.White else Color(0xFF2C6C73)
+    val bg = if (selected) PatientAccent else PatientBg
+    val fg = if (selected) Color.White else PatientText
     Column(
         modifier = Modifier
             .width(72.dp)
@@ -603,23 +623,19 @@ private fun ScheduleCard(
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
-                .background(
-                    Brush.linearGradient(
-                        listOf(Color(0xFFEAF7F8), Color(0xFFD5F1F4))
-                    )
-                )
+                .background(CardSurface)
                 .padding(16.dp)
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     "Appointments for $displayDate",
-                    color = Color(0xFF2A6C74),
+                    color = PatientText,
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.weight(1f)
                 )
                 Text(
                     "See all",
-                    color = Color(0xFF4CB7C2),
+                    color = PatientAccent,
                     style = MaterialTheme.typography.labelLarge,
                     modifier = Modifier.clickable { navController.navigate("full_schedule") }
                 )
@@ -642,7 +658,7 @@ private fun ScheduleCard(
                         Text(
                             displayTime,
                             style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
-                            color = Color(0xFF2A6C74)
+                            color = PatientText
                         )
                         Spacer(Modifier.width(8.dp))
 
@@ -652,12 +668,12 @@ private fun ScheduleCard(
                     Text(
                         "${appointment.doctorName} (${appointment.speciality})",
                         style = MaterialTheme.typography.bodyMedium,
-                        color = Color(0xFF2A6C74).copy(alpha = 0.8f),
+                        color = PatientText.copy(alpha = 0.8f),
                         modifier = Modifier.padding(top = 4.dp)
                     )
                     
                     if (index != appointments.lastIndex) {
-                        Divider(Modifier.padding(vertical = 12.dp), color = Color(0xFFB9E3E7))
+                        Divider(Modifier.padding(vertical = 12.dp), color = PatientNeutral)
                     }
                 }
             }
@@ -681,21 +697,19 @@ private fun NoAppointmentsCard(gradient: Brush, selectedDate: LocalDate) {
         Column(
             modifier = Modifier
                 .clip(RoundedCornerShape(20.dp))
-                .background(
-                    Brush.linearGradient(listOf(Color(0xFFEAF7F8), Color(0xFFD5F1F4)))
-                )
+                .background(CardSurface)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Text(
                 "No appointments for $displayDate",
-                color = Color(0xFF2A6C74),
+                color = PatientText,
                 style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.SemiBold)
             )
             Spacer(Modifier.height(8.dp))
             Text(
                 "Click on other dates to check appointments",
-                color = Color(0xFF6AA8B0),
+                color = PatientAccent,
                 style = MaterialTheme.typography.bodyMedium
             )
         }
@@ -723,7 +737,7 @@ private fun SpecialtiesGrid(
             Text(
                 "Specialties",
                 style = MaterialTheme.typography.titleMedium.copy(
-                    color = Color(0xFF4CB7C2),
+                    color = PatientAccent,
                     fontWeight = FontWeight.SemiBold
                 )
             )
@@ -741,7 +755,7 @@ private fun SpecialtiesGrid(
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
                         .clickable { onSpecialtyClick(spec) }
-                        .background(Color(0xFFEAF7F8))
+                        .background(CardSurface)
                         .padding(8.dp)
                 ) {
                     Image(
@@ -752,7 +766,7 @@ private fun SpecialtiesGrid(
                     Text(
                         spec.title,
                         textAlign = TextAlign.Center,
-                        color = Color(0xFF2A6C74),
+                        color = PatientText,
                         style = MaterialTheme.typography.bodySmall,
                         modifier = Modifier.padding(top = 4.dp)
                     )
@@ -773,7 +787,7 @@ private fun SpecCard(spec: Spec, onClick: (Spec) -> Unit = {}) {
             .semantics { role = Role.Button }     // accessibility
             .clickable(
                 interactionSource = remember { MutableInteractionSource() },
-                indication = ripple(bounded = true, color = Color(0x3322B7C3))
+                indication = ripple(bounded = true, color = PatientAccent)
             ) { onClick(spec) },
         contentAlignment = Alignment.Center
     ) {
@@ -800,7 +814,7 @@ private fun BottomBar(
     Surface(
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
-        color = Color(0xFFF6F8FC)
+        color = PatientBg
     ) {
         Box(
             modifier = Modifier
@@ -812,7 +826,7 @@ private fun BottomBar(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth(),
-                color = Color(0x14000000)
+                color = PatientNeutral
             )
             Row(
                 modifier = Modifier
@@ -854,6 +868,35 @@ private fun BottomBar(
     }
 }
 
+@Composable
+private fun BottomItem(
+    @DrawableRes iconRes: Int,
+    label: String,
+    selected: Boolean = false,
+    onClick: () -> Unit = {}
+) {
+    Column(
+        modifier = Modifier
+            .width(72.dp)
+            .clickable { onClick() },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
+    ) {
+        Image(
+            painter = painterResource(id = iconRes),
+            contentDescription = label,
+            modifier = Modifier.size(24.dp),
+            colorFilter = if (selected) androidx.compose.ui.graphics.ColorFilter.tint(IconGlyph) else null
+        )
+        Spacer(Modifier.height(2.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) PatientAccent else PatientText
+        )
+    }
+}
+
 /**
  * Convert time block name to time range string
  */
@@ -891,33 +934,5 @@ private fun formatTimeRange(timeRange: String): String {
         }
     } catch (e: Exception) {
         timeRange
-    }
-}
-
-@Composable
-private fun BottomItem(
-    @DrawableRes iconRes: Int,
-    label: String,
-    selected: Boolean = false,
-    onClick: () -> Unit = {}
-) {
-    Column(
-        modifier = Modifier
-            .width(72.dp)
-            .clickable { onClick() },
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
-    ) {
-        Image(
-            painter = painterResource(id = iconRes),
-            contentDescription = label,
-            modifier = Modifier.size(24.dp)
-        )
-        Spacer(Modifier.height(2.dp))
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) MaterialTheme.colorScheme.primary else Color(0xFF5F6970)
-        )
     }
 }

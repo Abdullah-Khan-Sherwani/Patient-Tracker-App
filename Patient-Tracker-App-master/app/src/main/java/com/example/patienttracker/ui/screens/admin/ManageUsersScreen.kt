@@ -186,7 +186,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
         }
     }
 
-    // Remove User Confirmation Dialog
+    // Remove User Confirmation Dialog (UI-only: move to Recovery)
     if (showRemoveDialog && userToRemove != null) {
         AlertDialog(
             onDismissRequest = { if (!isRemoving) showRemoveDialog = false },
@@ -204,7 +204,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(
-                        "Remove User",
+                        "Move Account to Recovery",
                         fontWeight = FontWeight.Bold,
                         color = Color(0xFF2F2019)
                     )
@@ -213,7 +213,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
             text = {
                 Column {
                     Text(
-                        "Are you sure you want to remove this user from the system?",
+                        "Are you sure you want to move this account to Recovery?",
                         color = Color(0xFF2F2019),
                         fontWeight = FontWeight.SemiBold
                     )
@@ -261,34 +261,14 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
             confirmButton = {
                 Button(
                     onClick = {
-                        scope.launch {
-                            isRemoving = true
-                            val success = removeUser(userToRemove!!, selectedRole)
-                            isRemoving = false
-                            showRemoveDialog = false
-                            
-                            if (success) {
-                                // Refresh list
-                                users = users.filter { it.uid != userToRemove!!.uid }
-                                snackbarMessage = "User removed successfully."
-                            } else {
-                                snackbarMessage = "Could not remove user. Please try again."
-                            }
-                            userToRemove = null
-                        }
+                        // UI-only: mark as moved to recovery (no DB change performed)
+                        showRemoveDialog = false
+                        snackbarMessage = "Account moved to Recovery. It will be permanently deleted in 30 days."
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
                     enabled = !isRemoving
                 ) {
-                    if (isRemoving) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color.White,
-                            strokeWidth = 2.dp
-                        )
-                    } else {
-                        Text("Remove", color = Color.White)
-                    }
+                    Text("Move to Recovery", color = Color.White)
                 }
             },
             dismissButton = {
@@ -442,7 +422,7 @@ private fun UserListCard(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text("Remove from Database", color = Color(0xFFEF4444))
+                                Text("Move to Recovery", color = Color(0xFFEF4444))
                             }
                         },
                         onClick = {

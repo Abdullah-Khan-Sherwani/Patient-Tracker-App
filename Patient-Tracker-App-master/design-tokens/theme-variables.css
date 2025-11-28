@@ -1,0 +1,240 @@
+/* ===================================================================
+   Patient Home Screen - Design Tokens (CSS Variables)
+   WCAG 2.1 AA Compliant Theme
+   =================================================================== */
+
+:root {
+  /* ─────────────────────────────────────────────────────────────
+     PRIMARY COLOR TOKENS (exact hex values)
+     ───────────────────────────────────────────────────────────── */
+
+  /* Primary: Deep teal (dark, permanent header, strong emphasis) */
+  --color-primary: #096E68;
+  --color-primary-rgb: 9, 110, 104;
+  --color-primary-normalized: 0.0353, 0.4314, 0.4078;
+
+  /* Secondary: Medium teal (gradient mid, CTAs, active states) */
+  --color-secondary: #0EA388;
+  --color-secondary-rgb: 14, 163, 136;
+  --color-secondary-normalized: 0.0549, 0.6392, 0.5333;
+
+  /* Accent: Soft greenish (icon pills, status chips, subtle accents) */
+  --color-accent: #7AADA7;
+  --color-accent-rgb: 122, 173, 167;
+  --color-accent-normalized: 0.4784, 0.6784, 0.6549;
+
+  /* Light Background Tint: Very light teal (card/pill backgrounds) */
+  --color-light-tint: #BEE5DF;
+  --color-light-tint-rgb: 190, 229, 223;
+  --color-light-tint-normalized: 0.7451, 0.8980, 0.8745;
+
+  /* Page Background: Off-white (app page background outside cards) */
+  --color-page-bg: #F8F9FB;
+  --color-page-bg-rgb: 248, 249, 251;
+  --color-page-bg-normalized: 0.9725, 0.9765, 0.9843;
+
+  /* ─────────────────────────────────────────────────────────────
+     SUPPORTING COLORS
+     ───────────────────────────────────────────────────────────── */
+
+  /* Card Background: Pure white */
+  --color-card-bg: #FFFFFF;
+  --color-card-bg-rgb: 255, 255, 255;
+
+  /* Text: Near-black for body text (WCAG contrast) */
+  --color-text-primary: #073936;
+  --color-text-primary-rgb: 7, 57, 54;
+
+  /* Text: Lighter gray for secondary/muted text */
+  --color-text-secondary: #5A6F6E;
+  --color-text-secondary-rgb: 90, 111, 110;
+
+  /* Text: White for contrast on dark/teal backgrounds */
+  --color-text-light: #FFFFFF;
+
+  /* Dividers & Shadows: Subtle neutral (light teal + low opacity) */
+  --color-divider: rgba(190, 229, 223, 0.4);
+  --color-shadow: rgba(9, 110, 104, 0.08);
+
+  /* ─────────────────────────────────────────────────────────────
+     GRADIENT DEFINITIONS
+     ───────────────────────────────────────────────────────────── */
+
+  --gradient-header: linear-gradient(135deg, #096E68 0%, #0EA388 100%);
+  --gradient-header-bottom: linear-gradient(to bottom, #096E68 0%, #0EA388 100%);
+
+  /* ─────────────────────────────────────────────────────────────
+     COMPONENT STATE VARIANTS (computed hover/active/disabled)
+     ───────────────────────────────────────────────────────────── */
+
+  /* CTA Button Secondary #0EA388 */
+  --color-cta-base: #0EA388;
+  --color-cta-hover: #0C8C74;        /* darken 12% */
+  --color-cta-active: #0A7462;       /* darken 22% */
+  --color-cta-disabled: #A8B8B5;     /* desaturated gray */
+
+  /* Primary Button / Link (outline) */
+  --color-primary-base: #096E68;
+  --color-primary-hover: #075A56;    /* darken 13% */
+  --color-primary-active: #054A47;   /* darken 20% */
+
+  /* Accent soft button/chip */
+  --color-accent-base: #7AADA7;
+  --color-accent-hover: #6A9A96;     /* darken 12% */
+  --color-accent-active: #5A8885;    /* darken 20% */
+
+  /* ─────────────────────────────────────────────────────────────
+     SEMANTIC MAPPINGS (where tokens appear on screen)
+     ───────────────────────────────────────────────────────────── */
+
+  /* Header */
+  --header-background: var(--gradient-header-bottom);
+  --header-text-color: var(--color-text-light);
+
+  /* Card */
+  --card-background: var(--color-card-bg);
+  --card-border-color: var(--color-divider);
+  --card-shadow: var(--color-shadow);
+  --card-text-primary: var(--color-text-primary);
+  --card-text-secondary: var(--color-text-secondary);
+
+  /* Icon Pill (mint rounded background) */
+  --icon-pill-background: var(--color-light-tint);
+  --icon-glyph-color: var(--color-primary);
+
+  /* CTA Button (Primary Action) */
+  --button-cta-background: var(--color-cta-base);
+  --button-cta-background-hover: var(--color-cta-hover);
+  --button-cta-background-active: var(--color-cta-active);
+  --button-cta-background-disabled: var(--color-cta-disabled);
+  --button-cta-text: var(--color-text-light);
+
+  /* Secondary Button (Outline) */
+  --button-secondary-border: var(--color-primary-base);
+  --button-secondary-text: var(--color-primary-base);
+  --button-secondary-border-hover: var(--color-primary-hover);
+  --button-secondary-text-hover: var(--color-primary-hover);
+
+  /* Page Background */
+  --page-background: var(--color-page-bg);
+
+  /* Dividers & Borders */
+  --divider-color: var(--color-divider);
+  --border-radius-sm: 8px;
+  --border-radius-md: 12px;
+  --border-radius-lg: 16px;
+}
+
+/* ===================================================================
+   ACCESSIBILITY: Text shadow for white text on gradient (optional)
+   =================================================================== */
+
+.header-text-with-shadow {
+  color: var(--color-text-light);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ===================================================================
+   EXAMPLE: Component styles using tokens
+   =================================================================== */
+
+.card {
+  background-color: var(--card-background);
+  border: 1px solid var(--card-border-color);
+  box-shadow: 0 2px 8px var(--card-shadow);
+  border-radius: var(--border-radius-lg);
+  padding: 16px;
+}
+
+.card-title {
+  color: var(--card-text-primary);
+  font-weight: 600;
+  font-size: 16px;
+}
+
+.card-subtitle {
+  color: var(--card-text-secondary);
+  font-weight: 400;
+  font-size: 14px;
+}
+
+.icon-pill {
+  background-color: var(--icon-pill-background);
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-pill svg,
+.icon-pill i {
+  color: var(--icon-glyph-color);
+  width: 20px;
+  height: 20px;
+}
+
+.btn-cta {
+  background-color: var(--button-cta-background);
+  color: var(--button-cta-text);
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--border-radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.btn-cta:hover {
+  background-color: var(--button-cta-background-hover);
+}
+
+.btn-cta:active {
+  background-color: var(--button-cta-background-active);
+}
+
+.btn-cta:disabled {
+  background-color: var(--button-cta-background-disabled);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.btn-secondary {
+  background-color: transparent;
+  border: 1px solid var(--button-secondary-border);
+  color: var(--button-secondary-text);
+  padding: 10px 20px;
+  border-radius: var(--border-radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-secondary:hover {
+  border-color: var(--button-secondary-border-hover);
+  color: var(--button-secondary-text-hover);
+  background-color: rgba(9, 110, 104, 0.04);
+}
+
+.btn-secondary:active {
+  border-color: var(--color-primary-active);
+  color: var(--color-primary-active);
+  background-color: rgba(9, 110, 104, 0.08);
+}
+
+.header {
+  background: var(--header-background);
+  color: var(--header-text-color);
+  padding: 20px 16px;
+  border-radius: 0;
+}
+
+.page {
+  background-color: var(--page-background);
+}
+
+.divider {
+  border-top: 1px solid var(--divider-color);
+}
+

@@ -1,0 +1,472 @@
+/* ===================================================================
+   Patient Home Screen - SCSS/CSS Mixins & Snippets
+   Ready-to-use component styles
+   =================================================================== */
+
+/* ─────────────────────────────────────────────────────────────
+   SCSS Variables (alternative to CSS custom properties)
+   ───────────────────────────────────────────────────────────── */
+
+$color-primary: #096E68;
+$color-secondary: #0EA388;
+$color-accent: #7AADA7;
+$color-light-tint: #BEE5DF;
+$color-page-bg: #F8F9FB;
+$color-card-bg: #FFFFFF;
+$color-text-primary: #073936;
+$color-text-secondary: #5A6F6E;
+$color-text-light: #FFFFFF;
+
+$color-cta-base: #0EA388;
+$color-cta-hover: #0C8C74;
+$color-cta-active: #0A7462;
+$color-cta-disabled: #A8B8B5;
+
+$border-radius-sm: 8px;
+$border-radius-md: 12px;
+$border-radius-lg: 16px;
+
+$transition-default: all 0.2s ease;
+
+/* ─────────────────────────────────────────────────────────────
+   SCSS Mixins
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * Gradient header background
+ * Usage: @include gradient-header;
+ */
+@mixin gradient-header {
+  background: linear-gradient(to bottom, $color-primary 0%, $color-secondary 100%);
+  color: $color-text-light;
+}
+
+/**
+ * Styled card with shadow and border
+ * Usage: @include card-surface;
+ */
+@mixin card-surface {
+  background-color: $color-card-bg;
+  border: 1px solid rgba($color-light-tint, 0.4);
+  border-radius: $border-radius-lg;
+  box-shadow: 0 2px 8px rgba($color-primary, 0.08);
+  padding: 16px;
+}
+
+/**
+ * Icon pill (rounded mint background)
+ * Usage: @include icon-pill;
+ */
+@mixin icon-pill {
+  background-color: $color-light-tint;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg, i {
+    color: $color-primary;
+    width: 20px;
+    height: 20px;
+  }
+}
+
+/**
+ * CTA Button (primary action) with states
+ * Usage: @include button-cta;
+ */
+@mixin button-cta {
+  background-color: $color-cta-base;
+  color: $color-text-light;
+  border: none;
+  border-radius: $border-radius-md;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: $transition-default;
+
+  &:hover {
+    background-color: $color-cta-hover;
+  }
+
+  &:active {
+    background-color: $color-cta-active;
+  }
+
+  &:disabled {
+    background-color: $color-cta-disabled;
+    cursor: not-allowed;
+    opacity: 0.6;
+  }
+}
+
+/**
+ * Secondary button (outline style)
+ * Usage: @include button-secondary;
+ */
+@mixin button-secondary {
+  background-color: transparent;
+  border: 1px solid $color-primary;
+  color: $color-primary;
+  border-radius: $border-radius-md;
+  padding: 10px 20px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: $transition-default;
+
+  &:hover {
+    border-color: darken($color-primary, 13%);
+    color: darken($color-primary, 13%);
+    background-color: rgba($color-primary, 0.04);
+  }
+
+  &:active {
+    border-color: darken($color-primary, 20%);
+    color: darken($color-primary, 20%);
+    background-color: rgba($color-primary, 0.08);
+  }
+}
+
+/**
+ * Body text (primary text color)
+ * Usage: @include text-body;
+ */
+@mixin text-body {
+  color: $color-text-primary;
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.5;
+}
+
+/**
+ * Secondary text (muted, labels, timestamps)
+ * Usage: @include text-secondary;
+ */
+@mixin text-secondary {
+  color: $color-text-secondary;
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/**
+ * Subtle divider
+ * Usage: @include divider;
+ */
+@mixin divider {
+  border-top: 1px solid rgba($color-light-tint, 0.4);
+  margin: 12px 0;
+}
+
+/**
+ * Optional text shadow for header text on gradient
+ * Usage: @include text-shadow-header;
+ */
+@mixin text-shadow-header {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Component Examples (Ready-to-use classes)
+   ───────────────────────────────────────────────────────────── */
+
+.header {
+  @include gradient-header;
+  padding: 20px 16px;
+  border-radius: 0;
+
+  .header-title {
+    @include text-shadow-header;
+    font-size: 20px;
+    font-weight: 600;
+  }
+
+  .header-subtitle {
+    @include text-shadow-header;
+    font-size: 14px;
+    font-weight: 400;
+    opacity: 0.9;
+  }
+}
+
+.card {
+  @include card-surface;
+
+  .card-title {
+    @include text-body;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .card-content {
+    @include text-body;
+  }
+
+  .card-subtitle {
+    @include text-secondary;
+    margin-top: 4px;
+  }
+}
+
+.icon-bubble {
+  @include icon-pill;
+  cursor: pointer;
+  transition: $transition-default;
+
+  &:hover {
+    background-color: darken($color-light-tint, 5%);
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+}
+
+.button-primary {
+  @include button-cta;
+}
+
+.button-secondary {
+  @include button-secondary;
+}
+
+.button-large {
+  @include button-cta;
+  width: 100%;
+  padding: 12px 24px;
+  font-size: 16px;
+  border-radius: $border-radius-lg;
+}
+
+.divider {
+  @include divider;
+}
+
+.text-body {
+  @include text-body;
+}
+
+.text-secondary {
+  @include text-secondary;
+}
+
+.page {
+  background-color: $color-page-bg;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Advanced: Responsive & State Variations
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * Button size variations
+ */
+.button {
+  &.sm {
+    padding: 6px 12px;
+    font-size: 12px;
+    border-radius: $border-radius-sm;
+  }
+
+  &.md {
+    padding: 10px 20px;
+    font-size: 14px;
+    border-radius: $border-radius-md;
+  }
+
+  &.lg {
+    padding: 14px 28px;
+    font-size: 16px;
+    border-radius: $border-radius-lg;
+  }
+}
+
+/**
+ * Card elevation/depth variations
+ */
+.card {
+  &.elevated {
+    box-shadow: 0 4px 12px rgba($color-primary, 0.15);
+  }
+
+  &.flat {
+    box-shadow: none;
+    border: 1px solid rgba($color-light-tint, 0.6);
+  }
+
+  &.floating {
+    box-shadow: 0 8px 24px rgba($color-primary, 0.12);
+  }
+}
+
+/**
+ * Focus state for accessibility
+ */
+button, input, a[role="button"] {
+  &:focus-visible {
+    outline: 2px solid $color-primary;
+    outline-offset: 2px;
+  }
+}
+
+/**
+ * Dark mode variant (optional)
+ */
+@media (prefers-color-scheme: dark) {
+  .page {
+    background-color: darken($color-page-bg, 90%);
+  }
+
+  .card {
+    background-color: darken($color-card-bg, 85%);
+  }
+
+  .text-body {
+    color: lighten($color-text-primary, 80%);
+  }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Utility Classes
+   ───────────────────────────────────────────────────────────── */
+
+.text-primary {
+  color: $color-primary;
+}
+
+.text-secondary-color {
+  color: $color-secondary;
+}
+
+.text-accent {
+  color: $color-accent;
+}
+
+.bg-light-tint {
+  background-color: $color-light-tint;
+}
+
+.bg-page {
+  background-color: $color-page-bg;
+}
+
+.rounded-sm {
+  border-radius: $border-radius-sm;
+}
+
+.rounded-md {
+  border-radius: $border-radius-md;
+}
+
+.rounded-lg {
+  border-radius: $border-radius-lg;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Debugging/Development Helpers
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * Show color values as data attributes (useful for QA/testing)
+ */
+[data-color="primary"]::before {
+  content: "#096E68";
+  display: none;
+}
+
+[data-color="secondary"]::before {
+  content: "#0EA388";
+  display: none;
+}
+
+[data-color="accent"]::before {
+  content: "#7AADA7";
+  display: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Animation/Transition Utilities
+   ───────────────────────────────────────────────────────────── */
+
+.transition-default {
+  transition: $transition-default;
+}
+
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Quick Start Examples
+   ───────────────────────────────────────────────────────────── */
+
+/**
+ * Example: Header with title and icon pills
+ */
+.example-header-section {
+  @include gradient-header;
+  padding: 20px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  .title {
+    font-size: 20px;
+    font-weight: 600;
+    @include text-shadow-header;
+  }
+
+  .action-icons {
+    display: flex;
+    gap: 12px;
+
+    .icon-btn {
+      @include icon-pill;
+    }
+  }
+}
+
+/**
+ * Example: Card with title and CTA
+ */
+.example-card-cta {
+  @include card-surface;
+
+  .title {
+    @include text-body;
+    font-weight: 600;
+    margin-bottom: 12px;
+  }
+
+  .description {
+    @include text-secondary;
+    margin-bottom: 16px;
+  }
+
+  .cta {
+    @include button-cta;
+    width: 100%;
+  }
+}
+
+/**
+ * Example: Button group with primary and secondary buttons
+ */
+.example-button-group {
+  display: flex;
+  gap: 12px;
+  margin-top: 16px;
+
+  .primary {
+    @include button-cta;
+    flex: 1;
+  }
+
+  .secondary {
+    @include button-secondary;
+    flex: 1;
+  }
+}
+

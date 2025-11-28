@@ -60,13 +60,13 @@ fun ChatFloatingButton(
                             brush = Brush.verticalGradient(
                                 colors = if (isDarkMode) {
                                     listOf(
-                                        Color(0xFF8D6E63),
-                                        Color(0xFF6D4C41)
+                                        Color(0xFF00A8A8),
+                                        Color(0xFF005C5C)
                                     )
                                 } else {
                                     listOf(
-                                        Color(0xFFD4AF8C),
-                                        Color(0xFFC9956E)
+                                        Color(0xFF00B8B8),
+                                        Color(0xFF006B6B)
                                     )
                                 }
                             )

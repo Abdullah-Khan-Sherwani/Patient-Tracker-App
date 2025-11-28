@@ -31,7 +31,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
-import com.example.patienttracker.ui.components.ChatFloatingButton
+import androidx.compose.animation.core.*
+import androidx.compose.animation.animateColorAsState
 
 // ============================================================
 // Deep Teal & Mint Design System - Light Mode
@@ -131,11 +132,12 @@ fun PatientDashboard(navController: NavController, context: Context, isDarkMode:
                 .background(bgColor)
                 .padding(bottom = innerPadding.calculateBottomPadding())
         ) {
+            // Scrollable content
             Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(bottom = 16.dp)
+                    .padding(bottom = 100.dp) // Extra padding to accommodate fixed AssistantBar
             ) {
                 // Header with greeting, date, and appointment info
                 HeaderWithStats(fullName = fullName, navController = navController, isDarkMode = isDarkMode)
@@ -145,11 +147,14 @@ fun PatientDashboard(navController: NavController, context: Context, isDarkMode:
 
                 Spacer(modifier = Modifier.height(32.dp))
             }
-
-            // Floating Chat Button
-            ChatFloatingButton(
-                onClick = { navController.navigate("chatbot") },
-                modifier = Modifier.align(Alignment.BottomEnd)
+            
+            // Fixed Smart Assistant Bar - positioned at bottom of content area, above bottom nav
+            AssistantBar(
+                navController = navController,
+                isDarkMode = isDarkMode,
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .padding(bottom = 8.dp) // 8dp margin above the bottom nav
             )
         }
         }
@@ -187,7 +192,8 @@ fun DashboardTopAppBar(
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 24.dp)
+            .background(headerBgCol)
+            .statusBarsPadding() // Respect status bar insets
     ) {
         Surface(
             modifier = Modifier
@@ -281,6 +287,124 @@ fun DashboardTopAppBar(
                 }
             }
         }
+        }
+    }
+}
+
+@Composable
+fun AssistantBar(
+    navController: NavController,
+    isDarkMode: Boolean = false,
+    hasUnreadMessages: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    // Colors
+    val barColor = if (isDarkMode) Color(0xFF1A3D3A) else Color(0xFF4DB6AC)  // Lighter teal shade
+    val textColor = Color.White
+    val iconColor = Color.White
+    val glowColor = if (isDarkMode) Color(0xFF76DCB0) else Color(0xFF00E5CC)
+    val bgColor = if (isDarkMode) DarkBackgroundColor else BackgroundColor
+    
+    // Fade-in animation
+    var isVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        isVisible = true
+    }
+    
+    val alpha by animateFloatAsState(
+        targetValue = if (isVisible) 1f else 0f,
+        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+        label = "fadeIn"
+    )
+    
+    val offsetY by animateFloatAsState(
+        targetValue = if (isVisible) 0f else 20f,
+        animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing),
+        label = "slideUp"
+    )
+    
+    // Pulsing glow animation for unread messages
+    val infiniteTransition = rememberInfiniteTransition(label = "glow")
+    val glowAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.3f,
+        targetValue = 0.7f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "glowPulse"
+    )
+    
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .offset(y = offsetY.dp)
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    ) {
+        // Glow effect behind the bar (only when unread messages)
+        if (hasUnreadMessages) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp)
+                    .align(Alignment.Center),
+                shape = RoundedCornerShape(26.dp),
+                color = glowColor.copy(alpha = glowAlpha * 0.4f),
+                shadowElevation = 0.dp
+            ) {}
+        }
+        
+        // Main assistant bar
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(52.dp)
+                .clickable { navController.navigate("chatbot") }
+                .then(
+                    Modifier.shadow(
+                        elevation = 8.dp,
+                        shape = RoundedCornerShape(26.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.15f),
+                        spotColor = Color.Black.copy(alpha = 0.25f)
+                    )
+                ),
+            shape = RoundedCornerShape(26.dp),
+            color = barColor.copy(alpha = alpha)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Left icon - Robot/Chatbot
+                Icon(
+                    imageVector = Icons.Default.SmartToy,
+                    contentDescription = "Assistant",
+                    tint = iconColor,
+                    modifier = Modifier.size(24.dp)
+                )
+                
+                Spacer(modifier = Modifier.width(12.dp))
+                
+                // Center text
+                Text(
+                    text = "Ask Medify Assistant",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = textColor,
+                    modifier = Modifier.weight(1f)
+                )
+                
+                // Right arrow icon
+                Icon(
+                    imageVector = Icons.Default.ArrowForward,
+                    contentDescription = "Open Assistant",
+                    tint = iconColor,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
         }
     }
 }

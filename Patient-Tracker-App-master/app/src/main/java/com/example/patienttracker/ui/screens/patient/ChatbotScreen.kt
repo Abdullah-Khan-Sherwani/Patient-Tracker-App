@@ -998,7 +998,7 @@ private fun generateBotResponse(
                    "Let me take you to your dependents section.",
             isFromUser = false,
             actionButtons = listOf(
-                ChatAction("Manage Dependents", "patient_dependents"),
+                ChatAction("Family Members", "patient_dependents"),
                 ChatAction("Browse Doctors Instead", "doctor_catalogue")
             )
         )

@@ -1,7 +1,10 @@
 package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -23,6 +26,25 @@ import com.example.patienttracker.data.HealthRecordRepository
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+
+/**
+ * Open a file URL in browser
+ */
+private fun openFileInBrowser(context: Context, url: String) {
+    if (url.isBlank()) {
+        Toast.makeText(context, "Error: File URL is empty", Toast.LENGTH_LONG).show()
+        return
+    }
+    
+    try {
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        context.startActivity(browserIntent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Cannot open file: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
 
 /**
  * Patient Health Records Screen
@@ -101,13 +123,14 @@ fun PatientHealthRecordsScreen(navController: NavController, context: Context) {
                         items(records) { record ->
                             HealthRecordCard(
                                 record = record,
+                                context = context,
                                 onDelete = {
                                     recordToDelete = record
                                     showDeleteDialog = true
                                 },
                                 onView = {
-                                    // Navigate to detail view or open file
-                                    Toast.makeText(context, "Opening ${record.fileName}", Toast.LENGTH_SHORT).show()
+                                    // Open file in browser
+                                    openFileInBrowser(context, record.fileUrl)
                                 }
                             )
                         }
@@ -158,11 +181,14 @@ fun PatientHealthRecordsScreen(navController: NavController, context: Context) {
 @Composable
 fun HealthRecordCard(
     record: HealthRecord,
+    context: Context,
     onDelete: () -> Unit,
     onView: () -> Unit
 ) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onView() },
         shape = RoundedCornerShape(24.dp),  // 24dp radius per design spec
         colors = CardDefaults.cardColors(containerColor = Color(0xFFFFFFFF)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)

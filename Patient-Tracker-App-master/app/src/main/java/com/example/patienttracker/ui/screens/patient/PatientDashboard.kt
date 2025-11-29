@@ -708,7 +708,7 @@ fun FloatingCardGrid(navController: NavController, fullName: String = "Patient",
             route = "full_schedule"
         ),
         FeatureCardData(
-            title = "Manage Dependents",
+            title = "Family Members",
             subtitle = "Add or view family",
             icon = Icons.Default.People,
             route = "patient_dependents"

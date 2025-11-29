@@ -405,7 +405,7 @@ private fun ManageDependentsCard(navController: NavController) {
                 modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = "Manage Dependents",
+                    text = "Family Members",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
                         color = PatientAccent

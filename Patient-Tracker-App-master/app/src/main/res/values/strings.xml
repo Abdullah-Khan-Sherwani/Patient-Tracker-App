@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">Patient Tracker</string>
+    
+    <!-- Email Validation -->
+    <string name="error_invalid_email">Please enter a valid email address</string>
+    
+    <!-- Dependents / Family Members -->
+    <string name="family_members">Family Members</string>
+    <string name="manage_family_members">Manage your family members and book appointments for them</string>
+    <string name="add_family_member">Add Family Member</string>
+    <string name="no_family_members">No Family Members</string>
+    <string name="no_family_members_subtitle">Add family members to book appointments on their behalf</string>
+    <string name="remove_family_member">Remove Family Member</string>
+    <string name="remove_family_member_confirm">Are you sure you want to remove %1$s?\n\nThis will also remove appointments and records for this family member.</string>
+    
+    <!-- Speciality Autocomplete -->
+    <string name="speciality_hint">Type to search specialities…</string>
+    <string name="no_matching_speciality">No matching speciality found. You can add a new one.</string>
 </resources>

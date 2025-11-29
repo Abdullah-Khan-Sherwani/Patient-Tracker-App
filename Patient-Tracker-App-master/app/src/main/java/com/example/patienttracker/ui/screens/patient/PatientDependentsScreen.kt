@@ -183,7 +183,7 @@ fun PatientDependentsScreen(navController: NavController, context: Context) {
                         Spacer(modifier = Modifier.width(8.dp))
                         Column {
                             Text(
-                                text = "Dependents",
+                                text = "Family Members",
                                 fontSize = 22.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White

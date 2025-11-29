@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +32,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.patienttracker.util.ValidationUtils
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.SetOptions
@@ -44,6 +46,7 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
     var firstName by remember { mutableStateOf("") }
     var lastName by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var emailError by remember { mutableStateOf<String?>(null) }
     var phone by remember { mutableStateOf("") }
     var dateOfBirth by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -52,6 +55,9 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
     var confirmPasswordVisible by remember { mutableStateOf(false) }
     var isLoading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    
+    // Email validation state
+    val isEmailValid = ValidationUtils.isValidEmail(email)
     
     // Password validation requirements
     val hasMinLength = password.length >= 8
@@ -175,7 +181,13 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
             // Email field
             OutlinedTextField(
                 value = email,
-                onValueChange = { email = it },
+                onValueChange = { 
+                    email = it
+                    // Clear error when user starts typing again
+                    if (emailError != null) {
+                        emailError = null
+                    }
+                },
                 label = { Text("Email") },
                 leadingIcon = {
                     Icon(
@@ -187,12 +199,17 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
                 singleLine = true,
                 shape = RoundedCornerShape(28.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Color(0xFFB36B3C),
-                    unfocusedBorderColor = Color(0xFF9E8B82),
+                    focusedBorderColor = if (emailError != null) Color(0xFFD32F2F) else Color(0xFFB36B3C),
+                    unfocusedBorderColor = if (emailError != null) Color(0xFFD32F2F) else Color(0xFF9E8B82),
                     focusedContainerColor = Color(0xFFF7ECE8),
-                    unfocusedContainerColor = Color(0xFFF7ECE8)
+                    unfocusedContainerColor = Color(0xFFF7ECE8),
+                    errorBorderColor = Color(0xFFD32F2F)
                 ),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                isError = emailError != null,
+                supportingText = if (emailError != null) {
+                    { Text(text = emailError!!, color = Color(0xFFD32F2F), fontSize = 12.sp) }
+                } else null
             )
 
             Spacer(Modifier.height(16.dp))
@@ -344,6 +361,11 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
                             dateOfBirth.isBlank() || password.isBlank()
                         ) {
                             Toast.makeText(context, "Please fill all required fields", Toast.LENGTH_SHORT).show()
+                            return@launch
+                        }
+                        // Validate email format
+                        if (!ValidationUtils.isValidEmail(email)) {
+                            emailError = "Please enter a valid email address"
                             return@launch
                         }
                         if (!dateOfBirth.matches(Regex("^\\d{2}/\\d{2}/\\d{4}$"))) {

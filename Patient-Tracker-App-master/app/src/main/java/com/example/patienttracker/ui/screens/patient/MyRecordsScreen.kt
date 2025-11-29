@@ -44,27 +44,41 @@ private val PrivateColor = Color(0xFFEF4444)        // Error red
 
 /**
  * Open a file URL in an external app (browser, PDF viewer, image viewer)
+ * For web URLs (http/https), opens directly in browser which handles PDFs natively
  */
 fun openFileUrl(context: Context, url: String, mimeType: String) {
+    android.util.Log.d("MyRecordsScreen", "=== OPEN FILE CALLED ===")
+    android.util.Log.d("MyRecordsScreen", "URL: '$url'")
+    android.util.Log.d("MyRecordsScreen", "MIME Type: '$mimeType'")
+    android.util.Log.d("MyRecordsScreen", "URL length: ${url.length}")
+    android.util.Log.d("MyRecordsScreen", "URL is blank: ${url.isBlank()}")
+    
+    if (url.isBlank()) {
+        android.util.Log.e("MyRecordsScreen", "ERROR: URL is empty or blank!")
+        android.widget.Toast.makeText(
+            context,
+            "Error: File URL is empty",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
+        return
+    }
+    
     try {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(Uri.parse(url), mimeType)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        // For web URLs, just open in browser - it handles PDFs and images natively
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
         }
-        // Try to open with specific mime type first
-        if (intent.resolveActivity(context.packageManager) != null) {
-            context.startActivity(intent)
-        } else {
-            // Fallback to browser
-            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            context.startActivity(browserIntent)
-        }
-    } catch (e: Exception) {
-        // Final fallback - just open in browser
-        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        android.util.Log.d("MyRecordsScreen", "Starting activity with intent...")
         context.startActivity(browserIntent)
+        android.util.Log.d("MyRecordsScreen", "Activity started successfully")
+        
+    } catch (e: Exception) {
+        android.util.Log.e("MyRecordsScreen", "Error opening file: ${e.message}", e)
+        android.widget.Toast.makeText(
+            context,
+            "Cannot open file: ${e.message}",
+            android.widget.Toast.LENGTH_LONG
+        ).show()
     }
 }
 
@@ -431,6 +445,9 @@ fun MyRecordsScreen(
                             }
                         },
                         onOpenFile = {
+                            android.util.Log.d("MyRecordsScreen", "RecordCard clicked! Opening: ${record.fileName}")
+                            android.util.Log.d("MyRecordsScreen", "Record fileUrl: ${record.fileUrl}")
+                            android.util.Log.d("MyRecordsScreen", "Record fileType: ${record.fileType}")
                             openFileUrl(context, record.fileUrl, record.fileType)
                         }
                     )
@@ -645,6 +662,35 @@ fun RecordCard(
                     }
 
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // Open File Button
+                        Surface(
+                            onClick = { 
+                                android.util.Log.d("RecordCard", "Open button clicked for: ${record.fileName}")
+                                onOpenFile() 
+                            },
+                            color = PrimaryColor,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.OpenInNew,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "Open",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                        
                         // View Access Log Button
                         Surface(
                             onClick = onViewAccessLog,

@@ -48,26 +48,25 @@ private val AccessDeniedColor = Color(0xFFD32F2F)
 
 /**
  * Open a file URL in an external app (browser, PDF viewer, image viewer)
+ * For web URLs (http/https), opens directly in browser which handles PDFs natively
  */
 fun openFileUrlDoctor(context: Context, url: String, mimeType: String) {
     try {
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(Uri.parse(url), mimeType)
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        android.util.Log.d("DoctorRecordsScreen", "Opening URL: $url with mimeType: $mimeType")
+        
+        // For web URLs, just open in browser - it handles PDFs and images natively
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
         }
-        if (intent.resolveActivity(context.packageManager) != null) {
-            context.startActivity(intent)
-        } else {
-            // Fallback to browser
-            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
-            context.startActivity(browserIntent)
-        }
-    } catch (e: Exception) {
-        // Final fallback
-        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
         context.startActivity(browserIntent)
+        
+    } catch (e: Exception) {
+        android.util.Log.e("DoctorRecordsScreen", "Error opening file: ${e.message}", e)
+        android.widget.Toast.makeText(
+            context,
+            "Cannot open file. Please try again.",
+            android.widget.Toast.LENGTH_SHORT
+        ).show()
     }
 }
 

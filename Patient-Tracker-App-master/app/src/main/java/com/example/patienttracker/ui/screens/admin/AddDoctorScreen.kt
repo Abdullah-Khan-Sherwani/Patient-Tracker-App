@@ -24,11 +24,14 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.patienttracker.data.DoctorAvailability
 import com.example.patienttracker.data.Specializations
+import com.example.patienttracker.data.SpecialityRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
@@ -58,6 +61,14 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
     var isLoading by remember { mutableStateOf(false) }
     var showSpecializationDropdown by remember { mutableStateOf(false) }
     
+    // Speciality autocomplete states
+    var specialitySearchQuery by remember { mutableStateOf("") }
+    var specialitySuggestions by remember { mutableStateOf<List<String>>(emptyList()) }
+    var isLoadingSuggestions by remember { mutableStateOf(false) }
+    var showSuggestions by remember { mutableStateOf(false) }
+    var allSpecialities by remember { mutableStateOf<List<String>>(emptyList()) }
+    var debounceJob by remember { mutableStateOf<Job?>(null) }
+    
     // Availability states for 7 days (Monday to Sunday)
     val availabilityList = remember {
         mutableStateListOf(
@@ -72,6 +83,28 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
     }
     
     val scope = rememberCoroutineScope()
+    
+    // Load all specialities on screen open
+    LaunchedEffect(Unit) {
+        allSpecialities = SpecialityRepository.getAllSpecialities()
+    }
+    
+    // Debounced search for speciality suggestions
+    LaunchedEffect(specialitySearchQuery) {
+        debounceJob?.cancel()
+        debounceJob = scope.launch {
+            delay(300) // 300ms debounce
+            isLoadingSuggestions = true
+            specialitySuggestions = if (specialitySearchQuery.isBlank()) {
+                // Show all specialities when empty
+                allSpecialities
+            } else {
+                // Filter based on search query
+                SpecialityRepository.getSuggestions(specialitySearchQuery)
+            }
+            isLoadingSuggestions = false
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -148,120 +181,253 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Specialization Multi-Select
+            // Specialization with Autocomplete
             Text(
-                text = "Select Specializations",
+                text = "Add Specializations",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF2F2019)
             )
             Spacer(modifier = Modifier.height(8.dp))
             
+            // Autocomplete text field for speciality
             Box {
-                Surface(
+                OutlinedTextField(
+                    value = specialitySearchQuery,
+                    onValueChange = { query ->
+                        specialitySearchQuery = query
+                        showSuggestions = true
+                    },
+                    label = { Text("Select or type speciality...") },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { showSpecializationDropdown = true },
-                    shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF5F0E8),
-                    shadowElevation = 2.dp
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = if (selectedSpecialties.isEmpty()) "Choose specializations" else "${selectedSpecialties.size} selected",
-                                color = if (selectedSpecialties.isEmpty()) Color(0xFF6B7280) else Color(0xFF2F2019),
-                                fontSize = 16.sp
+                        .clickable { showSuggestions = true },
+                    singleLine = true,
+                    trailingIcon = {
+                        if (isLoadingSuggestions) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Color(0xFFB8956A)
                             )
-                            Icon(
-                                imageVector = Icons.Default.ArrowDropDown,
-                                contentDescription = null,
-                                tint = Color(0xFFB8956A)
-                            )
+                        } else {
+                            IconButton(onClick = { 
+                                showSuggestions = !showSuggestions
+                                if (showSuggestions && specialitySearchQuery.isBlank()) {
+                                    specialitySuggestions = allSpecialities
+                                }
+                            }) {
+                                Icon(
+                                    if (showSuggestions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, 
+                                    contentDescription = "Toggle dropdown",
+                                    tint = Color(0xFFB8956A)
+                                )
+                            }
                         }
-                        
-                        // Display selected specialties as chips
-                        if (selectedSpecialties.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            androidx.compose.foundation.layout.FlowRow(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                selectedSpecialties.forEach { specialty ->
-                                    Surface(
-                                        shape = RoundedCornerShape(16.dp),
-                                        color = Color(0xFFB8956A).copy(alpha = 0.2f)
+                    },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = Color(0xFFB8956A),
+                        unfocusedBorderColor = Color(0xFFD4C4B0)
+                    ),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                
+                // Suggestions dropdown - shows all when empty, filtered when typing
+                DropdownMenu(
+                    expanded = showSuggestions,
+                    onDismissRequest = { showSuggestions = false },
+                    modifier = Modifier
+                        .fillMaxWidth(0.9f)
+                        .heightIn(max = 300.dp)
+                        .background(Color.White)
+                ) {
+                    // Show filtered suggestions or all specialities
+                    val displayList = if (specialitySearchQuery.isBlank()) allSpecialities else specialitySuggestions
+                    
+                    if (displayList.isEmpty() && specialitySearchQuery.length >= 2) {
+                        // No matches - allow adding new speciality
+                        DropdownMenuItem(
+                            text = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = null,
+                                        tint = Color(0xFFB8956A),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                    Column {
+                                        Text(
+                                            "Add \"$specialitySearchQuery\"",
+                                            fontWeight = FontWeight.Medium,
+                                            color = Color(0xFF2F2019)
+                                        )
+                                        Text(
+                                            "New speciality",
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF6B7280)
+                                        )
+                                    }
+                                }
+                            },
+                            onClick = {
+                                val newSpec = specialitySearchQuery.trim()
+                                if (newSpec.isNotEmpty() && !selectedSpecialties.contains(newSpec)) {
+                                    selectedSpecialties = selectedSpecialties + newSpec
+                                    // Also save to Firestore for future use
+                                    scope.launch {
+                                        SpecialityRepository.addSpeciality(newSpec)
+                                    }
+                                }
+                                specialitySearchQuery = ""
+                                showSuggestions = false
+                            }
+                        )
+                    } else {
+                        displayList.forEach { suggestion ->
+                            val isSelected = selectedSpecialties.contains(suggestion)
+                            DropdownMenuItem(
+                                text = {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                        ) {
-                                            Text(
-                                                text = specialty,
-                                                fontSize = 12.sp,
-                                                color = Color(0xFF2F2019)
-                                            )
+                                        Text(
+                                            suggestion,
+                                            color = if (isSelected) Color(0xFF6B7280) else Color(0xFF2F2019)
+                                        )
+                                        if (isSelected) {
                                             Icon(
-                                                imageVector = Icons.Default.Close,
-                                                contentDescription = "Remove",
-                                                tint = Color(0xFF2F2019),
-                                                modifier = Modifier
-                                                    .size(16.dp)
-                                                    .clickable {
-                                                        selectedSpecialties = selectedSpecialties - specialty
-                                                    }
+                                                Icons.Default.Check,
+                                                contentDescription = "Already added",
+                                                tint = Color(0xFFB8956A),
+                                                modifier = Modifier.size(18.dp)
                                             )
                                         }
+                                    }
+                                },
+                                onClick = {
+                                    if (!isSelected) {
+                                        selectedSpecialties = selectedSpecialties + suggestion
+                                    }
+                                    specialitySearchQuery = ""
+                                    showSuggestions = false
+                                },
+                                enabled = !isSelected
+                            )
+                        }
+                    }
+                }
+            }
+            
+            // Also show browse all button
+            Spacer(modifier = Modifier.height(8.dp))
+            TextButton(
+                onClick = { showSpecializationDropdown = true },
+                modifier = Modifier.align(Alignment.Start)
+            ) {
+                Icon(
+                    Icons.Default.List,
+                    contentDescription = null,
+                    tint = Color(0xFFB8956A),
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(Modifier.width(4.dp))
+                Text("Browse all specialities", color = Color(0xFFB8956A), fontSize = 13.sp)
+            }
+            
+            // Selected specialities chips
+            if (selectedSpecialties.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    color = Color(0xFFF5F0E8)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(
+                            "${selectedSpecialties.size} specialit${if (selectedSpecialties.size > 1) "ies" else "y"} selected",
+                            fontSize = 12.sp,
+                            color = Color(0xFF6B7280),
+                            fontWeight = FontWeight.Medium
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        androidx.compose.foundation.layout.FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            selectedSpecialties.forEach { specialty ->
+                                Surface(
+                                    shape = RoundedCornerShape(16.dp),
+                                    color = Color(0xFFB8956A).copy(alpha = 0.2f)
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                    ) {
+                                        Text(
+                                            text = specialty,
+                                            fontSize = 12.sp,
+                                            color = Color(0xFF2F2019)
+                                        )
+                                        Icon(
+                                            imageVector = Icons.Default.Close,
+                                            contentDescription = "Remove",
+                                            tint = Color(0xFF2F2019),
+                                            modifier = Modifier
+                                                .size(16.dp)
+                                                .clickable {
+                                                    selectedSpecialties = selectedSpecialties - specialty
+                                                }
+                                        )
                                     }
                                 }
                             }
                         }
                     }
                 }
-
-                DropdownMenu(
-                    expanded = showSpecializationDropdown,
-                    onDismissRequest = { showSpecializationDropdown = false },
-                    modifier = Modifier
-                        .fillMaxWidth(0.9f)
-                        .background(Color.White)
-                ) {
-                    Specializations.list.forEach { spec ->
-                        DropdownMenuItem(
-                            text = {
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(spec)
-                                    if (selectedSpecialties.contains(spec)) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = "Selected",
-                                            tint = Color(0xFFB8956A)
-                                        )
-                                    }
-                                }
-                            },
-                            onClick = {
-                                selectedSpecialties = if (selectedSpecialties.contains(spec)) {
-                                    selectedSpecialties - spec
-                                } else {
-                                    selectedSpecialties + spec
+            }
+            
+            // Full list dropdown (browse all)
+            DropdownMenu(
+                expanded = showSpecializationDropdown,
+                onDismissRequest = { showSpecializationDropdown = false },
+                modifier = Modifier
+                    .fillMaxWidth(0.9f)
+                    .heightIn(max = 300.dp)
+                    .background(Color.White)
+            ) {
+                val displayList = if (allSpecialities.isNotEmpty()) allSpecialities else Specializations.list
+                displayList.forEach { spec ->
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(spec)
+                                if (selectedSpecialties.contains(spec)) {
+                                    Icon(
+                                        imageVector = Icons.Default.Check,
+                                        contentDescription = "Selected",
+                                        tint = Color(0xFFB8956A)
+                                    )
                                 }
                             }
-                        )
-                    }
+                        },
+                        onClick = {
+                            selectedSpecialties = if (selectedSpecialties.contains(spec)) {
+                                selectedSpecialties - spec
+                            } else {
+                                selectedSpecialties + spec
+                            }
+                        }
+                    )
                 }
             }
 

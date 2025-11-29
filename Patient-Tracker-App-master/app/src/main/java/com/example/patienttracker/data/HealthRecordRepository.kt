@@ -24,6 +24,7 @@ object HealthRecordRepository {
     
     /**
      * Upload a new health record (file to Supabase + metadata to Firestore)
+     * Falls back to Firebase Storage if Supabase fails
      * @param fileUri Local file URI
      * @param fileName Original file name
      * @param fileType MIME type
@@ -57,7 +58,8 @@ object HealthRecordRepository {
             val currentUser = auth.currentUser
                 ?: return Result.failure(Exception("User not authenticated"))
             
-            // 1) Upload file to Supabase Storage
+            // Try Supabase first, fall back to Firebase Storage
+            val fileUrl: String
             val uploadResult = SupabaseStorageRepository.uploadRecord(
                 patientId = currentUser.uid,
                 dependentId = dependentId.ifBlank { null },
@@ -65,11 +67,21 @@ object HealthRecordRepository {
                 context = context
             )
             
-            if (uploadResult.isFailure) {
-                return Result.failure(uploadResult.exceptionOrNull()!!)
+            if (uploadResult.isSuccess) {
+                fileUrl = uploadResult.getOrNull()!!
+                android.util.Log.d("HealthRecordRepo", "Supabase upload succeeded: $fileUrl")
+            } else {
+                // Fall back to Firebase Storage
+                android.util.Log.w("HealthRecordRepo", "Supabase failed, falling back to Firebase: ${uploadResult.exceptionOrNull()?.message}")
+                val firebaseResult = StorageRepository.uploadHealthRecord(
+                    fileUri, currentUser.uid, fileName
+                )
+                if (firebaseResult.isFailure) {
+                    return Result.failure(firebaseResult.exceptionOrNull()!!)
+                }
+                fileUrl = firebaseResult.getOrNull()!!
+                android.util.Log.d("HealthRecordRepo", "Firebase upload succeeded: $fileUrl")
             }
-            
-            val fileUrl = uploadResult.getOrNull()!!
             
             // 2) Get patient name
             val userDoc = db.collection("users").document(currentUser.uid).get().await()
@@ -192,23 +204,57 @@ object HealthRecordRepository {
     }
     
     /**
-     * Get all health records for the current patient (self, not dependents)
+     * Get all health records for the current patient (including dependents)
      */
     suspend fun getPatientRecords(): Result<List<HealthRecord>> {
         return try {
             val currentUser = auth.currentUser
                 ?: return Result.failure(Exception("User not authenticated"))
             
+            android.util.Log.d("HealthRecordRepo", "Fetching records for patient: ${currentUser.uid}")
+            
             val snapshot = db.collection(COLLECTION)
                 .whereEqualTo("patientUid", currentUser.uid)
-                .whereEqualTo("dependentId", "") // Only self records
-                .orderBy("uploadDate", Query.Direction.DESCENDING)
+                .get()
+                .await()
+            
+            android.util.Log.d("HealthRecordRepo", "Found ${snapshot.size()} records")
+            
+            val records = snapshot.documents.mapNotNull { doc ->
+                try {
+                    HealthRecord.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
+                } catch (e: Exception) {
+                    android.util.Log.e("HealthRecordRepo", "Error parsing record ${doc.id}: ${e.message}")
+                    null
+                }
+            }.sortedByDescending { it.uploadDate.seconds }
+            
+            android.util.Log.d("HealthRecordRepo", "Returning ${records.size} parsed records")
+            Result.success(records)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HealthRecordRepo", "Error fetching records: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get health records for self only (not dependents)
+     */
+    suspend fun getPatientSelfRecords(): Result<List<HealthRecord>> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            val snapshot = db.collection(COLLECTION)
+                .whereEqualTo("patientUid", currentUser.uid)
                 .get()
                 .await()
             
             val records = snapshot.documents.mapNotNull { doc ->
                 HealthRecord.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
-            }
+            }.filter { it.dependentId.isBlank() }
+             .sortedByDescending { it.uploadDate.seconds }
             
             Result.success(records)
             

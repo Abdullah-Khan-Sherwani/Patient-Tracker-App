@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 object SupabaseStorageRepository {
     
     private const val TAG = "SupabaseStorageRepo"
-    private const val BUCKET_NAME = "medical_records"
+    private const val BUCKET_NAME = "medical-reports"
     
     /**
      * Upload a health record file to Supabase Storage

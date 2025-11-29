@@ -83,6 +83,14 @@ dependencies {
     // Supabase Kotlin SDK
     implementation("io.github.jan-tennert.supabase:supabase-kt:2.5.2")
     implementation("io.github.jan-tennert.supabase:storage-kt:2.5.2")
+    
+    // Ktor client engine (required for Supabase)
+    implementation("io.ktor:ktor-client-android:2.3.11")
+    implementation("io.ktor:ktor-client-core:2.3.11")
+    implementation("io.ktor:ktor-utils:2.3.11")
+    
+    // Coil for image loading
+    implementation("io.coil-kt:coil-compose:2.5.0")
 
 
     // Testing (keep as is)

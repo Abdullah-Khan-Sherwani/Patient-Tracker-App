@@ -1,6 +1,8 @@
 package com.example.patienttracker.ui.screens.doctor
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,12 +15,18 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.patienttracker.data.AccessDeniedException
 import com.example.patienttracker.data.HealthRecord
 import com.example.patienttracker.data.HealthRecordRepository
@@ -37,6 +45,31 @@ private val BorderColor = Color(0xFFD4C4B0)
 private val PrivateColor = Color(0xFFE57373)
 private val GlassBreakColor = Color(0xFFFF5722)
 private val AccessDeniedColor = Color(0xFFD32F2F)
+
+/**
+ * Open a file URL in an external app (browser, PDF viewer, image viewer)
+ */
+fun openFileUrlDoctor(context: Context, url: String, mimeType: String) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse(url), mimeType)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
+        } else {
+            // Fallback to browser
+            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            context.startActivity(browserIntent)
+        }
+    } catch (e: Exception) {
+        // Final fallback
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        context.startActivity(browserIntent)
+    }
+}
 
 enum class SortOption {
     DATE_DESC, DATE_ASC, NAME_ASC, NAME_DESC, TYPE
@@ -564,9 +597,13 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                             items(displayedRecords) { record ->
                                 DoctorRecordCard(
                                     record = record,
+                                    context = context,
                                     onGlassBreak = {
                                         selectedPrivateRecord = record
                                         showGlassBreakDialog = true
+                                    },
+                                    onOpenFile = {
+                                        openFileUrlDoctor(context, record.fileUrl, record.fileType)
                                     }
                                 )
                             }
@@ -581,7 +618,9 @@ fun EnhancedDoctorViewPatientRecordsScreen(
 @Composable
 fun DoctorRecordCard(
     record: HealthRecord,
-    onGlassBreak: () -> Unit
+    context: Context,
+    onGlassBreak: () -> Unit,
+    onOpenFile: () -> Unit
 ) {
     val currentUserUid = Firebase.auth.currentUser?.uid
     val canAccess = !record.isPrivate || 
@@ -591,7 +630,7 @@ fun DoctorRecordCard(
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = canAccess) { /* TODO: Open file viewer */ },
+            .clickable(enabled = canAccess) { onOpenFile() },
         colors = CardDefaults.cardColors(
             containerColor = when {
                 !canAccess -> PrivateColor.copy(alpha = 0.15f)
@@ -602,142 +641,215 @@ fun DoctorRecordCard(
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Thumbnail Preview
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(if (canAccess) AccentColor.copy(alpha = 0.1f) else PrivateColor.copy(alpha = 0.1f))
+                    .clickable(enabled = canAccess) { onOpenFile() },
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        when {
-                            record.isImage() -> Icons.Default.Image
-                            record.isPdf() -> Icons.Default.Description
-                            else -> Icons.Default.AttachFile
-                        },
-                        contentDescription = null,
-                        tint = if (canAccess) AccentColor else PrivateColor,
-                        modifier = Modifier.size(28.dp)
-                    )
-                    Spacer(Modifier.width(12.dp))
-                    Column {
-                        Text(
-                            record.fileName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 16.sp,
-                            color = PrimaryColor
+                if (canAccess) {
+                    if (record.isImage()) {
+                        // Show image thumbnail
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(record.fileUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = "Preview",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(12.dp)),
+                            contentScale = ContentScale.Crop
                         )
-                        Text(
-                            record.getFormattedFileSize(),
-                            fontSize = 12.sp,
-                            color = AccentColor
-                        )
-                    }
-                }
-
-                if (record.isPrivate) {
-                    Surface(
-                        color = PrivateColor,
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    } else {
+                        // PDF or other file - show icon
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                Icons.Default.Lock,
+                                when {
+                                    record.isPdf() -> Icons.Default.PictureAsPdf
+                                    else -> Icons.Default.InsertDriveFile
+                                },
                                 contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                                tint = Color.White
+                                tint = if (record.isPdf()) Color(0xFFE53935) else AccentColor,
+                                modifier = Modifier.size(36.dp)
                             )
-                            Spacer(Modifier.width(4.dp))
                             Text(
-                                "PRIVATE",
+                                record.getFileExtension().uppercase(),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                color = PrimaryColor.copy(alpha = 0.6f)
                             )
                         }
                     }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            if (canAccess) {
-                Text(
-                    record.description,
-                    fontSize = 14.sp,
-                    color = PrimaryColor.copy(alpha = 0.8f)
-                )
-
-                if (record.notes.isNotBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Notes: ${record.notes}",
-                        fontSize = 12.sp,
-                        color = AccentColor,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                } else {
+                    // Locked thumbnail
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = "Private",
+                        tint = PrivateColor,
+                        modifier = Modifier.size(36.dp)
                     )
                 }
-
-                if (record.pastMedication.isNotBlank()) {
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        "Past Medication: ${record.pastMedication}",
-                        fontSize = 12.sp,
-                        color = AccentColor,
-                        fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                    )
-                }
-            } else {
-                Text(
-                    "🔒 This is a private record. Click \"Break Glass\" to request emergency access.",
-                    fontSize = 13.sp,
-                    color = PrivateColor,
-                    fontWeight = FontWeight.Medium
-                )
             }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Footer
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            
+            // Content Column
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Text(
-                    SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                        .format(record.uploadDate.toDate()),
-                    fontSize = 12.sp,
-                    color = AccentColor,
-                    fontWeight = FontWeight.Medium
-                )
-
-                if (!canAccess) {
-                    Button(
-                        onClick = onGlassBreak,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = GlassBreakColor
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Warning,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(6.dp))
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            "Break Glass",
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Bold
+                            record.fileName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = PrimaryColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
+                        Text(
+                            record.getFormattedFileSize(),
+                            fontSize = 11.sp,
+                            color = AccentColor
+                        )
+                    }
+
+                    if (record.isPrivate) {
+                        Surface(
+                            color = PrivateColor,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(10.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(Modifier.width(2.dp))
+                                Text(
+                                    "PRIVATE",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (canAccess) {
+                    if (record.description.isNotBlank()) {
+                        Text(
+                            record.description,
+                            fontSize = 12.sp,
+                            color = PrimaryColor.copy(alpha = 0.8f),
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    if (record.notes.isNotBlank()) {
+                        Text(
+                            "Notes: ${record.notes}",
+                            fontSize = 11.sp,
+                            color = AccentColor,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                } else {
+                    Text(
+                        "🔒 Private record - Break Glass to access",
+                        fontSize = 11.sp,
+                        color = PrivateColor,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+
+                // Footer
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                            .format(record.uploadDate.toDate()),
+                        fontSize = 11.sp,
+                        color = AccentColor
+                    )
+
+                    if (!canAccess) {
+                        Surface(
+                            onClick = onGlassBreak,
+                            color = GlassBreakColor,
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Warning,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "Break Glass",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    } else {
+                        // Open icon for accessible records
+                        Surface(
+                            onClick = onOpenFile,
+                            color = AccentColor.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.OpenInNew,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = AccentColor
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "Open",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentColor
+                                )
+                            }
+                        }
                     }
                 }
             }

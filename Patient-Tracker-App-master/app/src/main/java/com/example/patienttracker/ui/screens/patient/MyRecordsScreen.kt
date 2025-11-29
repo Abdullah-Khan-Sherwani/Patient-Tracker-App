@@ -1,6 +1,8 @@
 package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,11 +15,17 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.patienttracker.data.HealthRecord
 import com.example.patienttracker.data.HealthRecordRepository
 import kotlinx.coroutines.launch
@@ -33,6 +41,32 @@ private val PrimaryColor = Color(0xFF0E4944)        // Deep Teal
 private val AccentColor = Color(0xFF76DCB0)         // Mint accent
 private val BorderColor = Color(0xFF16605A)         // Lighter teal border
 private val PrivateColor = Color(0xFFEF4444)        // Error red
+
+/**
+ * Open a file URL in an external app (browser, PDF viewer, image viewer)
+ */
+fun openFileUrl(context: Context, url: String, mimeType: String) {
+    try {
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(Uri.parse(url), mimeType)
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        }
+        // Try to open with specific mime type first
+        if (intent.resolveActivity(context.packageManager) != null) {
+            context.startActivity(intent)
+        } else {
+            // Fallback to browser
+            val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+            context.startActivity(browserIntent)
+        }
+    } catch (e: Exception) {
+        // Final fallback - just open in browser
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        browserIntent.flags = Intent.FLAG_ACTIVITY_NEW_TASK
+        context.startActivity(browserIntent)
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -383,6 +417,7 @@ fun MyRecordsScreen(
                 items(records) { record ->
                     RecordCard(
                         record = record,
+                        context = context,
                         onViewAccessLog = {
                             selectedRecord = record
                             showAccessLog = true
@@ -394,6 +429,9 @@ fun MyRecordsScreen(
                                     records = records.filter { it.recordId != record.recordId }
                                 }
                             }
+                        },
+                        onOpenFile = {
+                            openFileUrl(context, record.fileUrl, record.fileType)
                         }
                     )
                 }
@@ -405,8 +443,10 @@ fun MyRecordsScreen(
 @Composable
 fun RecordCard(
     record: HealthRecord,
+    context: Context,
     onViewAccessLog: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onOpenFile: () -> Unit
 ) {
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -436,143 +476,213 @@ fun RecordCard(
     }
 
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onOpenFile() },
         colors = CardDefaults.cardColors(
             containerColor = if (record.isPrivate) PrivateColor.copy(alpha = 0.1f) else SurfaceColor
         ),
         shape = RoundedCornerShape(20.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp)
+        Row(
+            modifier = Modifier.padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            // Header Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Thumbnail Preview
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(AccentColor.copy(alpha = 0.1f))
+                    .clickable { onOpenFile() },
+                contentAlignment = Alignment.Center
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        when {
-                            record.isImage() -> Icons.Default.Image
-                            record.isPdf() -> Icons.Default.Description
-                            else -> Icons.Default.AttachFile
-                        },
-                        contentDescription = null,
-                        tint = AccentColor,
-                        modifier = Modifier.size(24.dp)
+                if (record.isImage()) {
+                    // Show image thumbnail
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(record.fileUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Preview",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .clip(RoundedCornerShape(12.dp)),
+                        contentScale = ContentScale.Crop
                     )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        record.fileName,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        color = PrimaryColor
-                    )
-                }
-
-                if (record.isPrivate) {
-                    Surface(
-                        color = PrivateColor,
-                        shape = RoundedCornerShape(12.dp)
+                } else {
+                    // PDF or other file - show icon
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                Icons.Default.Lock,
-                                contentDescription = null,
-                                modifier = Modifier.size(12.dp),
-                                tint = Color.White
-                            )
-                            Spacer(Modifier.width(4.dp))
+                        Icon(
+                            when {
+                                record.isPdf() -> Icons.Default.PictureAsPdf
+                                else -> Icons.Default.InsertDriveFile
+                            },
+                            contentDescription = null,
+                            tint = if (record.isPdf()) Color(0xFFE53935) else AccentColor,
+                            modifier = Modifier.size(36.dp)
+                        )
+                        Text(
+                            record.getFileExtension().uppercase(),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = PrimaryColor.copy(alpha = 0.6f)
+                        )
+                    }
+                }
+                
+                // Tap to open overlay
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(Color.Black.copy(alpha = 0.0f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Optional: show play/open icon on hover
+                }
+            }
+            
+            // Content Column
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Header Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            record.fileName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            color = PrimaryColor,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        // Show dependent name if this is for a dependent
+                        if (record.dependentName.isNotBlank()) {
                             Text(
-                                "Private",
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White
+                                "For: ${record.dependentName}",
+                                fontSize = 11.sp,
+                                color = AccentColor
                             )
                         }
                     }
+
+                    if (record.isPrivate) {
+                        Surface(
+                            color = PrivateColor,
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Lock,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(10.dp),
+                                    tint = Color.White
+                                )
+                                Spacer(Modifier.width(2.dp))
+                                Text(
+                                    "Private",
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                            }
+                        }
+                    }
                 }
-            }
-
-            Spacer(Modifier.height(8.dp))
-
-            Text(
-                record.description,
-                fontSize = 14.sp,
-                color = PrimaryColor.copy(alpha = 0.7f)
-            )
-
-            if (record.notes.isNotBlank()) {
-                Spacer(Modifier.height(4.dp))
-                Text(
-                    "Notes: ${record.notes}",
-                    fontSize = 12.sp,
-                    color = AccentColor
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            // Footer Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
+                
+                // Description
+                if (record.description.isNotBlank()) {
                     Text(
-                        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                            .format(record.uploadDate.toDate()),
+                        record.description,
                         fontSize = 12.sp,
-                        color = AccentColor
-                    )
-                    Text(
-                        record.getFormattedFileSize(),
-                        fontSize = 11.sp,
-                        color = PrimaryColor.copy(alpha = 0.5f)
+                        color = PrimaryColor.copy(alpha = 0.7f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    // View Access Log Button
-                    Button(
-                        onClick = onViewAccessLog,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = AccentColor.copy(alpha = 0.2f),
-                            contentColor = AccentColor
-                        ),
-                        shape = RoundedCornerShape(16.dp),
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Visibility,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(Modifier.width(4.dp))
+                if (record.notes.isNotBlank()) {
+                    Text(
+                        "Notes: ${record.notes}",
+                        fontSize = 11.sp,
+                        color = AccentColor,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // Footer Row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
                         Text(
-                            "${record.viewedBy.size}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold
+                            SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                                .format(record.uploadDate.toDate()),
+                            fontSize = 11.sp,
+                            color = AccentColor
+                        )
+                        Text(
+                            record.getFormattedFileSize(),
+                            fontSize = 10.sp,
+                            color = PrimaryColor.copy(alpha = 0.5f)
                         )
                     }
 
-                    // Delete Button
-                    IconButton(
-                        onClick = { showDeleteDialog = true },
-                        modifier = Modifier.size(32.dp)
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Delete",
-                            tint = Color.Red,
-                            modifier = Modifier.size(20.dp)
-                        )
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                        // View Access Log Button
+                        Surface(
+                            onClick = onViewAccessLog,
+                            color = AccentColor.copy(alpha = 0.15f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    Icons.Default.Visibility,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(14.dp),
+                                    tint = AccentColor
+                                )
+                                Spacer(Modifier.width(4.dp))
+                                Text(
+                                    "${record.viewedBy.size}",
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = AccentColor
+                                )
+                            }
+                        }
+
+                        // Delete Button
+                        IconButton(
+                            onClick = { showDeleteDialog = true },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = Color.Red.copy(alpha = 0.7f),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }

@@ -323,7 +323,7 @@ object AppointmentRepository {
     
     /**
      * Check if doctor has active appointment with patient (for access control)
-     * Active means: status = "scheduled" AND appointmentDate >= today (not expired)
+     * Active means: status IN (scheduled, confirmed, pending) AND appointmentDate >= today
      */
     suspend fun hasActiveAppointment(doctorUid: String, patientUid: String): Result<Boolean> {
         return try {
@@ -336,16 +336,26 @@ object AppointmentRepository {
             }
             val todayTimestamp = Timestamp(todayCalendar.time)
             
-            val snapshot = db.collection(COLLECTION)
-                .whereEqualTo("doctorUid", doctorUid)
-                .whereEqualTo("patientUid", patientUid)
-                .whereEqualTo("status", "scheduled")
-                .whereGreaterThanOrEqualTo("appointmentDate", todayTimestamp)
-                .get()
-                .await()
+            // Check for active statuses: scheduled, confirmed, pending
+            val activeStatuses = listOf("scheduled", "confirmed", "pending")
             
-            android.util.Log.d("AppointmentRepo", "hasActiveAppointment: doctor=$doctorUid, patient=$patientUid, found=${!snapshot.isEmpty}")
-            Result.success(!snapshot.isEmpty)
+            for (status in activeStatuses) {
+                val snapshot = db.collection(COLLECTION)
+                    .whereEqualTo("doctorUid", doctorUid)
+                    .whereEqualTo("patientUid", patientUid)
+                    .whereEqualTo("status", status)
+                    .whereGreaterThanOrEqualTo("appointmentDate", todayTimestamp)
+                    .get()
+                    .await()
+                
+                if (!snapshot.isEmpty) {
+                    android.util.Log.d("AppointmentRepo", "hasActiveAppointment: doctor=$doctorUid, patient=$patientUid, found with status=$status")
+                    return Result.success(true)
+                }
+            }
+            
+            android.util.Log.d("AppointmentRepo", "hasActiveAppointment: doctor=$doctorUid, patient=$patientUid, found=false")
+            Result.success(false)
             
         } catch (e: Exception) {
             android.util.Log.e("AppointmentRepo", "hasActiveAppointment error: ${e.message}")
@@ -354,44 +364,24 @@ object AppointmentRepository {
     }
     
     /**
-     * Check if doctor has any relationship with patient (active OR completed appointments)
-     * Used for accessing records - doctors who have treated a patient can view their records
+     * Check if doctor has any relationship with patient (any appointment regardless of status)
+     * Used for accessing records - doctors who have ANY appointment with a patient can view non-private records
      */
     suspend fun hasAppointmentRelationship(doctorUid: String, patientUid: String): Result<Boolean> {
         return try {
-            // Check for any scheduled (today or future) OR completed appointments
-            val todayCalendar = java.util.Calendar.getInstance().apply {
-                set(java.util.Calendar.HOUR_OF_DAY, 0)
-                set(java.util.Calendar.MINUTE, 0)
-                set(java.util.Calendar.SECOND, 0)
-                set(java.util.Calendar.MILLISECOND, 0)
-            }
-            val todayTimestamp = Timestamp(todayCalendar.time)
-            
-            // First check for active/future scheduled appointments
-            val activeSnapshot = db.collection(COLLECTION)
+            // Simply check if ANY appointment exists between doctor and patient
+            // This is the most permissive check - if doctor appears in patient's appointments, allow access
+            val anyAppointmentSnapshot = db.collection(COLLECTION)
                 .whereEqualTo("doctorUid", doctorUid)
                 .whereEqualTo("patientUid", patientUid)
-                .whereEqualTo("status", "scheduled")
-                .whereGreaterThanOrEqualTo("appointmentDate", todayTimestamp)
+                .limit(1) // We only need to know if at least one exists
                 .get()
                 .await()
             
-            if (!activeSnapshot.isEmpty) {
-                android.util.Log.d("AppointmentRepo", "hasAppointmentRelationship: found active appointment")
-                return Result.success(true)
-            }
+            val hasRelationship = !anyAppointmentSnapshot.isEmpty
+            android.util.Log.d("AppointmentRepo", "hasAppointmentRelationship: doctor=$doctorUid, patient=$patientUid, hasAnyAppointment=$hasRelationship")
             
-            // Also check for completed appointments (doctor has treated this patient before)
-            val completedSnapshot = db.collection(COLLECTION)
-                .whereEqualTo("doctorUid", doctorUid)
-                .whereEqualTo("patientUid", patientUid)
-                .whereEqualTo("status", "completed")
-                .get()
-                .await()
-            
-            android.util.Log.d("AppointmentRepo", "hasAppointmentRelationship: doctor=$doctorUid, patient=$patientUid, hasCompleted=${!completedSnapshot.isEmpty}")
-            Result.success(!completedSnapshot.isEmpty)
+            Result.success(hasRelationship)
             
         } catch (e: Exception) {
             android.util.Log.e("AppointmentRepo", "hasAppointmentRelationship error: ${e.message}")

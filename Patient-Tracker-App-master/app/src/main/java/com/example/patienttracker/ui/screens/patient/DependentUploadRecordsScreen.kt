@@ -474,6 +474,7 @@ fun DependentUploadRecordsScreen(
                                     fileType = file.type,
                                     fileSize = file.size,
                                     description = description,
+                                    context = context,
                                     isPrivate = isPrivate,
                                     notes = notes,
                                     pastMedication = pastMedication,

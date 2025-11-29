@@ -6,9 +6,15 @@ plugins {
     alias(libs.plugins.google.services)    // ✅ resolves version from libs.versions.toml
 }
 
+
 android {
     namespace = "com.example.patienttracker"
     compileSdk = 36
+
+    buildFeatures {
+        buildConfig = true
+    }
+
 
     defaultConfig {
         applicationId = "com.example.patienttracker"
@@ -17,7 +23,12 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("String", "SUPABASE_URL", "\"https://eqluxmkkuhypeyoitmok.supabase.co\"")
+        buildConfigField("String", "SUPABASE_ANON_KEY", "\"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVxbHV4bWtrdWh5cGV5b2l0bW9rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ0MTQwMDksImV4cCI6MjA3OTk5MDAwOX0.nsm1-ByYuOz66vqs6qu-rcgnA-_pnI2im1_Pz-BEOGk\"")
     }
+
+
 
     buildTypes {
         release {
@@ -68,6 +79,11 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics-ktx")
     implementation("com.google.firebase:firebase-storage-ktx")
     implementation("com.google.firebase:firebase-messaging-ktx")
+
+    // Supabase Kotlin SDK
+    implementation("io.github.jan-tennert.supabase:supabase-kt:2.5.2")
+    implementation("io.github.jan-tennert.supabase:storage-kt:2.5.2")
+
 
     // Testing (keep as is)
     testImplementation(libs.junit)

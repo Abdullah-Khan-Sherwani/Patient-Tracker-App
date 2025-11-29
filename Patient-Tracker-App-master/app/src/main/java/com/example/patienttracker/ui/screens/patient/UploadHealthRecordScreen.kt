@@ -203,6 +203,7 @@ fun UploadHealthRecordScreen(navController: NavController, context: Context) {
                             fileType = fileType,
                             fileSize = fileSize,
                             description = description.trim(),
+                            context = context,
                             tags = listOf("patient_uploaded")
                         )
 

@@ -15,9 +15,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.patienttracker.data.AccessDeniedException
 import com.example.patienttracker.data.HealthRecord
 import com.example.patienttracker.data.HealthRecordRepository
 import com.google.firebase.auth.ktx.auth
@@ -34,6 +36,7 @@ private val AccentColor = Color(0xFFB8956A)
 private val BorderColor = Color(0xFFD4C4B0)
 private val PrivateColor = Color(0xFFE57373)
 private val GlassBreakColor = Color(0xFFFF5722)
+private val AccessDeniedColor = Color(0xFFD32F2F)
 
 enum class SortOption {
     DATE_DESC, DATE_ASC, NAME_ASC, NAME_DESC, TYPE
@@ -41,6 +44,16 @@ enum class SortOption {
 
 enum class FilterOption {
     ALL, IMAGES, PDFS, PRIVATE_ONLY
+}
+
+/**
+ * Sealed UI State for doctor records screen
+ */
+sealed class DoctorRecordsUiState {
+    object Loading : DoctorRecordsUiState()
+    data class Success(val records: List<HealthRecord>) : DoctorRecordsUiState()
+    data class Error(val message: String) : DoctorRecordsUiState()
+    data class AccessDenied(val message: String) : DoctorRecordsUiState()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -51,10 +64,9 @@ fun EnhancedDoctorViewPatientRecordsScreen(
     patientUid: String,
     patientName: String
 ) {
+    var uiState by remember { mutableStateOf<DoctorRecordsUiState>(DoctorRecordsUiState.Loading) }
     var allRecords by remember { mutableStateOf<List<HealthRecord>>(emptyList()) }
     var displayedRecords by remember { mutableStateOf<List<HealthRecord>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
     var sortOption by remember { mutableStateOf(SortOption.DATE_DESC) }
     var filterOption by remember { mutableStateOf(FilterOption.ALL) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -66,22 +78,30 @@ fun EnhancedDoctorViewPatientRecordsScreen(
 
     // Load records
     LaunchedEffect(Unit) {
-        isLoading = true
+        uiState = DoctorRecordsUiState.Loading
         val result = HealthRecordRepository.getDoctorAccessibleRecordsForPatient(patientUid)
-        if (result.isSuccess) {
-            allRecords = result.getOrNull() ?: emptyList()
-            displayedRecords = allRecords
+        
+        uiState = if (result.isSuccess) {
+            val records = result.getOrNull() ?: emptyList()
+            allRecords = records
+            displayedRecords = records
             
             // Record views for accessible records
-            allRecords.forEach { record ->
+            records.forEach { record ->
                 if (!record.isPrivate || record.doctorAccessList.contains(Firebase.auth.currentUser?.uid)) {
                     HealthRecordRepository.recordView(record.recordId, wasGlassBreak = false)
                 }
             }
+            
+            DoctorRecordsUiState.Success(records)
         } else {
-            errorMessage = result.exceptionOrNull()?.message
+            val exception = result.exceptionOrNull()
+            if (exception is AccessDeniedException) {
+                DoctorRecordsUiState.AccessDenied(exception.message ?: "Access denied")
+            } else {
+                DoctorRecordsUiState.Error(exception?.message ?: "Unknown error")
+            }
         }
-        isLoading = false
     }
 
     // Apply sorting and filtering
@@ -302,162 +322,255 @@ fun EnhancedDoctorViewPatientRecordsScreen(
         containerColor = BackgroundColor
     ) { padding ->
         
-        if (isLoading) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(color = AccentColor)
-            }
-        } else if (errorMessage != null) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+        when (val state = uiState) {
+            is DoctorRecordsUiState.Loading -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.Error,
-                        contentDescription = null,
-                        tint = Color.Red,
-                        modifier = Modifier.size(48.dp)
-                    )
-                    Text(
-                        errorMessage!!,
-                        color = Color.Red,
-                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
-                    )
+                    CircularProgressIndicator(color = AccentColor)
                 }
             }
-        } else if (displayedRecords.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(
-                    horizontalAlignment = Alignment.CenterHorizontally,
-                    verticalArrangement = Arrangement.spacedBy(16.dp)
+            
+            is DoctorRecordsUiState.AccessDenied -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        Icons.Default.FolderOpen,
-                        contentDescription = null,
-                        tint = AccentColor,
-                        modifier = Modifier.size(64.dp)
-                    )
-                    Text(
-                        "No records found",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = PrimaryColor
-                    )
-                    Text(
-                        if (filterOption != FilterOption.ALL) 
-                            "Try changing the filter" 
-                        else 
-                            "Patient hasn't uploaded any records yet",
-                        fontSize = 14.sp,
-                        color = PrimaryColor.copy(alpha = 0.6f)
-                    )
-                }
-            }
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-            ) {
-                // Stats Bar
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    color = SurfaceColor.copy(alpha = 0.5f)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier.padding(32.dp)
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "${displayedRecords.size}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PrimaryColor
-                            )
-                            Text(
-                                "Records",
-                                fontSize = 11.sp,
-                                color = AccentColor
-                            )
+                        Surface(
+                            modifier = Modifier.size(80.dp),
+                            shape = RoundedCornerShape(50),
+                            color = AccessDeniedColor.copy(alpha = 0.1f)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Default.Block,
+                                    contentDescription = null,
+                                    tint = AccessDeniedColor,
+                                    modifier = Modifier.size(48.dp)
+                                )
+                            }
                         }
                         
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "${displayedRecords.count { it.isImage() }}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PrimaryColor
-                            )
-                            Text(
-                                "Images",
-                                fontSize = 11.sp,
-                                color = AccentColor
-                            )
+                        Text(
+                            "Access Denied",
+                            fontSize = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = AccessDeniedColor
+                        )
+                        
+                        Text(
+                            state.message,
+                            fontSize = 15.sp,
+                            color = PrimaryColor.copy(alpha = 0.7f),
+                            textAlign = TextAlign.Center
+                        )
+                        
+                        Spacer(Modifier.height(8.dp))
+                        
+                        Surface(
+                            color = SurfaceColor,
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Text(
+                                    "To access patient records:",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = PrimaryColor
+                                )
+                                Text(
+                                    "• Patient must have an appointment with you scheduled for today or later",
+                                    fontSize = 13.sp,
+                                    color = PrimaryColor.copy(alpha = 0.7f)
+                                )
+                                Text(
+                                    "• Or you must have previously completed an appointment with this patient",
+                                    fontSize = 13.sp,
+                                    color = PrimaryColor.copy(alpha = 0.7f)
+                                )
+                            }
                         }
                         
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "${displayedRecords.count { it.isPdf() }}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PrimaryColor
-                            )
-                            Text(
-                                "PDFs",
-                                fontSize = 11.sp,
-                                color = AccentColor
-                            )
-                        }
+                        Spacer(Modifier.height(16.dp))
                         
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Text(
-                                "${displayedRecords.count { it.isPrivate }}",
-                                fontSize = 20.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = PrivateColor
-                            )
-                            Text(
-                                "Private",
-                                fontSize = 11.sp,
-                                color = AccentColor
-                            )
+                        Button(
+                            onClick = { navController.popBackStack() },
+                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            Icon(Icons.Default.ArrowBack, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Go Back", fontWeight = FontWeight.Bold)
                         }
                     }
                 }
-
-                // Records List
-                LazyColumn(
+            }
+            
+            is DoctorRecordsUiState.Error -> {
+                Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                        .padding(padding),
+                    contentAlignment = Alignment.Center
                 ) {
-                    items(displayedRecords) { record ->
-                        DoctorRecordCard(
-                            record = record,
-                            onGlassBreak = {
-                                selectedPrivateRecord = record
-                                showGlassBreakDialog = true
-                            }
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Error,
+                            contentDescription = null,
+                            tint = Color.Red,
+                            modifier = Modifier.size(48.dp)
                         )
+                        Text(
+                            state.message,
+                            color = Color.Red,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+            
+            is DoctorRecordsUiState.Success -> {
+                if (displayedRecords.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.FolderOpen,
+                                contentDescription = null,
+                                tint = AccentColor,
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Text(
+                                "No records found",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryColor
+                            )
+                            Text(
+                                if (filterOption != FilterOption.ALL) 
+                                    "Try changing the filter" 
+                                else 
+                                    "Patient hasn't uploaded any records yet",
+                                fontSize = 14.sp,
+                                color = PrimaryColor.copy(alpha = 0.6f)
+                            )
+                        }
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(padding)
+                    ) {
+                        // Stats Bar
+                        Surface(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = SurfaceColor.copy(alpha = 0.5f)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "${displayedRecords.size}",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PrimaryColor
+                                    )
+                                    Text(
+                                        "Records",
+                                        fontSize = 11.sp,
+                                        color = AccentColor
+                                    )
+                                }
+                                
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "${displayedRecords.count { it.isImage() }}",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PrimaryColor
+                                    )
+                                    Text(
+                                        "Images",
+                                        fontSize = 11.sp,
+                                        color = AccentColor
+                                    )
+                                }
+                                
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "${displayedRecords.count { it.isPdf() }}",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PrimaryColor
+                                    )
+                                    Text(
+                                        "PDFs",
+                                        fontSize = 11.sp,
+                                        color = AccentColor
+                                    )
+                                }
+                                
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text(
+                                        "${displayedRecords.count { it.isPrivate }}",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PrivateColor
+                                    )
+                                    Text(
+                                        "Private",
+                                        fontSize = 11.sp,
+                                        color = AccentColor
+                                    )
+                                }
+                            }
+                        }
+
+                        // Records List
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(displayedRecords) { record ->
+                                DoctorRecordCard(
+                                    record = record,
+                                    onGlassBreak = {
+                                        selectedPrivateRecord = record
+                                        showGlassBreakDialog = true
+                                    }
+                                )
+                            }
+                        }
                     }
                 }
             }

@@ -1,6 +1,8 @@
 package com.example.patienttracker.data
 
+import android.content.Context
 import android.net.Uri
+import com.example.patienttracker.data.supabase.SupabaseStorageRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.Query
@@ -12,6 +14,7 @@ import java.util.UUID
 /**
  * Repository for Health Record Firestore operations
  * Handles CRUD operations for patient health records
+ * Files are stored in Supabase Storage, metadata in Firestore
  */
 object HealthRecordRepository {
     
@@ -20,12 +23,13 @@ object HealthRecordRepository {
     private const val COLLECTION = "healthRecords"
     
     /**
-     * Upload a new health record (file + metadata)
+     * Upload a new health record (file to Supabase + metadata to Firestore)
      * @param fileUri Local file URI
      * @param fileName Original file name
      * @param fileType MIME type
      * @param fileSize File size in bytes
      * @param description User-provided description
+     * @param context Android context for Supabase upload
      * @param appointmentId Optional appointment ID
      * @param tags Optional tags
      * @param isPrivate Whether record is private (only patient can see)
@@ -35,6 +39,87 @@ object HealthRecordRepository {
      * @param dependentName Optional dependent name if uploading for a dependent
      */
     suspend fun uploadRecord(
+        fileUri: Uri,
+        fileName: String,
+        fileType: String,
+        fileSize: Long,
+        description: String,
+        context: Context,
+        appointmentId: String? = null,
+        tags: List<String> = emptyList(),
+        isPrivate: Boolean = false,
+        notes: String = "",
+        pastMedication: String = "",
+        dependentId: String = "",
+        dependentName: String = ""
+    ): Result<HealthRecord> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            // 1) Upload file to Supabase Storage
+            val uploadResult = SupabaseStorageRepository.uploadRecord(
+                patientId = currentUser.uid,
+                dependentId = dependentId.ifBlank { null },
+                fileUri = fileUri,
+                context = context
+            )
+            
+            if (uploadResult.isFailure) {
+                return Result.failure(uploadResult.exceptionOrNull()!!)
+            }
+            
+            val fileUrl = uploadResult.getOrNull()!!
+            
+            // 2) Get patient name
+            val userDoc = db.collection("users").document(currentUser.uid).get().await()
+            val firstName = userDoc.getString("firstName") ?: ""
+            val lastName = userDoc.getString("lastName") ?: ""
+            val patientName = "$firstName $lastName"
+            
+            // 3) Create HealthRecord document
+            val recordId = UUID.randomUUID().toString()
+            val healthRecord = HealthRecord(
+                recordId = recordId,
+                patientUid = currentUser.uid,
+                patientName = patientName,
+                dependentId = dependentId,
+                dependentName = dependentName,
+                fileName = fileName,
+                fileUrl = fileUrl,
+                fileType = fileType,
+                fileSize = fileSize,
+                description = description,
+                uploadDate = Timestamp.now(),
+                appointmentId = appointmentId,
+                doctorAccessList = emptyList(),
+                tags = tags,
+                isPrivate = isPrivate,
+                notes = notes,
+                pastMedication = pastMedication,
+                viewedBy = emptyList(),
+                glassBreakAccess = emptyList()
+            )
+            
+            // 4) Save to Firestore
+            db.collection(COLLECTION)
+                .document(recordId)
+                .set(healthRecord.toFirestore())
+                .await()
+            
+            Result.success(healthRecord)
+            
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Legacy upload method without context - uses Firebase Storage (deprecated)
+     * Kept for backward compatibility, prefer using the new uploadRecord with context
+     */
+    @Deprecated("Use uploadRecord with context parameter for Supabase Storage")
+    suspend fun uploadRecordLegacy(
         fileUri: Uri,
         fileName: String,
         fileType: String,
@@ -52,7 +137,7 @@ object HealthRecordRepository {
             val currentUser = auth.currentUser
                 ?: return Result.failure(Exception("User not authenticated"))
             
-            // 1) Upload file to Storage
+            // 1) Upload file to Firebase Storage (legacy)
             val uploadResult = StorageRepository.uploadHealthRecord(
                 fileUri, currentUser.uid, fileName
             )
@@ -217,7 +302,7 @@ object HealthRecordRepository {
     }
     
     /**
-     * Delete a health record (file + metadata)
+     * Delete a health record (file from Supabase + metadata from Firestore)
      */
     suspend fun deleteRecord(recordId: String): Result<Unit> {
         return try {
@@ -233,8 +318,13 @@ object HealthRecordRepository {
                 return Result.failure(Exception("Unauthorized"))
             }
             
-            // 3) Delete file from Storage
-            StorageRepository.deleteHealthRecord(record.fileUrl)
+            // 3) Delete file from Supabase Storage (or Firebase for legacy records)
+            if (record.fileUrl.contains("supabase.co")) {
+                SupabaseStorageRepository.deleteRecord(record.fileUrl)
+            } else {
+                // Legacy Firebase Storage delete
+                StorageRepository.deleteHealthRecord(record.fileUrl)
+            }
             
             // 4) Delete Firestore document
             db.collection(COLLECTION).document(recordId).delete().await()
@@ -381,14 +471,24 @@ object HealthRecordRepository {
     /**
      * Get records accessible to current doctor for a patient
      * Respects privacy settings and appointment access
+     * Returns AccessDeniedException if doctor has no valid appointment relationship
      */
     suspend fun getDoctorAccessibleRecordsForPatient(patientUid: String): Result<List<HealthRecord>> {
         return try {
             val currentUser = auth.currentUser
                 ?: return Result.failure(Exception("User not authenticated"))
             
-            // Check if doctor has active appointment with patient
-            val hasAppointment = AppointmentRepository.hasActiveAppointment(currentUser.uid, patientUid).getOrNull() ?: false
+            // Check if doctor has active appointment with patient (today or future scheduled, OR completed)
+            val hasRelationship = AppointmentRepository.hasAppointmentRelationship(currentUser.uid, patientUid).getOrNull() ?: false
+            
+            // If no appointment relationship at all, deny access completely
+            if (!hasRelationship) {
+                android.util.Log.w("HealthRecordRepo", "Access denied: Doctor ${currentUser.uid} has no appointment relationship with patient $patientUid")
+                return Result.failure(AccessDeniedException("You do not have an active appointment with this patient. Records cannot be viewed."))
+            }
+            
+            // Check if doctor has ACTIVE (today or future) appointment for access to private records
+            val hasActiveAppointment = AppointmentRepository.hasActiveAppointment(currentUser.uid, patientUid).getOrNull() ?: false
             
             // Get all patient records
             val recordsSnapshot = db.collection(COLLECTION)
@@ -401,17 +501,41 @@ object HealthRecordRepository {
                 HealthRecord.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
             }
             
-            // Filter out private records unless doctor has explicit access or appointment
+            // Filter out private records unless doctor has:
+            // 1) Active appointment (scheduled for today or future), OR
+            // 2) Explicit access in doctorAccessList
             val accessibleRecords = allRecords.filter { record ->
                 !record.isPrivate || 
                 record.doctorAccessList.contains(currentUser.uid) ||
-                hasAppointment
+                hasActiveAppointment
             }
             
+            android.util.Log.d("HealthRecordRepo", "Doctor ${currentUser.uid} accessing ${accessibleRecords.size} of ${allRecords.size} records for patient $patientUid")
             Result.success(accessibleRecords)
             
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
+    
+    /**
+     * Check if doctor has access to view patient records (without fetching)
+     * Used for UI to show access denied state early
+     */
+    suspend fun checkDoctorAccessToPatient(patientUid: String): Result<Boolean> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            val hasRelationship = AppointmentRepository.hasAppointmentRelationship(currentUser.uid, patientUid).getOrNull() ?: false
+            Result.success(hasRelationship)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 }
+
+/**
+ * Exception thrown when doctor doesn't have access to patient records
+ */
+class AccessDeniedException(message: String) : Exception(message)

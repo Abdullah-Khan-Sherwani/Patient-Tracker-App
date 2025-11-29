@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -24,7 +25,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.patienttracker.data.Dependent
+import com.example.patienttracker.data.DependentRepository
 import com.example.patienttracker.data.HealthRecordRepository
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 
 // ============================================================
@@ -43,6 +48,12 @@ data class FileSelection(
     val type: String
 )
 
+// Represents upload target - either self or a dependent
+sealed class UploadTarget {
+    object Self : UploadTarget()
+    data class ForDependent(val dependent: Dependent) : UploadTarget()
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EnhancedUploadHealthRecordScreen(
@@ -57,6 +68,28 @@ fun EnhancedUploadHealthRecordScreen(
     var isUploading by remember { mutableStateOf(false) }
     var uploadProgress by remember { mutableStateOf(0) }
     val scope = rememberCoroutineScope()
+    
+    // Dependent selection state
+    var dependents by remember { mutableStateOf<List<Dependent>>(emptyList()) }
+    var selectedTarget by remember { mutableStateOf<UploadTarget>(UploadTarget.Self) }
+    var showTargetDropdown by remember { mutableStateOf(false) }
+    var isLoadingDependents by remember { mutableStateOf(true) }
+    
+    // Snackbar state
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    // Load dependents on screen load
+    LaunchedEffect(Unit) {
+        val currentUser = Firebase.auth.currentUser
+        if (currentUser != null) {
+            try {
+                dependents = DependentRepository.getDependentsForParent(currentUser.uid)
+            } catch (e: Exception) {
+                android.util.Log.e("EnhancedUpload", "Error loading dependents: ${e.message}")
+            }
+        }
+        isLoadingDependents = false
+    }
 
     // Multi-file picker launcher
     val filePickerLauncher = rememberLauncherForActivityResult(
@@ -153,6 +186,7 @@ fun EnhancedUploadHealthRecordScreen(
                 )
             )
         },
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         containerColor = BackgroundColor
     ) { padding ->
         Column(
@@ -163,6 +197,157 @@ fun EnhancedUploadHealthRecordScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
+            // Upload Target Selector (Self or Dependent)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = SurfaceColor),
+                shape = RoundedCornerShape(28.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = "Upload For",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = PrimaryColor
+                    )
+                    
+                    if (isLoadingDependents) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(vertical = 8.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = AccentColor,
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(Modifier.width(12.dp))
+                            Text("Loading...", color = PrimaryColor.copy(alpha = 0.7f))
+                        }
+                    } else {
+                        // Dropdown for selecting target
+                        ExposedDropdownMenuBox(
+                            expanded = showTargetDropdown,
+                            onExpandedChange = { showTargetDropdown = it }
+                        ) {
+                            OutlinedTextField(
+                                value = when (val target = selectedTarget) {
+                                    is UploadTarget.Self -> "Myself"
+                                    is UploadTarget.ForDependent -> "${target.dependent.getFullName()} (${target.dependent.relationship})"
+                                },
+                                onValueChange = {},
+                                readOnly = true,
+                                trailingIcon = {
+                                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = showTargetDropdown)
+                                },
+                                leadingIcon = {
+                                    Icon(
+                                        imageVector = when (selectedTarget) {
+                                            is UploadTarget.Self -> Icons.Default.Person
+                                            is UploadTarget.ForDependent -> Icons.Default.People
+                                        },
+                                        contentDescription = null,
+                                        tint = AccentColor
+                                    )
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    unfocusedContainerColor = BackgroundColor,
+                                    focusedContainerColor = BackgroundColor,
+                                    unfocusedBorderColor = BorderColor,
+                                    focusedBorderColor = AccentColor
+                                )
+                            )
+                            
+                            ExposedDropdownMenu(
+                                expanded = showTargetDropdown,
+                                onDismissRequest = { showTargetDropdown = false }
+                            ) {
+                                // Self option
+                                DropdownMenuItem(
+                                    text = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.Person,
+                                                contentDescription = null,
+                                                tint = PrimaryColor,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                            Spacer(Modifier.width(12.dp))
+                                            Text("Myself")
+                                        }
+                                    },
+                                    onClick = {
+                                        selectedTarget = UploadTarget.Self
+                                        showTargetDropdown = false
+                                    }
+                                )
+                                
+                                // Dependent options
+                                dependents.forEach { dependent ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.People,
+                                                    contentDescription = null,
+                                                    tint = PrimaryColor,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(Modifier.width(12.dp))
+                                                Column {
+                                                    Text(
+                                                        dependent.getFullName(),
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                    Text(
+                                                        dependent.relationship,
+                                                        fontSize = 12.sp,
+                                                        color = PrimaryColor.copy(alpha = 0.6f)
+                                                    )
+                                                }
+                                            }
+                                        },
+                                        onClick = {
+                                            selectedTarget = UploadTarget.ForDependent(dependent)
+                                            showTargetDropdown = false
+                                        }
+                                    )
+                                }
+                                
+                                // Add dependent option if none exist
+                                if (dependents.isEmpty()) {
+                                    DropdownMenuItem(
+                                        text = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Icon(
+                                                    Icons.Default.PersonAdd,
+                                                    contentDescription = null,
+                                                    tint = AccentColor,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(Modifier.width(12.dp))
+                                                Text("Add a Dependent", color = AccentColor)
+                                            }
+                                        },
+                                        onClick = {
+                                            showTargetDropdown = false
+                                            navController.navigate("patient_dependents")
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            
             // Instructions Card
             Card(
                 modifier = Modifier.fillMaxWidth(),
@@ -432,11 +617,18 @@ fun EnhancedUploadHealthRecordScreen(
                         isUploading = true
                         var successCount = 0
                         var failCount = 0
+                        
+                        // Determine dependent info based on selected target
+                        val (dependentId, dependentName) = when (val target = selectedTarget) {
+                            is UploadTarget.Self -> "" to ""
+                            is UploadTarget.ForDependent -> target.dependent.dependentId to target.dependent.getFullName()
+                        }
 
                         selectedFiles.forEachIndexed { index, file ->
                             uploadProgress = ((index + 1) * 100) / selectedFiles.size
                             
                             android.util.Log.d("HealthRecordUpload", "Uploading file: ${file.name}, type: ${file.type}, size: ${file.size}")
+                            android.util.Log.d("HealthRecordUpload", "Target: ${if (dependentId.isBlank()) "Self" else "Dependent: $dependentName"}")
                             
                             val result = HealthRecordRepository.uploadRecord(
                                 fileUri = file.uri,
@@ -444,9 +636,12 @@ fun EnhancedUploadHealthRecordScreen(
                                 fileType = file.type,
                                 fileSize = file.size,
                                 description = description,
+                                context = context,
                                 isPrivate = isPrivate,
                                 notes = notes,
-                                pastMedication = pastMedication
+                                pastMedication = pastMedication,
+                                dependentId = dependentId,
+                                dependentName = dependentName
                             )
 
                             if (result.isSuccess) {
@@ -456,24 +651,30 @@ fun EnhancedUploadHealthRecordScreen(
                                 failCount++
                                 val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
                                 android.util.Log.e("HealthRecordUpload", "Upload failed for ${file.name}: $errorMsg", result.exceptionOrNull())
-                                Toast.makeText(
-                                    context,
-                                    "Failed to upload ${file.name}: $errorMsg",
-                                    Toast.LENGTH_LONG
-                                ).show()
                             }
                         }
 
                         isUploading = false
 
-                        Toast.makeText(
-                            context,
-                            "Uploaded: $successCount, Failed: $failCount",
-                            Toast.LENGTH_LONG
-                        ).show()
-
-                        if (successCount > 0) {
+                        if (successCount > 0 && failCount == 0) {
+                            // Show success snackbar
+                            snackbarHostState.showSnackbar(
+                                message = "Record uploaded successfully",
+                                duration = SnackbarDuration.Short
+                            )
+                            // Navigate back after showing snackbar
                             navController.popBackStack()
+                        } else if (successCount > 0) {
+                            snackbarHostState.showSnackbar(
+                                message = "Uploaded: $successCount, Failed: $failCount",
+                                duration = SnackbarDuration.Long
+                            )
+                            navController.popBackStack()
+                        } else {
+                            snackbarHostState.showSnackbar(
+                                message = "Upload failed. Please try again.",
+                                duration = SnackbarDuration.Long
+                            )
                         }
                     }
                 },
@@ -491,7 +692,7 @@ fun EnhancedUploadHealthRecordScreen(
                     CircularProgressIndicator(
                         modifier = Modifier.size(24.dp),
                         color = Color.White,
-                        progress = uploadProgress / 100f
+                        strokeWidth = 2.dp
                     )
                     Spacer(Modifier.width(12.dp))
                     Text(

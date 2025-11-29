@@ -323,19 +323,78 @@ object AppointmentRepository {
     
     /**
      * Check if doctor has active appointment with patient (for access control)
+     * Active means: status = "scheduled" AND appointmentDate >= today (not expired)
      */
     suspend fun hasActiveAppointment(doctorUid: String, patientUid: String): Result<Boolean> {
         return try {
+            // Get start of today (midnight)
+            val todayCalendar = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            val todayTimestamp = Timestamp(todayCalendar.time)
+            
             val snapshot = db.collection(COLLECTION)
                 .whereEqualTo("doctorUid", doctorUid)
                 .whereEqualTo("patientUid", patientUid)
                 .whereEqualTo("status", "scheduled")
+                .whereGreaterThanOrEqualTo("appointmentDate", todayTimestamp)
                 .get()
                 .await()
             
+            android.util.Log.d("AppointmentRepo", "hasActiveAppointment: doctor=$doctorUid, patient=$patientUid, found=${!snapshot.isEmpty}")
             Result.success(!snapshot.isEmpty)
             
         } catch (e: Exception) {
+            android.util.Log.e("AppointmentRepo", "hasActiveAppointment error: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Check if doctor has any relationship with patient (active OR completed appointments)
+     * Used for accessing records - doctors who have treated a patient can view their records
+     */
+    suspend fun hasAppointmentRelationship(doctorUid: String, patientUid: String): Result<Boolean> {
+        return try {
+            // Check for any scheduled (today or future) OR completed appointments
+            val todayCalendar = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            val todayTimestamp = Timestamp(todayCalendar.time)
+            
+            // First check for active/future scheduled appointments
+            val activeSnapshot = db.collection(COLLECTION)
+                .whereEqualTo("doctorUid", doctorUid)
+                .whereEqualTo("patientUid", patientUid)
+                .whereEqualTo("status", "scheduled")
+                .whereGreaterThanOrEqualTo("appointmentDate", todayTimestamp)
+                .get()
+                .await()
+            
+            if (!activeSnapshot.isEmpty) {
+                android.util.Log.d("AppointmentRepo", "hasAppointmentRelationship: found active appointment")
+                return Result.success(true)
+            }
+            
+            // Also check for completed appointments (doctor has treated this patient before)
+            val completedSnapshot = db.collection(COLLECTION)
+                .whereEqualTo("doctorUid", doctorUid)
+                .whereEqualTo("patientUid", patientUid)
+                .whereEqualTo("status", "completed")
+                .get()
+                .await()
+            
+            android.util.Log.d("AppointmentRepo", "hasAppointmentRelationship: doctor=$doctorUid, patient=$patientUid, hasCompleted=${!completedSnapshot.isEmpty}")
+            Result.success(!completedSnapshot.isEmpty)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("AppointmentRepo", "hasAppointmentRelationship error: ${e.message}")
             Result.failure(e)
         }
     }

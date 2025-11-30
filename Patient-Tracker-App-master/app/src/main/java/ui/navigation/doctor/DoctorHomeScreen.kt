@@ -40,12 +40,16 @@ import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 
-// ========== THEME COLORS ==========
-private val BgColor = Color(0xFFFAF8F3)
-private val CardColor = Color(0xFFF5F0E8)
-private val AccentColor = Color(0xFFB8956A)
-private val TextPrimary = Color(0xFF2F2019)
-private val TextSecondary = Color(0xFF6B7280)
+// ========== THEME COLORS (Teal/Mint - Matching Patient Dashboard) ==========
+private val BgColor = Color(0xFFF4F6F7)           // Light gray background
+private val CardColor = Color(0xFFFFFFFF)          // White cards
+private val CardColorAlt = Color(0xFFDFF7F0)       // Mint background for cards
+private val AccentColor = Color(0xFF04786A)        // Teal accent
+private val AccentColorLight = Color(0xFF18BC86)   // Lighter teal/green for CTAs
+private val TextPrimary = Color(0xFF082026)        // Dark text
+private val TextSecondary = Color(0xFF6B7280)      // Gray secondary text
+private val HeaderGradientStart = Color(0xFF04645A) // Gradient start
+private val HeaderGradientEnd = Color(0xFF0FB992)   // Gradient end
 
 // ========== PUBLIC ENTRY ==========
 @Composable
@@ -436,7 +440,7 @@ private fun DoctorNavigationDrawer(
                 color = TextSecondary,
                 modifier = Modifier.padding(bottom = 24.dp)
             )
-            Divider(color = Color(0xFFD4C4B0), modifier = Modifier.padding(bottom = 16.dp))
+            Divider(color = Color(0xFFE9EDF0), modifier = Modifier.padding(bottom = 16.dp))
 
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.Person, contentDescription = null) },
@@ -511,7 +515,7 @@ private fun DoctorNavigationDrawer(
 
             Spacer(Modifier.weight(1f))
 
-            Divider(color = Color(0xFFD4C4B0), modifier = Modifier.padding(vertical = 16.dp))
+            Divider(color = Color(0xFFE9EDF0), modifier = Modifier.padding(vertical = 16.dp))
 
             NavigationDrawerItem(
                 icon = { Icon(Icons.Default.ExitToApp, contentDescription = null) },

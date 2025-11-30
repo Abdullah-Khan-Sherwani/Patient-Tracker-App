@@ -29,12 +29,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import java.util.Calendar
 
-// Medify Beige Theme
-private val BgColor = Color(0xFFFAF8F3)
-private val CardColor = Color(0xFFF5F0E8)
-private val AccentColor = Color(0xFFB8956A)
-private val TextPrimary = Color(0xFF2F2019)
-private val TextSecondary = Color(0xFF6B7280)
+// Medify Teal/Mint Theme (Matching Patient Dashboard)
+private val BgColor = Color(0xFFF4F6F7)           // Light gray background
+private val CardColor = Color(0xFFFFFFFF)          // White cards
+private val CardColorAlt = Color(0xFFDFF7F0)       // Mint background for cards
+private val AccentColor = Color(0xFF04786A)        // Teal accent
+private val AccentColorLight = Color(0xFF18BC86)   // Lighter teal/green for CTAs
+private val TextPrimary = Color(0xFF082026)        // Dark text
+private val TextSecondary = Color(0xFF6B7280)      // Gray secondary text
+private val HeaderGradientStart = Color(0xFF04645A) // Gradient start
+private val HeaderGradientEnd = Color(0xFF0FB992)   // Gradient end
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

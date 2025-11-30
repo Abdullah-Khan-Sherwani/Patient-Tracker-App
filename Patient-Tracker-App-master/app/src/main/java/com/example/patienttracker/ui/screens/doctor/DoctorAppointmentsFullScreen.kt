@@ -18,9 +18,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.navigation.NavController
 import com.example.patienttracker.data.Appointment
 import com.example.patienttracker.data.AppointmentRepository
+import com.example.patienttracker.data.DoctorNoteRepository
 import com.example.patienttracker.data.NotificationRepository
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
@@ -33,6 +35,7 @@ private val CardColor = Color(0xFFF5F0E8)
 private val AccentColor = Color(0xFFB8956A)
 private val TextPrimary = Color(0xFF2F2019)
 private val TextSecondary = Color(0xFF6B7280)
+private val TealAccent = Color(0xFF04786A)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -214,6 +217,59 @@ fun DoctorAppointmentsFullScreen(
                         }
                     }
                 } else {
+                    // State for Doctor's Note dialog
+                    var showNoteDialog by remember { mutableStateOf(false) }
+                    var selectedAppointment by remember { mutableStateOf<Appointment?>(null) }
+                    
+                    // Doctor's Note Dialog
+                    if (showNoteDialog && selectedAppointment != null) {
+                        DoctorNoteDialog(
+                            appointment = selectedAppointment!!,
+                            context = context,
+                            onDismiss = { 
+                                showNoteDialog = false 
+                                selectedAppointment = null
+                            },
+                            onSave = { comments, prescription ->
+                                scope.launch {
+                                    val apt = selectedAppointment!!
+                                    val result = DoctorNoteRepository.saveDoctorNote(
+                                        appointmentId = apt.appointmentId,
+                                        patientUid = apt.patientUid,
+                                        patientName = apt.patientName,
+                                        doctorName = apt.doctorName,
+                                        speciality = apt.speciality,
+                                        comments = comments,
+                                        prescription = prescription,
+                                        appointmentDate = apt.appointmentDate
+                                    )
+                                    
+                                    if (result.isSuccess) {
+                                        // Send notification to patient
+                                        try {
+                                            NotificationRepository().createNotification(
+                                                patientUid = apt.patientUid,
+                                                title = "New Prescription Available",
+                                                message = "Dr. ${apt.doctorName} has added a prescription for your appointment. View it in your Medical History.",
+                                                type = "doctor_note",
+                                                appointmentId = apt.appointmentId
+                                            )
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("DoctorAppointments", "Failed to send notification: ${e.message}")
+                                        }
+                                        
+                                        android.widget.Toast.makeText(context, "Doctor's note saved successfully", android.widget.Toast.LENGTH_SHORT).show()
+                                    } else {
+                                        android.widget.Toast.makeText(context, "Failed to save note", android.widget.Toast.LENGTH_SHORT).show()
+                                    }
+                                    
+                                    showNoteDialog = false
+                                    selectedAppointment = null
+                                }
+                            }
+                        )
+                    }
+                    
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(20.dp),
@@ -223,6 +279,10 @@ fun DoctorAppointmentsFullScreen(
                             AppointmentCard(
                                 appointment = appointment,
                                 showActions = selectedTab == 0,
+                                onDoctorNote = {
+                                    selectedAppointment = appointment
+                                    showNoteDialog = true
+                                },
                                 onMarkComplete = {
                                     scope.launch {
                                         android.util.Log.d("DoctorAppointments", "Marking appointment ${appointment.appointmentId} as completed")
@@ -329,6 +389,7 @@ fun DoctorAppointmentsFullScreen(
 private fun AppointmentCard(
     appointment: Appointment,
     showActions: Boolean = false,
+    onDoctorNote: () -> Unit = {},
     onMarkComplete: () -> Unit = {},
     onCancel: () -> Unit = {}
 ) {
@@ -464,6 +525,7 @@ private fun AppointmentCard(
                 if (status == "confirmed" || status == "pending" || status == "scheduled") {
                     Spacer(Modifier.height(12.dp))
                     
+                    // First row: Cancel button
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -510,6 +572,29 @@ private fun AppointmentCard(
                             }
                         }
                     }
+                    
+                    // Second row: Doctor's Note button - only show on the day of appointment
+                    if (isToday) {
+                        Spacer(Modifier.height(8.dp))
+                        
+                        Button(
+                            onClick = {
+                                android.util.Log.d("AppointmentCard", "Doctor's Note clicked")
+                                onDoctorNote()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(containerColor = TealAccent),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Doctor's Note / Prescription", fontSize = 14.sp)
+                        }
+                    }
                 }
             }
         }
@@ -535,5 +620,175 @@ private fun formatTimeRange(timeRange: String): String {
         }
     } catch (e: Exception) {
         timeRange
+    }
+}
+
+/**
+ * Dialog for entering doctor's note and prescription
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DoctorNoteDialog(
+    appointment: Appointment,
+    context: Context,
+    onDismiss: () -> Unit,
+    onSave: (comments: String, prescription: String) -> Unit
+) {
+    var comments by remember { mutableStateOf("") }
+    var prescription by remember { mutableStateOf("") }
+    var isSaving by remember { mutableStateOf(false) }
+    
+    Dialog(onDismissRequest = { if (!isSaving) onDismiss() }) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = Color.White,
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Doctor's Note",
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = TealAccent
+                    )
+                    IconButton(
+                        onClick = { if (!isSaving) onDismiss() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = TextSecondary
+                        )
+                    }
+                }
+                
+                Spacer(Modifier.height(8.dp))
+                
+                // Patient info
+                Text(
+                    text = "Patient: ${appointment.patientName}",
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
+                Text(
+                    text = "Date: ${appointment.getFormattedDate()}",
+                    fontSize = 14.sp,
+                    color = TextSecondary
+                )
+                
+                Spacer(Modifier.height(16.dp))
+                
+                // Comments field
+                Text(
+                    text = "Comments / Diagnosis",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = comments,
+                    onValueChange = { comments = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    placeholder = { Text("Enter your comments and diagnosis...") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = TealAccent,
+                        cursorColor = TealAccent
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                
+                Spacer(Modifier.height(16.dp))
+                
+                // Prescription field
+                Text(
+                    text = "Prescription",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextPrimary
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedTextField(
+                    value = prescription,
+                    onValueChange = { prescription = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(150.dp),
+                    placeholder = { Text("Enter prescribed medications...\nExample:\n- Medicine 1 - Dosage - Frequency\n- Medicine 2 - Dosage - Frequency") },
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = TealAccent,
+                        cursorColor = TealAccent
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                )
+                
+                Spacer(Modifier.height(20.dp))
+                
+                // Action buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving,
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("Cancel")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            if (comments.isNotBlank() || prescription.isNotBlank()) {
+                                isSaving = true
+                                onSave(comments, prescription)
+                            } else {
+                                android.widget.Toast.makeText(
+                                    context,
+                                    "Please enter comments or prescription",
+                                    android.widget.Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving && (comments.isNotBlank() || prescription.isNotBlank()),
+                        colors = ButtonDefaults.buttonColors(containerColor = TealAccent),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                color = Color.White,
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text("Save")
+                        }
+                    }
+                }
+            }
+        }
     }
 }

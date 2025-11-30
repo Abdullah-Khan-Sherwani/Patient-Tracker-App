@@ -157,5 +157,32 @@ service cloud.firestore {
         isAdmin()
       );
     }
+
+    // doctor_notes collection - Prescriptions and notes written by doctors
+    match /doctor_notes/{noteId} {
+      // Doctors can create notes for their patients
+      allow create: if request.auth != null && 
+        (isDoctor() && request.resource.data.doctorUid == request.auth.uid) ||
+        isAdmin();
+      
+      // Read access - patients can read their own notes, doctors can read notes they created, admin can read all
+      allow read: if request.auth != null && (
+        resource.data.patientUid == request.auth.uid ||
+        resource.data.doctorUid == request.auth.uid ||
+        isAdmin()
+      );
+      
+      // Doctors can update their own notes, admin can update all
+      allow update: if request.auth != null && (
+        (isDoctor() && resource.data.doctorUid == request.auth.uid) ||
+        isAdmin()
+      );
+      
+      // Doctors can delete their own notes, admin can delete all
+      allow delete: if request.auth != null && (
+        (isDoctor() && resource.data.doctorUid == request.auth.uid) ||
+        isAdmin()
+      );
+    }
   }
 }

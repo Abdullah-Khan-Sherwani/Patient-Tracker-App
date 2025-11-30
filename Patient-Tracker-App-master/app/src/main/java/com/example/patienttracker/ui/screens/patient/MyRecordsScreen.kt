@@ -26,8 +26,13 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.patienttracker.data.DoctorNote
+import com.example.patienttracker.data.DoctorNoteRepository
 import com.example.patienttracker.data.HealthRecord
 import com.example.patienttracker.data.HealthRecordRepository
+import com.example.patienttracker.util.PrescriptionPdfGenerator
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -89,20 +94,40 @@ fun MyRecordsScreen(
     context: Context
 ) {
     var records by remember { mutableStateOf<List<HealthRecord>>(emptyList()) }
+    var doctorNotes by remember { mutableStateOf<List<DoctorNote>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var selectedRecord by remember { mutableStateOf<HealthRecord?>(null) }
     var showAccessLog by remember { mutableStateOf(false) }
+    var selectedTab by remember { mutableStateOf(0) } // 0 = My Records, 1 = Prescriptions
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
         isLoading = true
+        // Fetch health records
         val result = HealthRecordRepository.getPatientRecords()
         if (result.isSuccess) {
             records = result.getOrNull() ?: emptyList()
         } else {
             errorMessage = result.exceptionOrNull()?.message
         }
+        
+        // Fetch doctor notes/prescriptions
+        val currentUserId = Firebase.auth.currentUser?.uid ?: ""
+        android.util.Log.d("MyRecordsScreen", "Current user ID for notes: $currentUserId")
+        
+        if (currentUserId.isNotEmpty()) {
+            val notesResult = DoctorNoteRepository.getNotesForPatient(currentUserId)
+            if (notesResult.isSuccess) {
+                doctorNotes = notesResult.getOrNull() ?: emptyList()
+                android.util.Log.d("MyRecordsScreen", "Loaded ${doctorNotes.size} doctor notes")
+            } else {
+                android.util.Log.e("MyRecordsScreen", "Failed to load notes: ${notesResult.exceptionOrNull()?.message}")
+            }
+        } else {
+            android.util.Log.e("MyRecordsScreen", "No current user ID found!")
+        }
+        
         isLoading = false
     }
 
@@ -337,6 +362,17 @@ fun MyRecordsScreen(
                         fontSize = 14.sp,
                         color = PrimaryColor.copy(alpha = 0.6f)
                     )
+                    
+                    // Show prescriptions link if there are any
+                    if (doctorNotes.isNotEmpty()) {
+                        Text(
+                            "You have ${doctorNotes.size} prescription(s) from doctors",
+                            fontSize = 14.sp,
+                            color = AccentColor,
+                            modifier = Modifier.clickable { selectedTab = 1 }
+                        )
+                    }
+                    
                     Button(
                         onClick = { navController.navigate("upload_health_record_enhanced") },
                         colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
@@ -349,30 +385,75 @@ fun MyRecordsScreen(
                 }
             }
         } else {
-            LazyColumn(
+            Column(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Stats Card
-                item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = SurfaceColor),
-                        shape = RoundedCornerShape(28.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(20.dp),
-                            horizontalArrangement = Arrangement.SpaceEvenly
-                        ) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                // Tab Row for switching between Records and Prescriptions
+                TabRow(
+                    selectedTabIndex = selectedTab,
+                    containerColor = SurfaceColor,
+                    contentColor = PrimaryColor
+                ) {
+                    Tab(
+                        selected = selectedTab == 0,
+                        onClick = { selectedTab = 0 },
+                        text = { 
+                            Text(
+                                "My Records (${records.size})",
+                                fontWeight = if (selectedTab == 0) FontWeight.Bold else FontWeight.Normal
+                            )
+                        }
+                    )
+                    Tab(
+                        selected = selectedTab == 1,
+                        onClick = { selectedTab = 1 },
+                        text = { 
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Description,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(16.dp),
+                                    tint = if (selectedTab == 1) AccentColor else PrimaryColor.copy(alpha = 0.6f)
+                                )
+                                Spacer(Modifier.width(4.dp))
                                 Text(
-                                    "${records.size}",
-                                    fontSize = 24.sp,
+                                    "Prescriptions (${doctorNotes.size})",
+                                    fontWeight = if (selectedTab == 1) FontWeight.Bold else FontWeight.Normal
+                                )
+                            }
+                        }
+                    )
+                }
+                
+                // Content based on selected tab
+                when (selectedTab) {
+                    0 -> {
+                        // My Records Tab
+                        LazyColumn(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            // Stats Card
+                            item {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = SurfaceColor),
+                                    shape = RoundedCornerShape(28.dp)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp),
+                                        horizontalArrangement = Arrangement.SpaceEvenly
+                                    ) {
+                                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                            Text(
+                                                "${records.size}",
+                                                fontSize = 24.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = PrimaryColor
                                 )
@@ -453,6 +534,77 @@ fun MyRecordsScreen(
                     )
                 }
             }
+                    } // End of tab 0
+                    
+                    1 -> {
+                        // Prescriptions Tab - Doctor's Notes
+                        if (doctorNotes.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(32.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Column(
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Description,
+                                        contentDescription = null,
+                                        tint = AccentColor,
+                                        modifier = Modifier.size(64.dp)
+                                    )
+                                    Text(
+                                        "No prescriptions yet",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = PrimaryColor
+                                    )
+                                    Text(
+                                        "Prescriptions from your doctors will appear here",
+                                        fontSize = 14.sp,
+                                        color = PrimaryColor.copy(alpha = 0.6f),
+                                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                                    )
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .padding(16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(doctorNotes) { note ->
+                                    PrescriptionCard(
+                                        note = note,
+                                        context = context,
+                                        onViewPdf = {
+                                            // Generate and open PDF
+                                            val pdfFile = PrescriptionPdfGenerator.generatePrescriptionPdf(context, note)
+                                            if (pdfFile != null) {
+                                                PrescriptionPdfGenerator.openPdf(context, pdfFile)
+                                            } else {
+                                                android.widget.Toast.makeText(context, "Failed to generate PDF", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        },
+                                        onSharePdf = {
+                                            // Generate and share PDF
+                                            val pdfFile = PrescriptionPdfGenerator.generatePrescriptionPdf(context, note)
+                                            if (pdfFile != null) {
+                                                PrescriptionPdfGenerator.sharePdf(context, pdfFile)
+                                            } else {
+                                                android.widget.Toast.makeText(context, "Failed to generate PDF", android.widget.Toast.LENGTH_SHORT).show()
+                                            }
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    } // End of tab 1
+                } // End of when
+            } // End of Column
         }
     }
 }
@@ -730,6 +882,152 @@ fun RecordCard(
                             )
                         }
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun PrescriptionCard(
+    note: DoctorNote,
+    context: Context,
+    onViewPdf: () -> Unit,
+    onSharePdf: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = SurfaceColor),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            // Header with Doctor Info
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        color = AccentColor.copy(alpha = 0.2f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.LocalHospital,
+                            contentDescription = null,
+                            tint = PrimaryColor,
+                            modifier = Modifier
+                                .padding(8.dp)
+                                .size(24.dp)
+                        )
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column {
+                        Text(
+                            "Dr. ${note.doctorName}",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = PrimaryColor
+                        )
+                        Text(
+                            SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                                .format(note.createdAt.toDate()),
+                            fontSize = 12.sp,
+                            color = AccentColor
+                        )
+                    }
+                }
+                
+                Surface(
+                    color = PrimaryColor,
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        "Prescription",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                }
+            }
+            
+            Divider(color = BorderColor.copy(alpha = 0.3f))
+            
+            // Doctor's Comments
+            if (note.comments.isNotBlank()) {
+                Column {
+                    Text(
+                        "Doctor's Notes:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = PrimaryColor
+                    )
+                    Text(
+                        note.comments,
+                        fontSize = 14.sp,
+                        color = PrimaryColor.copy(alpha = 0.8f)
+                    )
+                }
+            }
+            
+            // Prescriptions
+            if (note.prescription.isNotBlank()) {
+                Column {
+                    Text(
+                        "Prescriptions:",
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 13.sp,
+                        color = PrimaryColor
+                    )
+                    Surface(
+                        color = AccentColor.copy(alpha = 0.1f),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            note.prescription,
+                            modifier = Modifier.padding(12.dp),
+                            fontSize = 14.sp,
+                            color = PrimaryColor
+                        )
+                    }
+                }
+            }
+            
+            // Action Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // View PDF Button
+                Button(
+                    onClick = onViewPdf,
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(
+                        Icons.Default.PictureAsPdf,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text("View PDF", fontSize = 13.sp)
+                }
+                
+                Spacer(Modifier.width(8.dp))
+                
+                // Share Button
+                IconButton(onClick = onSharePdf) {
+                    Icon(
+                        Icons.Default.Share,
+                        contentDescription = "Share",
+                        tint = AccentColor
+                    )
                 }
             }
         }

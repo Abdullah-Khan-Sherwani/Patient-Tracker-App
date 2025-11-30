@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.ripple
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -19,11 +20,13 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import com.example.patienttracker.R
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
@@ -50,6 +53,20 @@ private val DarkTextColor = Color(0xFFE8F5F3)
 private val DarkTextLightColor = Color(0xFFA3C9C4)
 private val DarkButtonColor = Color(0xFF76DCB0)
 
+// Health Info Status Colors
+private val HealthCompleteColor = Color(0xFF16A34A)  // Green
+private val HealthIncompleteColor = Color(0xFFDC2626)  // Red
+
+// Data class for health info status
+data class HealthInfoStatus(
+    val bloodGroup: String? = null,
+    val height: String? = null,
+    val weight: String? = null
+) {
+    val isComplete: Boolean
+        get() = !bloodGroup.isNullOrEmpty() && !height.isNullOrEmpty() && !weight.isNullOrEmpty()
+}
+
 @Composable
 fun PatientProfileScreen(
     navController: NavController,
@@ -63,6 +80,7 @@ fun PatientProfileScreen(
     
     var userPhoneNumber by remember { mutableStateOf<String?>(null) }
     var userDisplayName by remember { mutableStateOf(fullName) }
+    var healthInfoStatus by remember { mutableStateOf(HealthInfoStatus()) }
     
     // Fetch user data from Firestore
     LaunchedEffect(Unit) {
@@ -78,6 +96,32 @@ fun PatientProfileScreen(
                         
                         userDisplayName = if (lastName.isNotEmpty()) "$firstName $lastName" else firstName
                         userPhoneNumber = phone
+                        
+                        // Load health info status
+                        healthInfoStatus = HealthInfoStatus(
+                            bloodGroup = document.getString("bloodGroup"),
+                            height = document.getString("height"),
+                            weight = document.getString("weight")
+                        )
+                    }
+                }
+        }
+    }
+    
+    // Refresh health info when returning from HealthInformationScreen
+    val currentBackStackEntry = navController.currentBackStackEntry
+    LaunchedEffect(currentBackStackEntry) {
+        val currentUser = Firebase.auth.currentUser
+        if (currentUser != null) {
+            Firebase.firestore.collection("users").document(currentUser.uid)
+                .get()
+                .addOnSuccessListener { document ->
+                    if (document != null) {
+                        healthInfoStatus = HealthInfoStatus(
+                            bloodGroup = document.getString("bloodGroup"),
+                            height = document.getString("height"),
+                            weight = document.getString("weight")
+                        )
                     }
                 }
         }
@@ -114,6 +158,20 @@ fun PatientProfileScreen(
                 color = if (isDarkMode) DarkTextColor else TextDarkColor,
                 modifier = Modifier.padding(bottom = 12.dp)
             )
+
+            // Health Information Card (NEW)
+            HealthInfoSettingItem(
+                title = stringResource(R.string.health_information),
+                subtitle = if (healthInfoStatus.isComplete) 
+                    stringResource(R.string.health_info_complete) 
+                else 
+                    stringResource(R.string.health_info_incomplete),
+                isComplete = healthInfoStatus.isComplete,
+                onClick = { navController.navigate("health_information") },
+                isDarkMode = isDarkMode
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
 
             // Language Setting
             SettingItemWithToggle(
@@ -471,5 +529,116 @@ fun LogoutButton(navController: NavController, isDarkMode: Boolean) {
                 }
             }
         )
+    }
+}
+
+@Composable
+fun HealthInfoSettingItem(
+    title: String,
+    subtitle: String,
+    isComplete: Boolean,
+    onClick: () -> Unit,
+    isDarkMode: Boolean
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(18.dp)
+            )
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick
+            ),
+        color = if (isDarkMode) DarkCardColor else CardWhiteColor
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                // Icon container
+                Surface(
+                    shape = CircleShape,
+                    color = ProfileHeaderTopColor.copy(alpha = 0.1f),
+                    modifier = Modifier.size(44.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = ProfileHeaderTopColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isDarkMode) DarkTextColor else TextDarkColor
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = if (isComplete) HealthCompleteColor else HealthIncompleteColor
+                    )
+                }
+            }
+            
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Status indicator
+                Surface(
+                    shape = CircleShape,
+                    color = if (isComplete) 
+                        HealthCompleteColor.copy(alpha = 0.1f) 
+                    else 
+                        HealthIncompleteColor.copy(alpha = 0.1f),
+                    modifier = Modifier.size(28.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isComplete) 
+                                Icons.Default.CheckCircle 
+                            else 
+                                Icons.Default.PriorityHigh,
+                            contentDescription = if (isComplete) "Complete" else "Incomplete",
+                            tint = if (isComplete) HealthCompleteColor else HealthIncompleteColor,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+                
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = "Navigate",
+                    tint = if (isDarkMode) DarkTextLightColor else TextLightColor,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+        }
     }
 }

@@ -16,4 +16,59 @@
     <!-- Speciality Autocomplete -->
     <string name="speciality_hint">Type to search specialities…</string>
     <string name="no_matching_speciality">No matching speciality found. You can add a new one.</string>
+    
+    <!-- Health Information -->
+    <string name="health_information">Health Information</string>
+    <string name="complete_health_profile">Complete Your Health Profile</string>
+    <string name="health_info_subtitle">Blood type, height, weight &amp; more</string>
+    <string name="health_info_incomplete">Some health details are missing</string>
+    <string name="health_info_complete">Your health profile is complete</string>
+    
+    <!-- Health Info Fields -->
+    <string name="blood_group">Blood Group</string>
+    <string name="blood_group_hint">Select your blood group</string>
+    <string name="blood_group_locked">Blood group cannot be changed once set</string>
+    <string name="height_label">Height</string>
+    <string name="height_hint">Enter height in cm</string>
+    <string name="height_unit">cm</string>
+    <string name="weight_label">Weight</string>
+    <string name="weight_hint">Enter weight in kg</string>
+    <string name="weight_unit">kg</string>
+    <string name="age_label">Age</string>
+    <string name="age_years">%1$d years</string>
+    <string name="age_calculated">Calculated from date of birth</string>
+    <string name="last_updated_on">Last updated on: %1$s</string>
+    <string name="not_set">Not set</string>
+    
+    <!-- Blood Group Confirmation Dialog -->
+    <string name="confirm_blood_group">Confirm Blood Group</string>
+    <string name="blood_group_warning">You are about to set your blood group to %1$s. You will not be able to change this later.</string>
+    <string name="cancel">Cancel</string>
+    <string name="confirm">Confirm</string>
+    
+    <!-- Health Info Actions -->
+    <string name="save_changes">Save Changes</string>
+    <string name="health_info_updated">Health information updated.</string>
+    <string name="saving">Saving…</string>
+    <string name="error_saving">Failed to save. Please try again.</string>
+    
+    <!-- Blood Group Options -->
+    <string name="blood_a_positive">A+</string>
+    <string name="blood_a_negative">A-</string>
+    <string name="blood_b_positive">B+</string>
+    <string name="blood_b_negative">B-</string>
+    <string name="blood_ab_positive">AB+</string>
+    <string name="blood_ab_negative">AB-</string>
+    <string name="blood_o_positive">O+</string>
+    <string name="blood_o_negative">O-</string>
+    
+    <!-- Dependent Health Info -->
+    <string name="dependent_health_information">Health Information</string>
+    <string name="dependent_health_info_subtitle">View and update health details</string>
+    <string name="dependent_health_info_updated">Dependent health information updated.</string>
+    
+    <!-- Doctor View Health Info -->
+    <string name="patient_health_summary">Health Summary</string>
+    <string name="health_details_unavailable">Some health details are not available</string>
+    <string name="last_updated">Last updated: %1$s</string>
 </resources>

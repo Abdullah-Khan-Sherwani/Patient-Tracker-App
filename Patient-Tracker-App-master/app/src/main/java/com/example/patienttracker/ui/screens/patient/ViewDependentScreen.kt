@@ -27,6 +27,7 @@ import androidx.navigation.NavController
 import com.example.patienttracker.data.Dependent
 import com.example.patienttracker.data.DependentRepository
 import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import java.time.LocalDate
@@ -49,6 +50,18 @@ private val ButtonColor = Color(0xFF76DCB0)         // Mint accent
 private val AccentColor = Color(0xFF0E4944)         // Deep Teal
 private val IconBgColor = Color(0xFFE6F4F1)         // Light mint tint
 private val IconTintColor = Color(0xFF0E4944)       // Deep Teal
+private val HealthCompleteColor = Color(0xFF16A34A) // Green
+private val HealthIncompleteColor = Color(0xFFDC2626) // Red
+
+// Data class for health info status
+private data class DependentHealthStatus(
+    val bloodGroup: String? = null,
+    val height: String? = null,
+    val weight: String? = null
+) {
+    val isComplete: Boolean
+        get() = !bloodGroup.isNullOrEmpty() && !height.isNullOrEmpty() && !weight.isNullOrEmpty()
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -62,6 +75,7 @@ fun ViewDependentScreen(
     var isLoading by remember { mutableStateOf(true) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var isDeleting by remember { mutableStateOf(false) }
+    var healthStatus by remember { mutableStateOf(DependentHealthStatus()) }
 
     LaunchedEffect(dependentId) {
         scope.launch {
@@ -69,6 +83,27 @@ fun ViewDependentScreen(
             if (currentUser != null) {
                 val deps = DependentRepository.getDependentsForParent(currentUser.uid)
                 dependent = deps.find { it.dependentId == dependentId }
+                
+                // Load health status for the dependent
+                try {
+                    val healthDoc = Firebase.firestore
+                        .collection("users")
+                        .document(currentUser.uid)
+                        .collection("dependents")
+                        .document(dependentId)
+                        .get()
+                        .addOnSuccessListener { doc ->
+                            if (doc.exists()) {
+                                healthStatus = DependentHealthStatus(
+                                    bloodGroup = doc.getString("bloodGroup"),
+                                    height = doc.getString("height"),
+                                    weight = doc.getString("weight")
+                                )
+                            }
+                        }
+                } catch (e: Exception) {
+                    // Ignore errors, health status will remain incomplete
+                }
             }
             isLoading = false
         }
@@ -353,6 +388,22 @@ fun ViewDependentScreen(
                         }
                     )
                     
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // Health Information Card with status indicator
+                    HealthInfoActionCard(
+                        title = "Health Information",
+                        subtitle = if (healthStatus.isComplete) 
+                            "Blood type, height, weight" 
+                        else 
+                            "Some health details are missing",
+                        icon = Icons.Default.Favorite,
+                        isComplete = healthStatus.isComplete,
+                        onClick = {
+                            navController.navigate("dependent_health_info/$dependentId/$encodedName")
+                        }
+                    )
+                    
                     Spacer(modifier = Modifier.height(32.dp))
                 }
             }
@@ -449,6 +500,103 @@ private fun ActionCard(
                     color = Color.Gray
                 )
             }
+            
+            // Arrow indicator
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                modifier = Modifier.size(24.dp),
+                tint = Color.Gray
+            )
+        }
+    }
+}
+
+@Composable
+private fun HealthInfoActionCard(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    isComplete: Boolean,
+    onClick: () -> Unit
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(8.dp, RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp),
+        color = CardWhite
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Icon with teal background
+            Surface(
+                modifier = Modifier.size(52.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = AccentColor.copy(alpha = 0.1f)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(28.dp),
+                        tint = AccentColor
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Text content
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = StatTextColor
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    color = if (isComplete) HealthCompleteColor else HealthIncompleteColor
+                )
+            }
+            
+            // Status indicator
+            Surface(
+                shape = androidx.compose.foundation.shape.CircleShape,
+                color = if (isComplete) 
+                    HealthCompleteColor.copy(alpha = 0.1f) 
+                else 
+                    HealthIncompleteColor.copy(alpha = 0.1f),
+                modifier = Modifier.size(32.dp)
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isComplete) 
+                            Icons.Default.CheckCircle 
+                        else 
+                            Icons.Default.PriorityHigh,
+                        contentDescription = if (isComplete) "Complete" else "Incomplete",
+                        tint = if (isComplete) HealthCompleteColor else HealthIncompleteColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.width(8.dp))
             
             // Arrow indicator
             Icon(

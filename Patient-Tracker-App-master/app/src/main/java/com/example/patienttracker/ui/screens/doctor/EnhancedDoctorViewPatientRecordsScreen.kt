@@ -35,6 +35,7 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
+import com.example.patienttracker.ui.components.PatientHealthSummaryCard
 
 // Design Colors
 private val BackgroundColor = Color(0xFFFAF8F3)
@@ -489,6 +490,14 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
+                            // Health Summary Card even when no records
+                            PatientHealthSummaryCard(
+                                patientUid = patientUid,
+                                modifier = Modifier.padding(horizontal = 16.dp)
+                            )
+                            
+                            Spacer(modifier = Modifier.height(16.dp))
+                            
                             Icon(
                                 Icons.Default.FolderOpen,
                                 contentDescription = null,
@@ -517,6 +526,12 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                             .fillMaxSize()
                             .padding(padding)
                     ) {
+                        // Patient Health Summary Card
+                        PatientHealthSummaryCard(
+                            patientUid = patientUid,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                        
                         // Stats Bar
                         Surface(
                             modifier = Modifier.fillMaxWidth(),

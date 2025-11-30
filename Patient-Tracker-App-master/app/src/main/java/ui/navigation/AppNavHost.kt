@@ -41,6 +41,7 @@ import com.example.patienttracker.ui.screens.patient.DoctorFull
 import com.example.patienttracker.ui.screens.patient.BookAppointmentScreen
 import com.example.patienttracker.ui.screens.patient.FullScheduleScreen
 import com.example.patienttracker.ui.screens.patient.PatientProfileScreen
+import com.example.patienttracker.ui.screens.patient.HealthInformationScreen
 import com.example.patienttracker.ui.screens.patient.TermsAndConditionsScreen
 import com.example.patienttracker.ui.screens.patient.PrivacyPolicyScreen
 import com.example.patienttracker.ui.screens.patient.ChangePasswordScreen
@@ -80,6 +81,7 @@ import com.example.patienttracker.ui.screens.patient.ChoosePatientForAppointment
 import com.example.patienttracker.ui.screens.patient.DependentUploadRecordsScreen
 import com.example.patienttracker.ui.screens.patient.DependentViewRecordsScreen
 import com.example.patienttracker.ui.screens.patient.DependentAppointmentHistoryScreen
+import com.example.patienttracker.ui.screens.patient.DependentHealthInfoScreen
 import com.example.patienttracker.ui.screens.guest.GuestHomeScreen
 import com.example.patienttracker.ui.screens.guest.GuestDoctorsScreen
 import com.example.patienttracker.ui.screens.guest.GuestDoctorDetailsScreen
@@ -272,6 +274,14 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             PatientProfileScreen(navController, first, last, themeViewModel)
         }
 
+        composable("health_information") {
+            HealthInformationScreen(
+                navController = navController,
+                context = context,
+                themeViewModel = themeViewModel
+            )
+        }
+
         composable("patient_notifications") {
             PatientNotificationsScreen(navController, context)
         }
@@ -325,6 +335,17 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
                 )
             } catch (e: Exception) { backStackEntry.arguments?.getString("dependentName") ?: "" }
             DependentAppointmentHistoryScreen(navController, context, dependentId, dependentName)
+        }
+
+        composable("dependent_health_info/{dependentId}/{dependentName}") { backStackEntry ->
+            val dependentId = backStackEntry.arguments?.getString("dependentId") ?: ""
+            val dependentName = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("dependentName") ?: "",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("dependentName") ?: "" }
+            DependentHealthInfoScreen(navController, context, dependentId, dependentName, themeViewModel)
         }
 
         composable("terms_and_conditions") {

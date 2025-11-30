@@ -442,10 +442,29 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
         }
 
         // Enhanced Doctor View Patient Records with sorting, filtering, glass break
+        // Now supports viewing patient OR dependent records separately
+        composable("doctor_view_patient_records_enhanced/{patientUid}/{patientName}/{dependentId}") { backStackEntry ->
+            val patientUid = backStackEntry.arguments?.getString("patientUid") ?: ""
+            val patientName = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("patientName") ?: "Patient",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { backStackEntry.arguments?.getString("patientName") ?: "Patient" }
+            val dependentId = try {
+                java.net.URLDecoder.decode(
+                    backStackEntry.arguments?.getString("dependentId") ?: "_self",
+                    java.nio.charset.StandardCharsets.UTF_8.toString()
+                )
+            } catch (e: Exception) { "_self" }
+            EnhancedDoctorViewPatientRecordsScreen(navController, context, patientUid, patientName, dependentId)
+        }
+        
+        // Legacy route for backwards compatibility (shows patient's own records)
         composable("doctor_view_patient_records_enhanced/{patientUid}/{patientName}") { backStackEntry ->
             val patientUid = backStackEntry.arguments?.getString("patientUid") ?: ""
             val patientName = backStackEntry.arguments?.getString("patientName") ?: "Patient"
-            EnhancedDoctorViewPatientRecordsScreen(navController, context, patientUid, patientName)
+            EnhancedDoctorViewPatientRecordsScreen(navController, context, patientUid, patientName, "_self")
         }
 
         // Doctor Patient List Screen - View all patients with appointments

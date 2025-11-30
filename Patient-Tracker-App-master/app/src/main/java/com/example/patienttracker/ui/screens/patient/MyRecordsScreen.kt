@@ -104,8 +104,8 @@ fun MyRecordsScreen(
 
     LaunchedEffect(Unit) {
         isLoading = true
-        // Fetch health records
-        val result = HealthRecordRepository.getPatientRecords()
+        // Fetch ONLY patient's own health records (not dependents)
+        val result = HealthRecordRepository.getPatientSelfRecords()
         if (result.isSuccess) {
             records = result.getOrNull() ?: emptyList()
         } else {

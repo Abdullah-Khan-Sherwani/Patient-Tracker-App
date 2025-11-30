@@ -388,4 +388,72 @@ object AppointmentRepository {
             Result.failure(e)
         }
     }
+    
+    /**
+     * Check if doctor has any appointment relationship with a specific dependent
+     */
+    suspend fun hasAppointmentRelationshipWithDependent(doctorUid: String, patientUid: String, dependentId: String): Result<Boolean> {
+        return try {
+            // Check if any appointment exists with this specific dependent
+            val anyAppointmentSnapshot = db.collection(COLLECTION)
+                .whereEqualTo("doctorUid", doctorUid)
+                .whereEqualTo("patientUid", patientUid)
+                .whereEqualTo("dependentId", dependentId)
+                .limit(1)
+                .get()
+                .await()
+            
+            val hasRelationship = !anyAppointmentSnapshot.isEmpty
+            android.util.Log.d("AppointmentRepo", "hasAppointmentRelationshipWithDependent: doctor=$doctorUid, dependent=$dependentId, has=$hasRelationship")
+            
+            Result.success(hasRelationship)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("AppointmentRepo", "hasAppointmentRelationshipWithDependent error: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Check if doctor has an ACTIVE (today or future scheduled) appointment with a specific dependent
+     */
+    suspend fun hasActiveAppointmentWithDependent(doctorUid: String, patientUid: String, dependentId: String): Result<Boolean> {
+        return try {
+            // Get start of today (midnight)
+            val todayCalendar = java.util.Calendar.getInstance().apply {
+                set(java.util.Calendar.HOUR_OF_DAY, 0)
+                set(java.util.Calendar.MINUTE, 0)
+                set(java.util.Calendar.SECOND, 0)
+                set(java.util.Calendar.MILLISECOND, 0)
+            }
+            val todayTimestamp = Timestamp(todayCalendar.time)
+            
+            // Check for active statuses: scheduled, confirmed, pending
+            val activeStatuses = listOf("scheduled", "confirmed", "pending")
+            
+            for (status in activeStatuses) {
+                val snapshot = db.collection(COLLECTION)
+                    .whereEqualTo("doctorUid", doctorUid)
+                    .whereEqualTo("patientUid", patientUid)
+                    .whereEqualTo("dependentId", dependentId)
+                    .whereEqualTo("status", status)
+                    .whereGreaterThanOrEqualTo("appointmentDate", todayTimestamp)
+                    .limit(1)
+                    .get()
+                    .await()
+                
+                if (!snapshot.isEmpty) {
+                    android.util.Log.d("AppointmentRepo", "hasActiveAppointmentWithDependent: doctor=$doctorUid, dependent=$dependentId, found with status=$status")
+                    return Result.success(true)
+                }
+            }
+            
+            android.util.Log.d("AppointmentRepo", "hasActiveAppointmentWithDependent: doctor=$doctorUid, dependent=$dependentId, hasActive=false")
+            Result.success(false)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("AppointmentRepo", "hasActiveAppointmentWithDependent error: ${e.message}")
+            Result.failure(e)
+        }
+    }
 }

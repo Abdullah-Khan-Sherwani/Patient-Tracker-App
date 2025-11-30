@@ -518,7 +518,7 @@ fun HeaderWithStats(fullName: String, navController: NavController, isDarkMode: 
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(
-                    text = "Hello, $fullName",
+                    text = " ",
                     fontSize = 28.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = statTextCol,

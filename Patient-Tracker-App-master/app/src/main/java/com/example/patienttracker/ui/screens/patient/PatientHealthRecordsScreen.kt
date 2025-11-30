@@ -616,7 +616,8 @@ private suspend fun loadRecords(
     onSuccess: (List<HealthRecord>) -> Unit,
     onError: (Exception) -> Unit
 ) {
-    val result = HealthRecordRepository.getPatientRecords()
+    // Only load patient's own records (not dependents)
+    val result = HealthRecordRepository.getPatientSelfRecords()
     if (result.isSuccess) {
         onSuccess(result.getOrNull() ?: emptyList())
     } else {

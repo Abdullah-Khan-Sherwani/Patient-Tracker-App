@@ -36,17 +36,25 @@ private val WarningColor = Color(0xFFF59E0B)
 
 /**
  * Read-only health information summary card for doctors
- * Displays patient's blood group, height, weight, age, and last updated time
+ * Displays patient's or dependent's blood group, height, weight, age, and last updated time
  */
 @Composable
 fun PatientHealthSummaryCard(
     patientUid: String,
+    dependentId: String = "", // Empty or "_self" for patient's own health info
     modifier: Modifier = Modifier
 ) {
+    // Determine viewing mode
+    val isDependent = dependentId.isNotBlank() && dependentId != "_self"
+    
     val healthInfoViewModel: HealthInfoViewModel = viewModel(
-        key = "doctor_view_$patientUid",
+        key = if (isDependent) "doctor_view_dep_$dependentId" else "doctor_view_$patientUid",
         factory = HealthInfoViewModel.Factory(
-            HealthInfoMode.DoctorReadOnly(patientUid)
+            if (isDependent) {
+                HealthInfoMode.Dependent(dependentId, patientUid)
+            } else {
+                HealthInfoMode.DoctorReadOnly(patientUid)
+            }
         )
     )
     

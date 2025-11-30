@@ -33,6 +33,15 @@
       ]
     },
     {
+      "collectionId": "appointments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "doctorUid", "order": "ASCENDING" },
+        { "fieldPath": "patientUid", "order": "ASCENDING" },
+        { "fieldPath": "dependentId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionId": "doctor_notes",
       "queryScope": "COLLECTION",
       "fields": [
@@ -62,6 +71,23 @@
       "fields": [
         { "fieldPath": "patientUid", "order": "ASCENDING" },
         { "fieldPath": "isRead", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionId": "healthRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "patientUid", "order": "ASCENDING" },
+        { "fieldPath": "dependentId", "order": "ASCENDING" },
+        { "fieldPath": "uploadDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionId": "healthRecords",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "patientUid", "order": "ASCENDING" },
+        { "fieldPath": "uploadDate", "order": "DESCENDING" }
       ]
     }
   ],

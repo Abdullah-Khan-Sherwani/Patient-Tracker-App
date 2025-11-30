@@ -28,6 +28,19 @@ private val SurfaceColor = Color(0xFFF5F0E8)
 private val PrimaryColor = Color(0xFF2F2019)
 private val AccentColor = Color(0xFFB8956A)
 private val BorderColor = Color(0xFFD4C4B0)
+private val DependentColor = Color(0xFF0E4944) // Teal for dependents
+
+/**
+ * Data class representing a patient or dependent to display in the list
+ */
+data class PatientListItem(
+    val patientUid: String,
+    val displayName: String,
+    val lastAppointmentDate: String,
+    val isDependent: Boolean = false,
+    val dependentId: String = "",
+    val parentName: String = "" // For dependents, show their parent's name
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -53,20 +66,59 @@ fun DoctorPatientListScreen(
         isLoading = false
     }
 
-    // Get unique patients
-    val uniquePatients = remember(appointments) {
-        appointments
-            .distinctBy { it.patientUid }
-            .sortedBy { it.patientName }
+    // Get unique patients AND dependents from appointments
+    val patientList = remember(appointments) {
+        val patients = mutableListOf<PatientListItem>()
+        val seenPatients = mutableSetOf<String>() // Track unique patientUid
+        val seenDependents = mutableSetOf<String>() // Track unique dependentId
+        
+        // Sort appointments by date descending to get most recent first
+        val sortedAppointments = appointments.sortedByDescending { it.appointmentDate.seconds }
+        
+        for (appointment in sortedAppointments) {
+            if (appointment.recipientType == "dependent" && appointment.dependentId.isNotBlank()) {
+                // This is a dependent appointment
+                if (!seenDependents.contains(appointment.dependentId)) {
+                    seenDependents.add(appointment.dependentId)
+                    patients.add(
+                        PatientListItem(
+                            patientUid = appointment.patientUid, // Parent's UID for accessing records
+                            displayName = appointment.dependentName.ifBlank { "Dependent" },
+                            lastAppointmentDate = appointment.getFormattedDate(),
+                            isDependent = true,
+                            dependentId = appointment.dependentId,
+                            parentName = appointment.patientName
+                        )
+                    )
+                }
+            } else {
+                // This is a self appointment
+                if (!seenPatients.contains(appointment.patientUid)) {
+                    seenPatients.add(appointment.patientUid)
+                    patients.add(
+                        PatientListItem(
+                            patientUid = appointment.patientUid,
+                            displayName = appointment.patientName,
+                            lastAppointmentDate = appointment.getFormattedDate(),
+                            isDependent = false
+                        )
+                    )
+                }
+            }
+        }
+        
+        // Sort: patients first, then dependents, alphabetically within each group
+        patients.sortedWith(compareBy({ it.isDependent }, { it.displayName.lowercase() }))
     }
 
-    // Filter patients by search query
-    val filteredPatients = remember(uniquePatients, searchQuery) {
+    // Filter by search query
+    val filteredPatients = remember(patientList, searchQuery) {
         if (searchQuery.isBlank()) {
-            uniquePatients
+            patientList
         } else {
-            uniquePatients.filter { 
-                it.patientName.contains(searchQuery, ignoreCase = true)
+            patientList.filter { 
+                it.displayName.contains(searchQuery, ignoreCase = true) ||
+                (it.isDependent && it.parentName.contains(searchQuery, ignoreCase = true))
             }
         }
     }
@@ -122,7 +174,7 @@ fun DoctorPatientListScreen(
                     TextField(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = { Text("Search patients...") },
+                        placeholder = { Text("Search patients or dependents...") },
                         modifier = Modifier.fillMaxWidth(),
                         colors = TextFieldDefaults.colors(
                             unfocusedContainerColor = Color.Transparent,
@@ -199,6 +251,10 @@ fun DoctorPatientListScreen(
                     }
                 }
             } else {
+                // Count patients and dependents
+                val patientCount = filteredPatients.count { !it.isDependent }
+                val dependentCount = filteredPatients.count { it.isDependent }
+                
                 LazyColumn(
                     modifier = Modifier
                         .fillMaxSize()
@@ -206,24 +262,52 @@ fun DoctorPatientListScreen(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     item {
-                        Text(
-                            "${filteredPatients.size} Patient${if (filteredPatients.size != 1) "s" else ""}",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryColor,
-                            modifier = Modifier.padding(vertical = 8.dp)
-                        )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                "${filteredPatients.size} Total",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryColor,
+                                modifier = Modifier.padding(vertical = 8.dp)
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                Text(
+                                    "$patientCount Patient${if (patientCount != 1) "s" else ""}",
+                                    fontSize = 14.sp,
+                                    color = AccentColor
+                                )
+                                if (dependentCount > 0) {
+                                    Text(
+                                        "$dependentCount Dependent${if (dependentCount != 1) "s" else ""}",
+                                        fontSize = 14.sp,
+                                        color = DependentColor
+                                    )
+                                }
+                            }
+                        }
                     }
 
-                    items(filteredPatients) { appointment ->
+                    items(filteredPatients) { patient ->
                         PatientListCard(
-                            patientName = appointment.patientName,
-                            patientUid = appointment.patientUid,
-                            lastAppointment = appointment.getFormattedDate(),
+                            item = patient,
                             onClick = {
-                                navController.navigate(
-                                    "doctor_view_patient_records_enhanced/${appointment.patientUid}/${appointment.patientName}"
-                                )
+                                // Navigate to patient/dependent records with proper parameters
+                                val encodedName = java.net.URLEncoder.encode(patient.displayName, "UTF-8")
+                                if (patient.isDependent) {
+                                    // For dependents, include dependentId
+                                    val encodedDependentId = java.net.URLEncoder.encode(patient.dependentId, "UTF-8")
+                                    navController.navigate(
+                                        "doctor_view_patient_records_enhanced/${patient.patientUid}/$encodedName/$encodedDependentId"
+                                    )
+                                } else {
+                                    // For patients, use empty dependentId
+                                    navController.navigate(
+                                        "doctor_view_patient_records_enhanced/${patient.patientUid}/$encodedName/_self"
+                                    )
+                                }
                             }
                         )
                     }
@@ -239,18 +323,24 @@ fun DoctorPatientListScreen(
 
 @Composable
 fun PatientListCard(
-    patientName: String,
-    patientUid: String,
-    lastAppointment: String,
+    item: PatientListItem,
     onClick: () -> Unit
 ) {
-    Card(
+    // Decode name in case it has URL encoding (+ for spaces)
+    val displayName = item.displayName.replace("+", " ")
+    val parentName = item.parentName.replace("+", " ")
+    
+    Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(containerColor = SurfaceColor),
+        color = if (item.isDependent) 
+            DependentColor.copy(alpha = 0.05f) 
+        else 
+            SurfaceColor,
         shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shadowElevation = if (item.isDependent) 0.dp else 2.dp,
+        tonalElevation = 0.dp
     ) {
         Row(
             modifier = Modifier
@@ -262,21 +352,30 @@ fun PatientListCard(
             Surface(
                 modifier = Modifier.size(56.dp),
                 shape = RoundedCornerShape(28.dp),
-                color = AccentColor
+                color = if (item.isDependent) DependentColor else AccentColor
             ) {
                 Box(
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(
-                        text = patientName
-                            .split(" ")
-                            .mapNotNull { it.firstOrNull() }
-                            .take(2)
-                            .joinToString(""),
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
-                    )
+                    if (item.isDependent) {
+                        Icon(
+                            Icons.Default.FamilyRestroom,
+                            contentDescription = "Dependent",
+                            tint = Color.White,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    } else {
+                        Text(
+                            text = displayName
+                                .split(" ")
+                                .mapNotNull { it.firstOrNull() }
+                                .take(2)
+                                .joinToString(""),
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 20.sp
+                        )
+                    }
                 }
             }
 
@@ -285,15 +384,46 @@ fun PatientListCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = patientName,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp,
-                    color = PrimaryColor
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text(
+                        text = displayName,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        color = PrimaryColor
+                    )
+                    
+                    if (item.isDependent) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = DependentColor.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = "Dependent",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = DependentColor,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                }
+                
                 Spacer(Modifier.height(4.dp))
+                
+                if (item.isDependent && parentName.isNotBlank()) {
+                    Text(
+                        text = "Parent: $parentName",
+                        fontSize = 12.sp,
+                        color = DependentColor.copy(alpha = 0.8f)
+                    )
+                    Spacer(Modifier.height(2.dp))
+                }
+                
                 Text(
-                    text = "Last appointment: $lastAppointment",
+                    text = "Last appointment: ${item.lastAppointmentDate}",
                     fontSize = 13.sp,
                     color = AccentColor
                 )
@@ -302,7 +432,7 @@ fun PatientListCard(
             Icon(
                 Icons.Default.ArrowForwardIos,
                 contentDescription = "View Records",
-                tint = AccentColor,
+                tint = if (item.isDependent) DependentColor else AccentColor,
                 modifier = Modifier.size(20.dp)
             )
         }

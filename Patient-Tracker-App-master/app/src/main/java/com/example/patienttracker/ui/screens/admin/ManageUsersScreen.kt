@@ -25,29 +25,44 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+// Teal color for dependents
+private val DependentColor = Color(0xFF0E4944)
+
 /**
- * Admin screen to view and manage all users (patients, doctors).
+ * Admin screen to view and manage all users (patients, doctors, and dependents).
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageUsersScreen(navController: NavController, context: Context) {
     var users by remember { mutableStateOf<List<UserListItem>>(emptyList()) }
+    var dependents by remember { mutableStateOf<List<DependentListItem>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    var selectedTabIndex by remember { mutableStateOf(0) } // 0 = Patients, 1 = Doctors
+    var selectedTabIndex by remember { mutableStateOf(0) } // 0 = Patients, 1 = Doctors, 2 = Dependents
     var userToRemove by remember { mutableStateOf<UserListItem?>(null) }
+    var dependentToRemove by remember { mutableStateOf<DependentListItem?>(null) }
     var showRemoveDialog by remember { mutableStateOf(false) }
+    var showRemoveDependentDialog by remember { mutableStateOf(false) }
     var isRemoving by remember { mutableStateOf(false) }
     var snackbarMessage by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val selectedRole = if (selectedTabIndex == 0) "patient" else "doctor"
+    val selectedRole = when (selectedTabIndex) {
+        0 -> "patient"
+        1 -> "doctor"
+        else -> "dependent"
+    }
 
-    LaunchedEffect(selectedRole) {
+    LaunchedEffect(selectedTabIndex) {
         scope.launch {
             try {
                 isLoading = true
-                users = fetchUsers(selectedRole)
+                if (selectedTabIndex == 2) {
+                    // Load all dependents
+                    dependents = fetchAllDependents()
+                } else {
+                    users = fetchUsers(selectedRole)
+                }
                 isLoading = false
             } catch (e: Exception) {
                 isLoading = false
@@ -89,7 +104,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                 .padding(16.dp)
         ) {
 
-            // Tabs for Patients and Doctors
+            // Tabs for Patients, Doctors, and Dependents
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = Color.Transparent,
@@ -97,7 +112,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                 indicator = { tabPositions ->
                     TabRowDefaults.SecondaryIndicator(
                         Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                        color = Color(0xFFB8956A)
+                        color = if (selectedTabIndex == 2) DependentColor else Color(0xFFB8956A)
                     )
                 }
             ) {
@@ -111,18 +126,85 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                     onClick = { selectedTabIndex = 1 },
                     text = { Text("Doctors", fontWeight = FontWeight.SemiBold) }
                 )
+                Tab(
+                    selected = selectedTabIndex == 2,
+                    onClick = { selectedTabIndex = 2 },
+                    text = { 
+                        Text(
+                            "Dependents", 
+                            fontWeight = FontWeight.SemiBold,
+                            color = if (selectedTabIndex == 2) DependentColor else Color(0xFFB8956A).copy(alpha = 0.7f)
+                        ) 
+                    }
+                )
             }
 
             Spacer(Modifier.height(16.dp))
 
-            // Users List
+            // Users/Dependents List
             if (isLoading) {
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .wrapContentSize(Alignment.Center)
                 ) {
-                    CircularProgressIndicator(color = Color(0xFFB8956A))
+                    CircularProgressIndicator(
+                        color = if (selectedTabIndex == 2) DependentColor else Color(0xFFB8956A)
+                    )
+                }
+            } else if (selectedTabIndex == 2) {
+                // Show dependents
+                if (dependents.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .wrapContentSize(Alignment.Center)
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Icon(
+                                Icons.Default.FamilyRestroom,
+                                contentDescription = null,
+                                tint = DependentColor.copy(alpha = 0.5f),
+                                modifier = Modifier.size(64.dp)
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                "No dependents found",
+                                color = Color(0xFF6B7280)
+                            )
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "Dependents are added by patients",
+                                color = Color(0xFF6B7280).copy(alpha = 0.7f),
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        item {
+                            Text(
+                                "${dependents.size} Dependent${if (dependents.size != 1) "s" else ""}",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = DependentColor,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                        }
+                        
+                        items(dependents) { dependent ->
+                            DependentListCard(
+                                dependent = dependent,
+                                onRemove = {
+                                    dependentToRemove = dependent
+                                    showRemoveDependentDialog = true
+                                }
+                            )
+                        }
+                    }
                 }
             } else if (users.isEmpty()) {
                 Box(
@@ -280,6 +362,260 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                 }
             }
         )
+    }
+
+    // Remove Dependent Confirmation Dialog
+    if (showRemoveDependentDialog && dependentToRemove != null) {
+        AlertDialog(
+            onDismissRequest = { if (!isRemoving) showRemoveDependentDialog = false },
+            containerColor = Color(0xFFF5F0E8),
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = "Warning",
+                        tint = Color(0xFFF59E0B),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Text(
+                        "Remove Dependent",
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF2F2019)
+                    )
+                }
+            },
+            text = {
+                Column {
+                    Text(
+                        "Are you sure you want to remove ${dependentToRemove!!.fullName}?",
+                        color = Color(0xFF2F2019),
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        "Parent: ${dependentToRemove!!.parentName}",
+                        color = Color(0xFF6B7280),
+                        fontSize = 14.sp
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(8.dp),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFEE2E2)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = "Warning",
+                                tint = Color(0xFFDC2626),
+                                modifier = Modifier
+                                    .size(20.dp)
+                                    .padding(top = 2.dp)
+                            )
+                            Spacer(Modifier.width(8.dp))
+                            Text(
+                                "This will permanently remove the dependent and all their health records.",
+                                color = Color(0xFFDC2626),
+                                fontSize = 12.sp
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            isRemoving = true
+                            val success = removeDependent(
+                                dependentToRemove!!.parentUid,
+                                dependentToRemove!!.dependentId
+                            )
+                            isRemoving = false
+                            showRemoveDependentDialog = false
+                            if (success) {
+                                dependents = dependents.filter { it.dependentId != dependentToRemove!!.dependentId }
+                                snackbarMessage = "Dependent removed successfully"
+                            } else {
+                                snackbarMessage = "Failed to remove dependent"
+                            }
+                        }
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEF4444)),
+                    enabled = !isRemoving
+                ) {
+                    if (isRemoving) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text("Remove", color = Color.White)
+                    }
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showRemoveDependentDialog = false },
+                    enabled = !isRemoving
+                ) {
+                    Text("Cancel", color = Color(0xFF6B7280))
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun DependentListCard(
+    dependent: DependentListItem,
+    onRemove: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        color = DependentColor.copy(alpha = 0.05f),
+        shadowElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.weight(1f)
+            ) {
+                // Avatar with family icon
+                Surface(
+                    modifier = Modifier.size(48.dp),
+                    shape = RoundedCornerShape(24.dp),
+                    color = DependentColor
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.FamilyRestroom,
+                            contentDescription = "Dependent",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                
+                Spacer(Modifier.width(12.dp))
+                
+                Column {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = dependent.fullName,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            color = Color(0xFF2F2019)
+                        )
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = DependentColor.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = dependent.relationship,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = DependentColor,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(4.dp))
+                    Text(
+                        text = "Parent: ${dependent.parentName}",
+                        fontSize = 13.sp,
+                        color = DependentColor.copy(alpha = 0.8f)
+                    )
+                    if (dependent.dob.isNotBlank()) {
+                        Text(
+                            text = "DOB: ${dependent.dob}",
+                            fontSize = 12.sp,
+                            color = Color(0xFF6B7280).copy(alpha = 0.7f)
+                        )
+                    }
+                }
+            }
+
+            Box {
+                IconButton(
+                    onClick = { showMenu = true }
+                ) {
+                    Icon(
+                        Icons.Default.MoreVert,
+                        contentDescription = "More options",
+                        tint = DependentColor
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier.background(Color.White)
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = DependentColor,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("View Details", color = Color(0xFF2F2019))
+                            }
+                        },
+                        onClick = {
+                            showMenu = false
+                            // Could navigate to view dependent details
+                        }
+                    )
+                    HorizontalDivider()
+                    DropdownMenuItem(
+                        text = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = Color(0xFFEF4444),
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(Modifier.width(8.dp))
+                                Text("Remove", color = Color(0xFFEF4444))
+                            }
+                        },
+                        onClick = {
+                            showMenu = false
+                            onRemove()
+                        }
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -609,6 +945,148 @@ private suspend fun removeUser(user: UserListItem, role: String): Boolean {
         
         true
     } catch (e: Exception) {
+        false
+    }
+}
+
+/**
+ * Data class representing a dependent for the admin list view
+ */
+data class DependentListItem(
+    val dependentId: String,
+    val parentUid: String,
+    val parentName: String,
+    val fullName: String,
+    val dob: String,
+    val gender: String,
+    val relationship: String
+)
+
+/**
+ * Fetches all dependents from all patients
+ */
+private suspend fun fetchAllDependents(): List<DependentListItem> {
+    val db = Firebase.firestore
+    val dependentsList = mutableListOf<DependentListItem>()
+    
+    try {
+        // First get all patients
+        val patientsQuery = db.collection("users")
+            .whereEqualTo("role", "patient")
+            .get()
+            .await()
+        
+        // For each patient, fetch their dependents
+        for (patientDoc in patientsQuery.documents) {
+            val parentUid = patientDoc.id
+            val parentFirstName = patientDoc.getString("firstName") ?: ""
+            val parentLastName = patientDoc.getString("lastName") ?: ""
+            val parentName = "$parentFirstName $parentLastName".trim()
+            
+            try {
+                val dependentsSnapshot = db.collection("users")
+                    .document(parentUid)
+                    .collection("dependents")
+                    .get()
+                    .await()
+                
+                for (depDoc in dependentsSnapshot.documents) {
+                    try {
+                        val firstName = depDoc.getString("firstName") ?: ""
+                        val lastName = depDoc.getString("lastName") ?: ""
+                        
+                        dependentsList.add(
+                            DependentListItem(
+                                dependentId = depDoc.id,
+                                parentUid = parentUid,
+                                parentName = parentName.ifBlank { "Unknown Patient" },
+                                fullName = "$firstName $lastName".trim().ifBlank { "Unknown" },
+                                dob = depDoc.getString("dob") ?: "",
+                                gender = depDoc.getString("gender") ?: "",
+                                relationship = depDoc.getString("relationship") ?: "Dependent"
+                            )
+                        )
+                    } catch (e: Exception) {
+                        // Skip this dependent if there's an error
+                    }
+                }
+            } catch (e: Exception) {
+                // Skip this patient's dependents if there's an error
+            }
+        }
+    } catch (e: Exception) {
+        e.printStackTrace()
+    }
+    
+    // Sort by parent name, then by dependent name
+    return dependentsList.sortedWith(compareBy({ it.parentName.lowercase() }, { it.fullName.lowercase() }))
+}
+
+/**
+ * Removes a dependent from a patient's subcollection
+ */
+private suspend fun removeDependent(parentUid: String, dependentId: String): Boolean {
+    return try {
+        val db = Firebase.firestore
+        
+        // Delete the dependent document
+        db.collection("users")
+            .document(parentUid)
+            .collection("dependents")
+            .document(dependentId)
+            .delete()
+            .await()
+        
+        // Also delete any health records for this dependent
+        try {
+            val recordsQuery = db.collection("healthRecords")
+                .whereEqualTo("dependentId", dependentId)
+                .get()
+                .await()
+            
+            for (doc in recordsQuery.documents) {
+                try {
+                    db.collection("healthRecords").document(doc.id).delete().await()
+                } catch (e: Exception) {
+                    // Continue with other records
+                }
+            }
+        } catch (e: Exception) {
+            // Continue even if records deletion fails
+        }
+        
+        // Cancel future appointments for this dependent
+        try {
+            val now = com.google.firebase.Timestamp.now()
+            val appointmentsQuery = db.collection("appointments")
+                .whereEqualTo("dependentId", dependentId)
+                .whereGreaterThanOrEqualTo("appointmentDate", now)
+                .get()
+                .await()
+            
+            for (doc in appointmentsQuery.documents) {
+                try {
+                    db.collection("appointments").document(doc.id)
+                        .update(
+                            mapOf(
+                                "status" to "Cancelled — Dependent removed",
+                                "updatedAt" to now,
+                                "cancelledAt" to now,
+                                "cancelledBy" to "admin"
+                            )
+                        )
+                        .await()
+                } catch (e: Exception) {
+                    // Continue
+                }
+            }
+        } catch (e: Exception) {
+            // Continue
+        }
+        
+        true
+    } catch (e: Exception) {
+        e.printStackTrace()
         false
     }
 }

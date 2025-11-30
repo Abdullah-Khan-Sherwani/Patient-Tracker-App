@@ -95,8 +95,12 @@ fun EnhancedDoctorViewPatientRecordsScreen(
     navController: NavController,
     context: Context,
     patientUid: String,
-    patientName: String
+    patientName: String,
+    dependentId: String = "" // Empty or "_self" means patient's own records
 ) {
+    // Determine if viewing dependent or patient
+    val isViewingDependent = dependentId.isNotBlank() && dependentId != "_self"
+    
     var uiState by remember { mutableStateOf<DoctorRecordsUiState>(DoctorRecordsUiState.Loading) }
     var allRecords by remember { mutableStateOf<List<HealthRecord>>(emptyList()) }
     var displayedRecords by remember { mutableStateOf<List<HealthRecord>>(emptyList()) }
@@ -109,10 +113,17 @@ fun EnhancedDoctorViewPatientRecordsScreen(
     var selectedPrivateRecord by remember { mutableStateOf<HealthRecord?>(null) }
     val scope = rememberCoroutineScope()
 
-    // Load records
-    LaunchedEffect(Unit) {
+    // Load records - separate for patient self vs dependent
+    LaunchedEffect(patientUid, dependentId) {
         uiState = DoctorRecordsUiState.Loading
-        val result = HealthRecordRepository.getDoctorAccessibleRecordsForPatient(patientUid)
+        
+        val result = if (isViewingDependent) {
+            // Get dependent's records only
+            HealthRecordRepository.getDoctorAccessibleRecordsForDependent(patientUid, dependentId)
+        } else {
+            // Get patient's self records only (no dependents)
+            HealthRecordRepository.getDoctorAccessibleRecordsForPatientSelf(patientUid)
+        }
         
         uiState = if (result.isSuccess) {
             val records = result.getOrNull() ?: emptyList()
@@ -201,8 +212,12 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                                     glassBreakReason
                                 )
                                 if (result.isSuccess) {
-                                    // Reload records
-                                    val reloadResult = HealthRecordRepository.getDoctorAccessibleRecordsForPatient(patientUid)
+                                    // Reload records - use appropriate method based on dependent
+                                    val reloadResult = if (isViewingDependent) {
+                                        HealthRecordRepository.getDoctorAccessibleRecordsForDependent(patientUid, dependentId)
+                                    } else {
+                                        HealthRecordRepository.getDoctorAccessibleRecordsForPatientSelf(patientUid)
+                                    }
                                     if (reloadResult.isSuccess) {
                                         allRecords = reloadResult.getOrNull() ?: emptyList()
                                     }
@@ -232,20 +247,42 @@ fun EnhancedDoctorViewPatientRecordsScreen(
         )
     }
 
+    // Teal color for dependent indicator
+    val DependentColor = Color(0xFF0E4944)
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { 
                     Column {
-                        Text(
-                            "Patient Records", 
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Text(
+                                if (isViewingDependent) "Dependent Records" else "Patient Records", 
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                            if (isViewingDependent) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = DependentColor.copy(alpha = 0.15f)
+                                ) {
+                                    Text(
+                                        "Dependent",
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = DependentColor,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                    )
+                                }
+                            }
+                        }
                         Text(
                             patientName,
                             fontSize = 14.sp,
-                            color = AccentColor
+                            color = if (isViewingDependent) DependentColor else AccentColor
                         )
                     }
                 },
@@ -493,6 +530,7 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                             // Health Summary Card even when no records
                             PatientHealthSummaryCard(
                                 patientUid = patientUid,
+                                dependentId = if (isViewingDependent) dependentId else "",
                                 modifier = Modifier.padding(horizontal = 16.dp)
                             )
                             
@@ -529,6 +567,7 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                         // Patient Health Summary Card
                         PatientHealthSummaryCard(
                             patientUid = patientUid,
+                            dependentId = if (isViewingDependent) dependentId else "",
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                         )
                         

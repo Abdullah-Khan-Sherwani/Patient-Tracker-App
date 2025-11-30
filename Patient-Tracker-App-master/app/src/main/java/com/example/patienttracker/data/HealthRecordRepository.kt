@@ -265,26 +265,40 @@ object HealthRecordRepository {
     
     /**
      * Get health records for a specific dependent
+     * Shows records where dependentId matches - used by parent to view dependent's records
      */
     suspend fun getDependentRecords(dependentId: String): Result<List<HealthRecord>> {
         return try {
             val currentUser = auth.currentUser
                 ?: return Result.failure(Exception("User not authenticated"))
             
+            android.util.Log.d("HealthRecordRepo", "getDependentRecords: patientUid=${currentUser.uid}, dependentId=$dependentId")
+            
+            // Query without orderBy to avoid needing composite index, then sort in memory
             val snapshot = db.collection(COLLECTION)
                 .whereEqualTo("patientUid", currentUser.uid)
                 .whereEqualTo("dependentId", dependentId)
-                .orderBy("uploadDate", Query.Direction.DESCENDING)
                 .get()
                 .await()
             
-            val records = snapshot.documents.mapNotNull { doc ->
-                HealthRecord.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
-            }
+            android.util.Log.d("HealthRecordRepo", "getDependentRecords: found ${snapshot.size()} documents")
             
+            val records = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val record = HealthRecord.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
+                    android.util.Log.d("HealthRecordRepo", "getDependentRecords: parsed record ${record.recordId}, dependentId=${record.dependentId}")
+                    record
+                } catch (e: Exception) {
+                    android.util.Log.e("HealthRecordRepo", "getDependentRecords: error parsing ${doc.id}: ${e.message}")
+                    null
+                }
+            }.sortedByDescending { it.uploadDate.seconds }
+            
+            android.util.Log.d("HealthRecordRepo", "getDependentRecords: returning ${records.size} records")
             Result.success(records)
             
         } catch (e: Exception) {
+            android.util.Log.e("HealthRecordRepo", "getDependentRecords: error: ${e.message}", e)
             Result.failure(e)
         }
     }
@@ -560,6 +574,137 @@ object HealthRecordRepository {
             Result.success(accessibleRecords)
             
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get records accessible to a doctor for a specific patient (self records only, not dependents)
+     * Returns AccessDeniedException if doctor has no valid appointment relationship
+     */
+    suspend fun getDoctorAccessibleRecordsForPatientSelf(patientUid: String): Result<List<HealthRecord>> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForPatientSelf: doctor=${currentUser.uid}, patientUid=$patientUid")
+            
+            // Check if doctor has active appointment with patient (today or future scheduled, OR completed)
+            val hasRelationship = AppointmentRepository.hasAppointmentRelationship(currentUser.uid, patientUid).getOrNull() ?: false
+            
+            android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForPatientSelf: hasRelationship=$hasRelationship")
+            
+            // If no appointment relationship at all, deny access completely
+            if (!hasRelationship) {
+                android.util.Log.w("HealthRecordRepo", "Access denied: Doctor ${currentUser.uid} has no appointment relationship with patient $patientUid")
+                return Result.failure(AccessDeniedException("You do not have an active appointment with this patient. Records cannot be viewed."))
+            }
+            
+            // Check if doctor has ACTIVE (today or future) appointment for access to private records
+            val hasActiveAppointment = AppointmentRepository.hasActiveAppointment(currentUser.uid, patientUid).getOrNull() ?: false
+            
+            android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForPatientSelf: hasActiveAppointment=$hasActiveAppointment")
+            
+            // Get patient's records - without orderBy to avoid needing composite index
+            val recordsSnapshot = db.collection(COLLECTION)
+                .whereEqualTo("patientUid", patientUid)
+                .get()
+                .await()
+            
+            android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForPatientSelf: found ${recordsSnapshot.size()} documents")
+            
+            // Filter to SELF records only and sort in memory
+            val allRecords = recordsSnapshot.documents.mapNotNull { doc ->
+                try {
+                    HealthRecord.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
+                } catch (e: Exception) {
+                    android.util.Log.e("HealthRecordRepo", "getDoctorAccessibleRecordsForPatientSelf: error parsing ${doc.id}: ${e.message}")
+                    null
+                }
+            }.filter { it.dependentId.isNullOrBlank() } // Only self records
+             .sortedByDescending { it.uploadDate.seconds }
+            
+            android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForPatientSelf: ${allRecords.size} self records after filtering")
+            
+            // Filter out private records unless doctor has access
+            val accessibleRecords = allRecords.filter { record ->
+                !record.isPrivate || 
+                record.doctorAccessList.contains(currentUser.uid) ||
+                hasActiveAppointment
+            }
+            
+            android.util.Log.d("HealthRecordRepo", "Doctor ${currentUser.uid} accessing ${accessibleRecords.size} SELF records for patient $patientUid")
+            Result.success(accessibleRecords)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HealthRecordRepo", "getDoctorAccessibleRecordsForPatientSelf error: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get records accessible to a doctor for a specific dependent
+     * Returns AccessDeniedException if doctor has no valid appointment relationship with the dependent
+     */
+    suspend fun getDoctorAccessibleRecordsForDependent(patientUid: String, dependentId: String): Result<List<HealthRecord>> {
+        return try {
+            val currentUser = auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForDependent: doctor=${currentUser.uid}, patientUid=$patientUid, dependentId=$dependentId")
+            
+            // Check if doctor has appointment with this specific dependent
+            val hasRelationship = AppointmentRepository.hasAppointmentRelationshipWithDependent(
+                currentUser.uid, patientUid, dependentId
+            ).getOrNull() ?: false
+            
+            android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForDependent: hasRelationship=$hasRelationship")
+            
+            // If no appointment relationship, deny access
+            if (!hasRelationship) {
+                android.util.Log.w("HealthRecordRepo", "Access denied: Doctor ${currentUser.uid} has no appointment with dependent $dependentId")
+                return Result.failure(AccessDeniedException("You do not have an appointment with this dependent. Records cannot be viewed."))
+            }
+            
+            // Check if doctor has ACTIVE appointment for private record access
+            val hasActiveAppointment = AppointmentRepository.hasActiveAppointmentWithDependent(
+                currentUser.uid, patientUid, dependentId
+            ).getOrNull() ?: false
+            
+            android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForDependent: hasActiveAppointment=$hasActiveAppointment")
+            
+            // Get dependent's records only - without orderBy to avoid needing composite index
+            val recordsSnapshot = db.collection(COLLECTION)
+                .whereEqualTo("patientUid", patientUid)
+                .whereEqualTo("dependentId", dependentId)
+                .get()
+                .await()
+            
+            android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForDependent: found ${recordsSnapshot.size()} documents")
+            
+            val allRecords = recordsSnapshot.documents.mapNotNull { doc ->
+                try {
+                    val record = HealthRecord.fromFirestore(doc.data ?: return@mapNotNull null, doc.id)
+                    android.util.Log.d("HealthRecordRepo", "getDoctorAccessibleRecordsForDependent: parsed record ${record.recordId}")
+                    record
+                } catch (e: Exception) {
+                    android.util.Log.e("HealthRecordRepo", "getDoctorAccessibleRecordsForDependent: error parsing ${doc.id}: ${e.message}")
+                    null
+                }
+            }.sortedByDescending { it.uploadDate.seconds } // Sort in memory
+            
+            // Filter out private records unless doctor has access
+            val accessibleRecords = allRecords.filter { record ->
+                !record.isPrivate || 
+                record.doctorAccessList.contains(currentUser.uid) ||
+                hasActiveAppointment
+            }
+            
+            android.util.Log.d("HealthRecordRepo", "Doctor ${currentUser.uid} accessing ${accessibleRecords.size} records for dependent $dependentId")
+            Result.success(accessibleRecords)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("HealthRecordRepo", "getDoctorAccessibleRecordsForDependent error: ${e.message}", e)
             Result.failure(e)
         }
     }

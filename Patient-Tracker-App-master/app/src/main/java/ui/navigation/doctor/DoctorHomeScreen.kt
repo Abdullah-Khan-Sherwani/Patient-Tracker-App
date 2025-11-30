@@ -237,13 +237,65 @@ private fun ModernDoctorDashboard(
     doctorLastName: String
 ) {
     var todayAppointments by remember { mutableStateOf<List<DoctorAppointment>>(emptyList()) }
+    var upcomingCount by remember { mutableStateOf(0) }
+    var completedCount by remember { mutableStateOf(0) }
     var isLoading by remember { mutableStateOf(true) }
     val scope = rememberCoroutineScope()
 
+    // Use the same logic as DoctorAppointmentsFullScreen for consistency
     LaunchedEffect(Unit) {
         scope.launch {
-            todayAppointments = fetchTodayAppointments()
-            isLoading = false
+            try {
+                val result = AppointmentRepository.getDoctorAppointments()
+                val allAppointments = result.getOrNull() ?: emptyList()
+                
+                val now = java.util.Date()
+                val today = LocalDate.now()
+                
+                // Count upcoming (same logic as DoctorAppointmentsFullScreen)
+                val upcoming = allAppointments.filter { appointment ->
+                    try {
+                        val isUpcoming = appointment.appointmentDate.toDate().after(java.util.Date(now.time - 86400000))
+                        isUpcoming && appointment.status.lowercase() != "cancelled" && appointment.status.lowercase() != "completed"
+                    } catch (e: Exception) {
+                        false
+                    }
+                }
+                upcomingCount = upcoming.size
+                
+                // Count completed
+                completedCount = allAppointments.count { it.status.lowercase() == "completed" }
+                
+                // Filter for today's appointments display
+                val todayList = allAppointments.filter { appointment ->
+                    try {
+                        val appointmentDate = Instant.ofEpochSecond(appointment.appointmentDate.seconds)
+                            .atZone(ZoneId.systemDefault())
+                            .toLocalDate()
+                        appointmentDate == today && appointment.status.lowercase() != "cancelled"
+                    } catch (e: Exception) {
+                        false
+                    }
+                }.map { appointment ->
+                    val displayName = if (appointment.recipientType == "dependent" && appointment.dependentName.isNotBlank()) {
+                        "${appointment.dependentName} (via ${appointment.patientName})"
+                    } else {
+                        appointment.patientName
+                    }
+                    DoctorAppointment(
+                        patientName = displayName,
+                        time = formatTimeRange(appointment.timeSlot),
+                        type = appointment.speciality,
+                        status = appointment.status.lowercase()
+                    )
+                }
+                todayAppointments = todayList
+                
+            } catch (e: Exception) {
+                android.util.Log.e("DoctorDashboard", "Error fetching appointments: ${e.message}")
+            } finally {
+                isLoading = false
+            }
         }
     }
 
@@ -297,14 +349,14 @@ private fun ModernDoctorDashboard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.CheckCircle,
                 title = "Completed",
-                value = todayAppointments.filter { it.status == "completed" }.size.toString(),
+                value = completedCount.toString(),
                 onClick = { navController.navigate("doctor_appointments_full") }
             )
             MetricCard(
                 modifier = Modifier.weight(1f),
                 icon = Icons.Default.Add,
-                title = "Pending",
-                value = todayAppointments.filter { it.status == "pending" }.size.toString(),
+                title = "Upcoming",
+                value = upcomingCount.toString(),
                 onClick = { navController.navigate("doctor_appointments_full") }
             )
         }

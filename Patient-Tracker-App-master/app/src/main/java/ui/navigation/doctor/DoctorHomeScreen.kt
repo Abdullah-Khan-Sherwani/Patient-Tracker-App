@@ -401,21 +401,16 @@ private fun ModernDoctorDashboard(
         } else if (todayAppointments.isEmpty()) {
             EmptyAppointmentCard()
         } else {
-            todayAppointments.forEach { appointment ->
-                AppointmentListCard(
-                    appointment = appointment,
-                    onClick = { 
-                        // Navigate to full appointments screen instead
-                        navController.navigate("doctor_appointments_full")
-                    }
-                )
-                Spacer(Modifier.height(12.dp))
-            }
+            // Show More / Show Less feature
+            AppointmentList(
+                appointments = todayAppointments,
+                onAppointmentClick = { navController.navigate("doctor_appointments_full") }
+            )
         }
 
         Spacer(Modifier.height(28.dp))
 
-        // SECTION 3: QUICK ACTIONS
+        // SECTION 3: QUICK ACTIONS (Simplified - only View Patients and Settings)
         Text(
             text = "Quick Actions",
             fontSize = 18.sp,
@@ -424,45 +419,85 @@ private fun ModernDoctorDashboard(
         )
         Spacer(Modifier.height(12.dp))
 
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            QuickActionCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Person,
-                title = "View Patients",
-                onClick = { navController.navigate("doctor_patient_list") }
-            )
-            QuickActionCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.DateRange,
-                title = "Manage Schedule",
-                onClick = { navController.navigate("doctor_manage_schedule") }
-            )
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            QuickActionCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Folder,
-                title = "View Records",
-                onClick = { navController.navigate("doctor_view_records") }
-            )
-            QuickActionCard(
-                modifier = Modifier.weight(1f),
-                icon = Icons.Default.Settings,
-                title = "Settings",
-                onClick = { navController.navigate("doctor_settings") }
-            )
-        }
+        QuickActions(navController = navController)
 
         Spacer(Modifier.height(20.dp))
+    }
+}
+
+// ========== APPOINTMENT LIST WITH SHOW MORE/LESS ==========
+@Composable
+private fun AppointmentList(
+    appointments: List<DoctorAppointment>,
+    onAppointmentClick: () -> Unit
+) {
+    var isExpanded by remember { mutableStateOf(false) }
+    
+    val displayedAppointments = if (isExpanded) appointments else appointments.take(1)
+    
+    Column {
+        displayedAppointments.forEach { appointment ->
+            AppointmentListCard(
+                appointment = appointment,
+                onClick = onAppointmentClick
+            )
+            Spacer(Modifier.height(12.dp))
+        }
+        
+        // Show More / Show Less button (only if there's more than 1 appointment)
+        if (appointments.size > 1) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { isExpanded = !isExpanded },
+                shape = RoundedCornerShape(12.dp),
+                color = AccentColor.copy(alpha = 0.1f)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = if (isExpanded) "Show Less" else "Show More (${appointments.size - 1} more)",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AccentColor
+                    )
+                    Spacer(Modifier.width(4.dp))
+                    Icon(
+                        imageVector = if (isExpanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                        contentDescription = if (isExpanded) "Show Less" else "Show More",
+                        tint = AccentColor,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+// ========== QUICK ACTIONS (Simplified) ==========
+@Composable
+private fun QuickActions(navController: NavController) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        QuickActionCard(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Default.Person,
+            title = "View Patients",
+            onClick = { navController.navigate("doctor_patient_list") }
+        )
+        QuickActionCard(
+            modifier = Modifier.weight(1f),
+            icon = Icons.Default.Settings,
+            title = "Settings",
+            onClick = { navController.navigate("doctor_settings") }
+        )
     }
 }
 

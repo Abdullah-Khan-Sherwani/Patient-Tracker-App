@@ -357,6 +357,36 @@ fun ChatbotScreen(navController: NavController) {
                         maxLines = 3
                     )
 
+                    // Mic button (placeholder - not implemented)
+                    IconButton(
+                        onClick = {
+                            // TODO: Implement voice input
+                            android.widget.Toast.makeText(
+                                context,
+                                "Voice input coming soon!",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        modifier = Modifier.size(48.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(48.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.surfaceVariant
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = "Voice Input",
+                                    tint = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+                                )
+                            }
+                        }
+                    }
+
                     // Send button
                     IconButton(
                         onClick = {

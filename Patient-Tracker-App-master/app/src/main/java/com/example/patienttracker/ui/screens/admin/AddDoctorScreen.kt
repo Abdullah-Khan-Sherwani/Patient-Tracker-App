@@ -525,6 +525,12 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                             Toast.makeText(context, "Password must be at least 8 characters", Toast.LENGTH_SHORT).show()
                             return@launch
                         }
+                        // TODO: For future - enforce @iat.com email domain for doctors
+                        // Uncomment the following block when ready to enforce:
+                        // if (!email.trim().lowercase().endsWith("@iat.com")) {
+                        //     Toast.makeText(context, "Doctor email must be from @iat.com domain", Toast.LENGTH_SHORT).show()
+                        //     return@launch
+                        // }
 
                         isLoading = true
                         try {

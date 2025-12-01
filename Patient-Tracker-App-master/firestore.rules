@@ -22,6 +22,11 @@ service cloud.firestore {
     function isOwn(uid) {
       return request.auth != null && request.auth.uid == uid;
     }
+    
+    // Check if doctor has active emergency access to a patient
+    function hasEmergencyAccess(patientUid) {
+      return exists(/databases/$(database)/documents/emergency_access_index/$(patientUid + '_' + request.auth.uid));
+    }
 
     // users collection
     match /users/{uid} {
@@ -40,9 +45,14 @@ service cloud.firestore {
         (isOwn(uid) || isAdmin());
 
       // Dependents subcollection - patients can manage their own dependents
+      // Doctors can read dependent info for patients they have appointments with
       match /dependents/{dependentId} {
-        allow read, write: if request.auth != null && isOwn(uid);
-        allow read, write: if isAdmin();
+        allow read: if request.auth != null && (
+          isOwn(uid) || 
+          isAdmin() || 
+          isDoctor()
+        );
+        allow write: if request.auth != null && (isOwn(uid) || isAdmin());
       }
     }
 
@@ -127,10 +137,12 @@ service cloud.firestore {
         // Admin can read all records
         isAdmin() ||
         // Doctor can read non-private records OR private records if they're in doctorAccessList
+        // OR if they have emergency access granted by admin
         (isDoctor() && (
           !resource.data.get('isPrivate', false) ||
           request.auth.uid in resource.data.get('doctorAccessList', []) ||
-          resource.data.get('glassBreakAccess', []).hasAny([request.auth.uid])
+          resource.data.get('glassBreakAccess', []).hasAny([request.auth.uid]) ||
+          hasEmergencyAccess(resource.data.patientUid)
         ))
       );
       
@@ -183,6 +195,34 @@ service cloud.firestore {
         (isDoctor() && resource.data.doctorUid == request.auth.uid) ||
         isAdmin()
       );
+    }
+    
+    // emergency_access collection - Admin-granted emergency access for doctors
+    match /emergency_access/{accessId} {
+      // Only admin can create emergency access grants
+      allow create: if request.auth != null && isAdmin();
+      
+      // Admin can read all, doctors can read grants where they are the grantee
+      allow read: if request.auth != null && (
+        isAdmin() ||
+        resource.data.doctorUid == request.auth.uid
+      );
+      
+      // Only admin can update (revoke) access
+      allow update: if request.auth != null && isAdmin();
+      
+      // Only admin can delete
+      allow delete: if request.auth != null && isAdmin();
+    }
+    
+    // emergency_access_index collection - Quick lookup for emergency access
+    // Document ID format: {patientUid}_{doctorUid}
+    match /emergency_access_index/{indexId} {
+      // Only admin can write to index
+      allow create, update, delete: if request.auth != null && isAdmin();
+      
+      // Any authenticated user can read (for rule checks)
+      allow read: if request.auth != null;
     }
   }
 }

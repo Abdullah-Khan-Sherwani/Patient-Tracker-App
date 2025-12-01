@@ -593,6 +593,15 @@ private fun AdminNavigationDrawer(
                 }
             )
             
+            DrawerMenuItem(
+                icon = Icons.Default.Security,
+                label = "Emergency Access",
+                onClick = {
+                    navController.navigate("admin_emergency_access")
+                    onItemClick()
+                }
+            )
+            
             Spacer(Modifier.weight(1f))
             
             Divider(
@@ -842,12 +851,20 @@ private fun PremiumActionGrid(navController: NavController) {
             )
         }
 
-        // Full Width Card
+        // Full Width Cards
         PremiumFullWidthActionCard(
             title = "System Reports",
             subtitle = "Analytics and performance insights",
             icon = Icons.Default.BarChart,
             onClick = { navController.navigate("admin_system_reports") }
+        )
+        
+        // Emergency Access Card
+        PremiumFullWidthActionCard(
+            title = "Emergency Access",
+            subtitle = "Grant doctors access to patient records without appointments",
+            icon = Icons.Default.Security,
+            onClick = { navController.navigate("admin_emergency_access") }
         )
     }
 }

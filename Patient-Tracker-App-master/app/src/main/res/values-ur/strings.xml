@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Doctor Settings Screen - Urdu -->
+    <string name="settings_title">ترتیبات</string>
+    <string name="settings_appearance">ظاہری شکل</string>
+    <string name="settings_dark_mode">ڈارک موڈ</string>
+    <string name="settings_dark_mode_desc">ڈارک تھیم فعال کریں</string>
+    <string name="settings_language">زبان</string>
+    <string name="settings_language_desc">زبان منتخب کریں</string>
+    <string name="settings_english">انگریزی</string>
+    <string name="settings_urdu">اردو</string>
+    <string name="settings_notifications">اطلاعات</string>
+    <string name="settings_push_notifications">پش اطلاعات</string>
+    <string name="settings_push_notifications_desc">ملاقاتوں کے بارے میں اطلاعات حاصل کریں</string>
+    <string name="settings_appointment_reminders">ملاقات کی یاد دہانی</string>
+    <string name="settings_appointment_reminders_desc">ملاقاتوں سے پہلے یاد دہانی حاصل کریں</string>
+    <string name="settings_email_notifications">ای میل اطلاعات</string>
+    <string name="settings_email_notifications_desc">ای میل کے ذریعے اپ ڈیٹس حاصل کریں</string>
+    <string name="settings_about">کے بارے میں</string>
+    <string name="settings_app_version">ایپ ورژن</string>
+</resources>

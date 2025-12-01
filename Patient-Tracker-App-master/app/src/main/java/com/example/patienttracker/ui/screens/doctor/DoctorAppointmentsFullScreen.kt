@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -637,6 +638,69 @@ private fun DoctorNoteDialog(
     var comments by remember { mutableStateOf("") }
     var prescription by remember { mutableStateOf("") }
     var isSaving by remember { mutableStateOf(false) }
+    var showConfirmDialog by remember { mutableStateOf(false) }
+    
+    // Confirmation Dialog
+    if (showConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showConfirmDialog = false },
+            icon = {
+                Icon(
+                    imageVector = Icons.Default.MedicalServices,
+                    contentDescription = null,
+                    tint = TealAccent,
+                    modifier = Modifier.size(32.dp)
+                )
+            },
+            title = {
+                Text(
+                    text = "Confirm Prescription",
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                )
+            },
+            text = {
+                Column {
+                    Text(
+                        text = "Are you sure you want to save this prescription for ${appointment.patientName}?",
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    Text(
+                        text = "This action cannot be undone and the patient will be notified.",
+                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showConfirmDialog = false
+                        isSaving = true
+                        onSave(comments, prescription)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = TealAccent)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Check,
+                        contentDescription = null,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    Text("Confirm & Save")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirmDialog = false }) {
+                    Text("Review Again", color = TextSecondary)
+                }
+            },
+            containerColor = Color.White,
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
     
     Dialog(onDismissRequest = { if (!isSaving) onDismiss() }) {
         Surface(
@@ -699,19 +763,57 @@ private fun DoctorNoteDialog(
                     color = TextPrimary
                 )
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = comments,
-                    onValueChange = { comments = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
-                    placeholder = { Text("Enter your comments and diagnosis...") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = TealAccent,
-                        cursorColor = TealAccent
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = comments,
+                        onValueChange = { comments = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(120.dp),
+                        placeholder = { Text("Enter your comments and diagnosis...") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = TealAccent,
+                            cursorColor = TealAccent
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    // Mic button for comments (placeholder - not implemented)
+                    IconButton(
+                        onClick = {
+                            // TODO: Implement voice input
+                            android.widget.Toast.makeText(
+                                context,
+                                "Voice input coming soon!",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .padding(top = 4.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            color = TealAccent.copy(alpha = 0.1f)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = "Voice Input",
+                                    tint = TealAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
                 
                 Spacer(Modifier.height(16.dp))
                 
@@ -723,19 +825,57 @@ private fun DoctorNoteDialog(
                     color = TextPrimary
                 )
                 Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = prescription,
-                    onValueChange = { prescription = it },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(150.dp),
-                    placeholder = { Text("Enter prescribed medications...\nExample:\n- Medicine 1 - Dosage - Frequency\n- Medicine 2 - Dosage - Frequency") },
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = TealAccent,
-                        cursorColor = TealAccent
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = prescription,
+                        onValueChange = { prescription = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(150.dp),
+                        placeholder = { Text("Enter prescribed medications...\nExample:\n- Medicine 1 - Dosage - Frequency\n- Medicine 2 - Dosage - Frequency") },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = TealAccent,
+                            cursorColor = TealAccent
+                        ),
+                        shape = RoundedCornerShape(8.dp)
+                    )
+                    // Mic button for prescription (placeholder - not implemented)
+                    IconButton(
+                        onClick = {
+                            // TODO: Implement voice input
+                            android.widget.Toast.makeText(
+                                context,
+                                "Voice input coming soon!",
+                                android.widget.Toast.LENGTH_SHORT
+                            ).show()
+                        },
+                        modifier = Modifier
+                            .size(48.dp)
+                            .padding(top = 4.dp)
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            color = TealAccent.copy(alpha = 0.1f)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Mic,
+                                    contentDescription = "Voice Input",
+                                    tint = TealAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
+                }
                 
                 Spacer(Modifier.height(20.dp))
                 
@@ -756,8 +896,7 @@ private fun DoctorNoteDialog(
                     Button(
                         onClick = {
                             if (comments.isNotBlank() || prescription.isNotBlank()) {
-                                isSaving = true
-                                onSave(comments, prescription)
+                                showConfirmDialog = true
                             } else {
                                 android.widget.Toast.makeText(
                                     context,

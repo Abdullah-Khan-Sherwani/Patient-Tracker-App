@@ -826,7 +826,18 @@ fun DoctorRecordCard(
                             fontSize = 11.sp,
                             color = AccentColor,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                            maxLines = 1,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    
+                    if (record.pastMedication.isNotBlank()) {
+                        Text(
+                            "Past Medication: ${record.pastMedication}",
+                            fontSize = 11.sp,
+                            color = PrimaryColor,
+                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
                     }

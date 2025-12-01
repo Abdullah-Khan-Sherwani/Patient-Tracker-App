@@ -217,7 +217,47 @@ fun PatientProfileScreen(
                 isDarkMode = isDarkMode
             )
 
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Account Settings Section Title
+            Text(
+                text = "Account Settings",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isDarkMode) DarkTextColor else TextDarkColor,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
+
+            // Change Email
+            SettingItemWithSubtitle(
+                title = "Change Email",
+                subtitle = Firebase.auth.currentUser?.email ?: "Not set",
+                icon = Icons.Default.Email,
+                onClick = { /* TODO: Navigate to change email screen */ },
+                isDarkMode = isDarkMode
+            )
+
             Spacer(modifier = Modifier.height(12.dp))
+
+            // Change Contact Number
+            SettingItemWithSubtitle(
+                title = "Change Contact Number",
+                subtitle = userPhoneNumber ?: "Not set",
+                icon = Icons.Default.Phone,
+                onClick = { /* TODO: Navigate to change contact screen */ },
+                isDarkMode = isDarkMode
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Legal Section Title
+            Text(
+                text = "Legal",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (isDarkMode) DarkTextColor else TextDarkColor,
+                modifier = Modifier.padding(bottom = 12.dp)
+            )
 
             // Privacy Policy
             SettingItem(
@@ -454,6 +494,87 @@ fun SettingItem(
                 fontWeight = FontWeight.SemiBold,
                 color = if (isDarkMode) DarkTextColor else TextDarkColor
             )
+
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = "Navigate",
+                tint = if (isDarkMode) DarkTextLightColor else TextLightColor,
+                modifier = Modifier.size(24.dp)
+            )
+        }
+    }
+}
+
+@Composable
+fun SettingItemWithSubtitle(
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    isDarkMode: Boolean
+) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 4.dp,
+                shape = RoundedCornerShape(18.dp)
+            )
+            .clip(RoundedCornerShape(18.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = ripple(),
+                onClick = onClick
+            ),
+        color = if (isDarkMode) DarkCardColor else CardWhiteColor
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                // Icon container
+                Surface(
+                    shape = CircleShape,
+                    color = ProfileHeaderTopColor.copy(alpha = 0.1f),
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = ProfileHeaderTopColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+                
+                Column {
+                    Text(
+                        text = title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = if (isDarkMode) DarkTextColor else TextDarkColor
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = subtitle,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = if (isDarkMode) DarkTextLightColor else TextLightColor
+                    )
+                }
+            }
 
             Icon(
                 imageVector = Icons.Default.ChevronRight,

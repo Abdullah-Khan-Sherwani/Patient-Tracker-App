@@ -30,6 +30,7 @@ import com.example.patienttracker.ui.screens.admin.AdminSystemReportsScreen
 import com.example.patienttracker.ui.screens.admin.AdminProfileScreen
 import com.example.patienttracker.ui.screens.admin.AdminSettingsScreen
 import com.example.patienttracker.ui.screens.admin.AdminAboutScreen
+import com.example.patienttracker.ui.screens.admin.AdminEmergencyAccessScreen
 import com.example.patienttracker.ui.screens.doctor.DoctorHomeScreen
 import com.example.patienttracker.ui.screens.auth.UnifiedLoginScreen
 import com.example.patienttracker.ui.screens.auth.PatientWelcomeScreen
@@ -536,6 +537,10 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             AdminAboutScreen(navController, context)
         }
 
+        composable("admin_emergency_access") {
+            AdminEmergencyAccessScreen(navController, context)
+        }
+
         // New Booking Flow Routes
         composable("select_specialty") {
             SelectSpecialtyScreen(navController, context)
@@ -653,7 +658,7 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
         }
 
         composable("doctor_settings") {
-            DoctorSettingsScreen(navController, context)
+            DoctorSettingsScreen(navController, context, themeViewModel)
         }
 
         // Edit Availability Screen (used by both doctor and admin)

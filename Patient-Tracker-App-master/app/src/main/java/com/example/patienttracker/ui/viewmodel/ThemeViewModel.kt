@@ -10,9 +10,18 @@ class ThemeViewModel(private val context: Context) : ViewModel() {
     // Initialize from saved preference or default to light mode
     val isDarkMode = mutableStateOf(sharedPreferences.getBoolean("is_dark_mode", false))
     
+    // Language preference: "en" for English, "ur" for Urdu
+    val selectedLanguage = mutableStateOf(sharedPreferences.getString("selected_language", "en") ?: "en")
+    
     fun toggleDarkMode(isDark: Boolean) {
         isDarkMode.value = isDark
         // Persist preference
         sharedPreferences.edit().putBoolean("is_dark_mode", isDark).apply()
+    }
+    
+    fun setLanguage(languageCode: String) {
+        selectedLanguage.value = languageCode
+        // Persist preference
+        sharedPreferences.edit().putString("selected_language", languageCode).apply()
     }
 }

@@ -788,7 +788,17 @@ fun RecordCard(
                         "Notes: ${record.notes}",
                         fontSize = 11.sp,
                         color = AccentColor,
-                        maxLines = 1,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+                
+                if (record.pastMedication.isNotBlank()) {
+                    Text(
+                        "Past Medication: ${record.pastMedication}",
+                        fontSize = 11.sp,
+                        color = PrimaryColor,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis
                     )
                 }

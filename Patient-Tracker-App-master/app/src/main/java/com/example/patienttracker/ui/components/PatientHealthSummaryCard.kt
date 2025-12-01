@@ -36,7 +36,7 @@ private val WarningColor = Color(0xFFF59E0B)
 
 /**
  * Read-only health information summary card for doctors
- * Displays patient's or dependent's blood group, height, weight, age, and last updated time
+ * Displays patient's or dependent's blood group, height, weight, age, gender, and last updated time
  */
 @Composable
 fun PatientHealthSummaryCard(
@@ -47,16 +47,29 @@ fun PatientHealthSummaryCard(
     // Determine viewing mode
     val isDependent = dependentId.isNotBlank() && dependentId != "_self"
     
+    // Use a unique key combining both patientUid and dependentId
+    val viewModelKey = if (isDependent) {
+        "doctor_view_dep_${patientUid}_$dependentId"
+    } else {
+        "doctor_view_patient_$patientUid"
+    }
+    
     val healthInfoViewModel: HealthInfoViewModel = viewModel(
-        key = if (isDependent) "doctor_view_dep_$dependentId" else "doctor_view_$patientUid",
+        key = viewModelKey,
         factory = HealthInfoViewModel.Factory(
             if (isDependent) {
-                HealthInfoMode.Dependent(dependentId, patientUid)
+                // Doctor viewing dependent's health info
+                HealthInfoMode.DoctorReadOnlyDependent(dependentId, patientUid)
             } else {
                 HealthInfoMode.DoctorReadOnly(patientUid)
             }
         )
     )
+    
+    // Force reload when component is displayed
+    LaunchedEffect(patientUid, dependentId) {
+        healthInfoViewModel.loadHealthInfo()
+    }
     
     val state by healthInfoViewModel.state
     
@@ -92,16 +105,18 @@ fun PatientHealthSummaryCard(
         return
     }
     
+    val age = healthInfoViewModel.calculateAge()
+    val lastUpdated = healthInfoViewModel.getLatestUpdateTimestamp()
+    
     val hasAnyData = !state.bloodGroup.isNullOrEmpty() || 
                      state.height.isNotEmpty() || 
-                     state.weight.isNotEmpty()
+                     state.weight.isNotEmpty() ||
+                     !state.gender.isNullOrEmpty() ||
+                     age != null
     
     val isComplete = !state.bloodGroup.isNullOrEmpty() && 
                      state.height.isNotEmpty() && 
                      state.weight.isNotEmpty()
-    
-    val age = healthInfoViewModel.calculateAge()
-    val lastUpdated = healthInfoViewModel.getLatestUpdateTimestamp()
     
     Surface(
         modifier = modifier
@@ -224,6 +239,15 @@ fun PatientHealthSummaryCard(
                             else 
                                 stringResource(R.string.not_set),
                             isSet = state.height.isNotEmpty()
+                        )
+                        
+                        // Gender
+                        HealthStatItem(
+                            icon = Icons.Default.Person,
+                            label = stringResource(R.string.gender_label),
+                            value = state.gender?.takeIf { it.isNotEmpty() } 
+                                ?: stringResource(R.string.not_set),
+                            isSet = !state.gender.isNullOrEmpty()
                         )
                     }
                     

@@ -29,6 +29,7 @@ data class HealthInfoState(
     val heightLastUpdated: Timestamp? = null,
     val weightLastUpdated: Timestamp? = null,
     val dateOfBirth: String? = null,
+    val gender: String? = null,
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val error: String? = null
@@ -49,6 +50,7 @@ sealed class HealthInfoMode {
     object Patient : HealthInfoMode()
     data class Dependent(val dependentId: String, val parentUid: String) : HealthInfoMode()
     data class DoctorReadOnly(val patientUid: String) : HealthInfoMode()
+    data class DoctorReadOnlyDependent(val dependentId: String, val parentUid: String) : HealthInfoMode()
 }
 
 /**
@@ -77,7 +79,7 @@ class HealthInfoViewModel(
     val bloodGroupOptions = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
     
     // Check if this is read-only mode (doctor view)
-    val isReadOnly: Boolean = mode is HealthInfoMode.DoctorReadOnly
+    val isReadOnly: Boolean = mode is HealthInfoMode.DoctorReadOnly || mode is HealthInfoMode.DoctorReadOnlyDependent
     
     init {
         loadHealthInfo()
@@ -85,20 +87,24 @@ class HealthInfoViewModel(
     
     /**
      * Get the document reference based on mode
+     * Returns null only for Patient mode if user is not logged in
      */
-    private fun getDocumentPath(): Pair<String, String>? {
+    private fun getDocumentRef(): com.google.firebase.firestore.DocumentReference? {
         return when (mode) {
             is HealthInfoMode.Patient -> {
                 val userId = auth.currentUser?.uid ?: return null
-                Pair("users", userId)
+                db.collection("users").document(userId)
             }
             is HealthInfoMode.Dependent -> {
-                // Dependent document path: users/{parentUid}/dependents/{dependentId}
-                Pair("users/${mode.parentUid}/dependents", mode.dependentId)
+                db.collection("users").document(mode.parentUid)
+                    .collection("dependents").document(mode.dependentId)
             }
             is HealthInfoMode.DoctorReadOnly -> {
-                // Read from patient's user document
-                Pair("users", mode.patientUid)
+                db.collection("users").document(mode.patientUid)
+            }
+            is HealthInfoMode.DoctorReadOnlyDependent -> {
+                db.collection("users").document(mode.parentUid)
+                    .collection("dependents").document(mode.dependentId)
             }
         }
     }
@@ -107,13 +113,36 @@ class HealthInfoViewModel(
      * Load health information from Firestore
      */
     fun loadHealthInfo() {
-        val docPath = getDocumentPath() ?: return
-        
         viewModelScope.launch {
             _state.value = _state.value.copy(isLoading = true, error = null)
             
             try {
-                val document = db.collection(docPath.first).document(docPath.second).get().await()
+                // Get the document reference based on mode
+                val documentRef = when (mode) {
+                    is HealthInfoMode.Patient -> {
+                        val userId = auth.currentUser?.uid ?: run {
+                            _state.value = _state.value.copy(isLoading = false, error = "User not logged in")
+                            return@launch
+                        }
+                        db.collection("users").document(userId)
+                    }
+                    is HealthInfoMode.Dependent -> {
+                        db.collection("users").document(mode.parentUid)
+                            .collection("dependents").document(mode.dependentId)
+                    }
+                    is HealthInfoMode.DoctorReadOnly -> {
+                        db.collection("users").document(mode.patientUid)
+                    }
+                    is HealthInfoMode.DoctorReadOnlyDependent -> {
+                        Log.d(TAG, "Loading dependent health info: parentUid=${mode.parentUid}, dependentId=${mode.dependentId}")
+                        db.collection("users").document(mode.parentUid)
+                            .collection("dependents").document(mode.dependentId)
+                    }
+                }
+                
+                val document = documentRef.get().await()
+                
+                Log.d(TAG, "Document exists: ${document.exists()}, path: ${document.reference.path}")
                 
                 if (document.exists()) {
                     val bloodGroup = document.getString("bloodGroup")
@@ -127,6 +156,11 @@ class HealthInfoViewModel(
                         ?: document.getString("dob")  // For dependents
                         ?: ""
                     
+                    // Get gender
+                    val gender = document.getString("gender") ?: ""
+                    
+                    Log.d(TAG, "Loaded health info - bloodGroup: $bloodGroup, height: $height, weight: $weight, dob: $dob, gender: $gender")
+                    
                     // Store original values for change detection
                     originalHeight = height
                     originalWeight = weight
@@ -139,13 +173,15 @@ class HealthInfoViewModel(
                         heightLastUpdated = heightUpdated,
                         weightLastUpdated = weightUpdated,
                         dateOfBirth = dob,
+                        gender = gender,
                         isLoading = false
                     )
                 } else {
+                    Log.d(TAG, "Document does not exist")
                     _state.value = _state.value.copy(isLoading = false)
                 }
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading health info: ${e.message}")
+                Log.e(TAG, "Error loading health info: ${e.message}", e)
                 _state.value = _state.value.copy(
                     isLoading = false,
                     error = e.message
@@ -237,7 +273,7 @@ class HealthInfoViewModel(
      */
     fun saveBloodGroup(bloodGroup: String) {
         if (isReadOnly) return
-        val docPath = getDocumentPath() ?: return
+        val docRef = getDocumentRef() ?: return
         
         if (_state.value.isBloodGroupLocked) {
             Log.w(TAG, "Blood group is already locked")
@@ -248,13 +284,12 @@ class HealthInfoViewModel(
             _state.value = _state.value.copy(isSaving = true)
             
             try {
-                db.collection(docPath.first).document(docPath.second)
-                    .update(
-                        mapOf(
-                            "bloodGroup" to bloodGroup,
-                            "bloodGroupSetAt" to FieldValue.serverTimestamp()
-                        )
-                    ).await()
+                docRef.update(
+                    mapOf(
+                        "bloodGroup" to bloodGroup,
+                        "bloodGroupSetAt" to FieldValue.serverTimestamp()
+                    )
+                ).await()
                 
                 _state.value = _state.value.copy(
                     bloodGroup = bloodGroup,
@@ -279,7 +314,7 @@ class HealthInfoViewModel(
      */
     fun saveHeightAndWeight() {
         if (isReadOnly) return
-        val docPath = getDocumentPath() ?: return
+        val docRef = getDocumentRef() ?: return
         
         viewModelScope.launch {
             _state.value = _state.value.copy(isSaving = true)
@@ -300,9 +335,7 @@ class HealthInfoViewModel(
                 }
                 
                 if (updates.isNotEmpty()) {
-                    db.collection(docPath.first).document(docPath.second)
-                        .update(updates)
-                        .await()
+                    docRef.update(updates).await()
                     
                     // Update original values
                     originalHeight = currentState.height

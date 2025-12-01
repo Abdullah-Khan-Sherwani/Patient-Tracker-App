@@ -394,6 +394,30 @@ private fun DependentRecordCard(
                 )
             }
             
+            // Show notes if available
+            if (record.notes.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Notes: ${record.notes}",
+                    fontSize = 12.sp,
+                    color = ButtonColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
+            // Show past medication if available
+            if (record.pastMedication.isNotBlank()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = "Past Medication: ${record.pastMedication}",
+                    fontSize = 12.sp,
+                    color = AccentColor,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+            
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(

@@ -35,6 +35,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+// Teal/Mint Theme Colors
+private val BgColor = Color(0xFFF4F6F7)        // Light gray background
+private val CardColor = Color(0xFFFFFFFF)      // White cards
+private val AccentColor = Color(0xFF04786A)    // Teal accent
+private val TextPrimary = Color(0xFF0E4944)    // Deep teal text
+private val TextSecondary = Color(0xFF6B7280)  // Gray secondary text
+private val MintAccent = Color(0xFF76DCB0)     // Mint green accent
+
 // Data class for availability day (must be outside composable)
 data class AvailabilityDay(
     val dayOfWeek: Int,
@@ -109,20 +117,20 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add Doctor", fontWeight = FontWeight.Bold) },
+                title = { Text("Add Doctor", fontWeight = FontWeight.Bold, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFFAF8F3),
-                    titleContentColor = Color(0xFFB8956A),
-                    navigationIconContentColor = Color(0xFFB8956A)
+                    containerColor = AccentColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
             )
         },
-        containerColor = Color(0xFFFAF8F3)
+        containerColor = BgColor
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -186,7 +194,7 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                 text = "Add Specializations",
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = Color(0xFF2F2019)
+                color = TextPrimary
             )
             Spacer(modifier = Modifier.height(8.dp))
             
@@ -208,7 +216,7 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
                                 strokeWidth = 2.dp,
-                                color = Color(0xFFB8956A)
+                                color = AccentColor
                             )
                         } else {
                             IconButton(onClick = { 
@@ -220,13 +228,13 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                                 Icon(
                                     if (showSuggestions) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown, 
                                     contentDescription = "Toggle dropdown",
-                                    tint = Color(0xFFB8956A)
+                                    tint = AccentColor
                                 )
                             }
                         }
                     },
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFFB8956A),
+                        focusedBorderColor = AccentColor,
                         unfocusedBorderColor = Color(0xFFD4C4B0)
                     ),
                     shape = RoundedCornerShape(12.dp)
@@ -255,14 +263,14 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                                     Icon(
                                         Icons.Default.Add,
                                         contentDescription = null,
-                                        tint = Color(0xFFB8956A),
+                                        tint = AccentColor,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Column {
                                         Text(
                                             "Add \"$specialitySearchQuery\"",
                                             fontWeight = FontWeight.Medium,
-                                            color = Color(0xFF2F2019)
+                                            color = TextPrimary
                                         )
                                         Text(
                                             "New speciality",
@@ -297,13 +305,13 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                                     ) {
                                         Text(
                                             suggestion,
-                                            color = if (isSelected) Color(0xFF6B7280) else Color(0xFF2F2019)
+                                            color = if (isSelected) Color(0xFF6B7280) else TextPrimary
                                         )
                                         if (isSelected) {
                                             Icon(
                                                 Icons.Default.Check,
                                                 contentDescription = "Already added",
-                                                tint = Color(0xFFB8956A),
+                                                tint = AccentColor,
                                                 modifier = Modifier.size(18.dp)
                                             )
                                         }
@@ -332,11 +340,11 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                 Icon(
                     Icons.Default.List,
                     contentDescription = null,
-                    tint = Color(0xFFB8956A),
+                    tint = AccentColor,
                     modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(4.dp))
-                Text("Browse all specialities", color = Color(0xFFB8956A), fontSize = 13.sp)
+                Text("Browse all specialities", color = AccentColor, fontSize = 13.sp)
             }
             
             // Selected specialities chips
@@ -345,7 +353,7 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
-                    color = Color(0xFFF5F0E8)
+                    color = CardColor
                 ) {
                     Column(modifier = Modifier.padding(12.dp)) {
                         Text(
@@ -362,7 +370,7 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                             selectedSpecialties.forEach { specialty ->
                                 Surface(
                                     shape = RoundedCornerShape(16.dp),
-                                    color = Color(0xFFB8956A).copy(alpha = 0.2f)
+                                    color = AccentColor.copy(alpha = 0.2f)
                                 ) {
                                     Row(
                                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -372,12 +380,12 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                                         Text(
                                             text = specialty,
                                             fontSize = 12.sp,
-                                            color = Color(0xFF2F2019)
+                                            color = TextPrimary
                                         )
                                         Icon(
                                             imageVector = Icons.Default.Close,
                                             contentDescription = "Remove",
-                                            tint = Color(0xFF2F2019),
+                                            tint = TextPrimary,
                                             modifier = Modifier
                                                 .size(16.dp)
                                                 .clickable {
@@ -415,7 +423,7 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                                     Icon(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Selected",
-                                        tint = Color(0xFFB8956A)
+                                        tint = AccentColor
                                     )
                                 }
                             }
@@ -438,7 +446,7 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                 text = "Availability",
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF2F2019)
+                color = TextPrimary
             )
             Text(
                 text = "Set weekly working hours",
@@ -453,7 +461,7 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
-                color = Color(0xFFF5F0E8),
+                color = CardColor,
                 shadowElevation = 2.dp
             ) {
                 Column(
@@ -475,7 +483,7 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                         )
                         if (index < availabilityList.size - 1) {
                             Divider(
-                                color = Color(0xFFB8956A).copy(alpha = 0.2f),
+                                color = AccentColor.copy(alpha = 0.2f),
                                 modifier = Modifier.padding(vertical = 8.dp)
                             )
                         }
@@ -569,7 +577,7 @@ fun AddDoctorScreen(navController: NavController, context: Context) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB8956A)),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
                 enabled = !isLoading
             ) {
@@ -678,7 +686,7 @@ private fun AvailabilityDayRow(
                 onCheckedChange = onToggle,
                 colors = SwitchDefaults.colors(
                     checkedThumbColor = Color.White,
-                    checkedTrackColor = Color(0xFFB8956A),
+                    checkedTrackColor = AccentColor,
                     uncheckedThumbColor = Color.White,
                     uncheckedTrackColor = Color(0xFFD1D5DB)
                 )
@@ -688,7 +696,7 @@ private fun AvailabilityDayRow(
                 text = day.dayName,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
-                color = if (day.isActive) Color(0xFF2F2019) else Color(0xFF9CA3AF)
+                color = if (day.isActive) TextPrimary else Color(0xFF9CA3AF)
             )
         }
         
@@ -739,13 +747,13 @@ private fun TimePickerButton(
             },
         shape = RoundedCornerShape(8.dp),
         color = Color.White,
-        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFB8956A).copy(alpha = 0.3f))
+        border = androidx.compose.foundation.BorderStroke(1.dp, AccentColor.copy(alpha = 0.3f))
     ) {
         Text(
             text = time,
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
             fontSize = 13.sp,
-            color = Color(0xFF2F2019),
+            color = TextPrimary,
             fontWeight = FontWeight.Medium
         )
     }

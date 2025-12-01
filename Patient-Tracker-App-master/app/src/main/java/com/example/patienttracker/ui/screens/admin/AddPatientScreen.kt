@@ -25,6 +25,14 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+// Teal/Mint Theme Colors
+private val BgColor = Color(0xFFF4F6F7)        // Light gray background
+private val CardColor = Color(0xFFFFFFFF)      // White cards
+private val AccentColor = Color(0xFF04786A)    // Teal accent
+private val TextPrimary = Color(0xFF0E4944)    // Deep teal text
+private val TextSecondary = Color(0xFF6B7280)  // Gray secondary text
+private val MintAccent = Color(0xFF76DCB0)     // Mint green accent
+
 /**
  * Admin screen to add a new patient to the system.
  * Admin provides patient details and creates credentials.
@@ -44,20 +52,20 @@ fun AddPatientScreen(navController: NavController, context: Context) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Add Patient", fontWeight = FontWeight.Bold) },
+                title = { Text("Add Patient", fontWeight = FontWeight.Bold, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFFAF8F3),
-                    titleContentColor = Color(0xFFB8956A),
-                    navigationIconContentColor = Color(0xFFB8956A)
+                    containerColor = AccentColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
             )
         },
-        containerColor = Color(0xFFFAF8F3)
+        containerColor = BgColor
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -190,7 +198,7 @@ fun AddPatientScreen(navController: NavController, context: Context) {
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFB8956A)),
+                colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(28.dp),
                 enabled = !isLoading
             ) {

@@ -32,11 +32,13 @@ import kotlinx.coroutines.tasks.await
 import java.text.SimpleDateFormat
 import java.util.*
 
-private val BgColor = Color(0xFFFAF8F3)
-private val CardColor = Color(0xFFF5F0E8)
-private val AccentColor = Color(0xFFB8956A)
-private val TextPrimary = Color(0xFF2F2019)
-private val TextSecondary = Color(0xFF6B7280)
+// Teal/Mint Theme Colors
+private val BgColor = Color(0xFFF4F6F7)        // Light gray background
+private val CardColor = Color(0xFFFFFFFF)      // White cards
+private val AccentColor = Color(0xFF04786A)    // Teal accent
+private val TextPrimary = Color(0xFF0E4944)    // Deep teal text
+private val TextSecondary = Color(0xFF6B7280)  // Gray secondary text
+private val MintAccent = Color(0xFF76DCB0)     // Mint green accent
 
 data class PatientItem(val uid: String, val name: String, val phone: String, val id: String)
 data class DoctorItem(val uid: String, val name: String, val phone: String, val id: String, val speciality: String)
@@ -141,13 +143,17 @@ fun AdminCreateAppointmentScreen(navController: NavController, context: Context)
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Create Appointment", fontWeight = FontWeight.Bold) },
+                title = { Text("Create Appointment", fontWeight = FontWeight.Bold, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BgColor)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AccentColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
         },
         containerColor = BgColor

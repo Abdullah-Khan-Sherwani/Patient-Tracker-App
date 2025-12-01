@@ -25,6 +25,13 @@ import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 
+// Teal/Mint Theme Colors
+private val BgColor = Color(0xFFF4F6F7)        // Light gray background
+private val CardColor = Color(0xFFFFFFFF)      // White cards
+private val AccentColor = Color(0xFF04786A)    // Teal accent
+private val TextPrimary = Color(0xFF0E4944)    // Deep teal text
+private val TextSecondary = Color(0xFF6B7280)  // Gray secondary text
+private val MintAccent = Color(0xFF76DCB0)     // Mint green accent
 // Teal color for dependents
 private val DependentColor = Color(0xFF0E4944)
 
@@ -81,21 +88,21 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Manage Users", fontWeight = FontWeight.Bold) },
+                title = { Text("Manage Users", fontWeight = FontWeight.Bold, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFFFAF8F3),
-                    titleContentColor = Color(0xFFB8956A),
-                    navigationIconContentColor = Color(0xFFB8956A)
+                    containerColor = AccentColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color(0xFFFAF8F3)
+        containerColor = BgColor
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -108,11 +115,11 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
             TabRow(
                 selectedTabIndex = selectedTabIndex,
                 containerColor = Color.Transparent,
-                contentColor = Color(0xFFB8956A),
+                contentColor = AccentColor,
                 indicator = { tabPositions ->
                     TabRowDefaults.SecondaryIndicator(
                         Modifier.tabIndicatorOffset(tabPositions[selectedTabIndex]),
-                        color = if (selectedTabIndex == 2) DependentColor else Color(0xFFB8956A)
+                        color = if (selectedTabIndex == 2) DependentColor else AccentColor
                     )
                 }
             ) {
@@ -133,7 +140,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                         Text(
                             "Dependents", 
                             fontWeight = FontWeight.SemiBold,
-                            color = if (selectedTabIndex == 2) DependentColor else Color(0xFFB8956A).copy(alpha = 0.7f)
+                            color = if (selectedTabIndex == 2) DependentColor else AccentColor.copy(alpha = 0.7f)
                         ) 
                     }
                 )
@@ -149,7 +156,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                         .wrapContentSize(Alignment.Center)
                 ) {
                     CircularProgressIndicator(
-                        color = if (selectedTabIndex == 2) DependentColor else Color(0xFFB8956A)
+                        color = if (selectedTabIndex == 2) DependentColor else AccentColor
                     )
                 }
             } else if (selectedTabIndex == 2) {
@@ -272,7 +279,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
     if (showRemoveDialog && userToRemove != null) {
         AlertDialog(
             onDismissRequest = { if (!isRemoving) showRemoveDialog = false },
-            containerColor = Color(0xFFF5F0E8),
+            containerColor = CardColor,
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -288,7 +295,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                     Text(
                         "Move Account to Recovery",
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2F2019)
+                        color = TextPrimary
                     )
                 }
             },
@@ -296,7 +303,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                 Column {
                     Text(
                         "Are you sure you want to move this account to Recovery?",
-                        color = Color(0xFF2F2019),
+                        color = TextPrimary,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.height(12.dp))
@@ -368,7 +375,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
     if (showRemoveDependentDialog && dependentToRemove != null) {
         AlertDialog(
             onDismissRequest = { if (!isRemoving) showRemoveDependentDialog = false },
-            containerColor = Color(0xFFF5F0E8),
+            containerColor = CardColor,
             title = {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -384,7 +391,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                     Text(
                         "Remove Dependent",
                         fontWeight = FontWeight.Bold,
-                        color = Color(0xFF2F2019)
+                        color = TextPrimary
                     )
                 }
             },
@@ -392,7 +399,7 @@ fun ManageUsersScreen(navController: NavController, context: Context) {
                 Column {
                     Text(
                         "Are you sure you want to remove ${dependentToRemove!!.fullName}?",
-                        color = Color(0xFF2F2019),
+                        color = TextPrimary,
                         fontWeight = FontWeight.SemiBold
                     )
                     Spacer(Modifier.height(8.dp))
@@ -529,7 +536,7 @@ private fun DependentListCard(
                             text = dependent.fullName,
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
-                            color = Color(0xFF2F2019)
+                            color = TextPrimary
                         )
                         Surface(
                             shape = RoundedCornerShape(8.dp),
@@ -586,7 +593,7 @@ private fun DependentListCard(
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text("View Details", color = Color(0xFF2F2019))
+                                Text("View Details", color = TextPrimary)
                             }
                         },
                         onClick = {
@@ -649,7 +656,7 @@ private fun UserListCard(
                     text = "${user.firstName} ${user.lastName}",
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
-                    color = Color(0xFF2F2019)
+                    color = TextPrimary
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
@@ -675,7 +682,7 @@ private fun UserListCard(
                     Icon(
                         Icons.Default.MoreVert,
                         contentDescription = "More options",
-                        tint = Color(0xFFB8956A)
+                        tint = AccentColor
                     )
                 }
 
@@ -690,11 +697,11 @@ private fun UserListCard(
                                 Icon(
                                     Icons.Default.Info,
                                     contentDescription = null,
-                                    tint = Color(0xFFB8956A),
+                                    tint = AccentColor,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Spacer(Modifier.width(8.dp))
-                                Text("View Details", color = Color(0xFF2F2019))
+                                Text("View Details", color = TextPrimary)
                             }
                         },
                         onClick = {
@@ -711,11 +718,11 @@ private fun UserListCard(
                                     Icon(
                                         Icons.Default.Edit,
                                         contentDescription = null,
-                                        tint = Color(0xFFB8956A),
+                                        tint = AccentColor,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Edit Details", color = Color(0xFF2F2019))
+                                    Text("Edit Details", color = TextPrimary)
                                 }
                             },
                             onClick = {
@@ -733,11 +740,11 @@ private fun UserListCard(
                                     Icon(
                                         Icons.Default.DateRange,
                                         contentDescription = null,
-                                        tint = Color(0xFFB8956A),
+                                        tint = AccentColor,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Edit Availability", color = Color(0xFF2F2019))
+                                    Text("Edit Availability", color = TextPrimary)
                                 }
                             },
                             onClick = {

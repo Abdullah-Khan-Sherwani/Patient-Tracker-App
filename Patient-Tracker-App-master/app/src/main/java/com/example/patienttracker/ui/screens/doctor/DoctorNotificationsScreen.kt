@@ -25,11 +25,13 @@ import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
 
-private val BgColor = Color(0xFFFAF8F3)
-private val CardColor = Color(0xFFF5F0E8)
-private val AccentColor = Color(0xFFB8956A)
-private val TextPrimary = Color(0xFF2F2019)
-private val TextSecondary = Color(0xFF6B7280)
+// Teal/Mint Theme Colors
+private val BgColor = Color(0xFFF4F6F7)        // Light gray background
+private val CardColor = Color(0xFFFFFFFF)      // White cards
+private val AccentColor = Color(0xFF04786A)    // Teal accent
+private val TextPrimary = Color(0xFF0E4944)    // Deep teal text
+private val TextSecondary = Color(0xFF6B7280)  // Gray secondary text
+private val MintAccent = Color(0xFF76DCB0)     // Mint green accent
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -58,10 +60,10 @@ fun DoctorNotificationsScreen(navController: NavController, context: Context) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Notifications", fontWeight = FontWeight.Bold) },
+                title = { Text("Notifications", fontWeight = FontWeight.Bold, color = Color.White) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
                 actions = {
@@ -81,11 +83,15 @@ fun DoctorNotificationsScreen(navController: NavController, context: Context) {
                                 }
                             }
                         ) {
-                            Text("Mark all read", color = AccentColor, fontSize = 14.sp)
+                            Text("Mark all read", color = MintAccent, fontSize = 14.sp)
                         }
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BgColor)
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = AccentColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
+                )
             )
         },
         containerColor = BgColor

@@ -22,13 +22,14 @@ import com.example.patienttracker.data.Appointment
 import com.example.patienttracker.data.AppointmentRepository
 import kotlinx.coroutines.launch
 
-// Design Colors
-private val BackgroundColor = Color(0xFFFAF8F3)
-private val SurfaceColor = Color(0xFFF5F0E8)
-private val PrimaryColor = Color(0xFF2F2019)
-private val AccentColor = Color(0xFFB8956A)
-private val BorderColor = Color(0xFFD4C4B0)
-private val DependentColor = Color(0xFF0E4944) // Teal for dependents
+// Teal/Mint Theme Colors
+private val BackgroundColor = Color(0xFFF4F6F7)   // Light gray background
+private val SurfaceColor = Color(0xFFFFFFFF)      // White cards
+private val PrimaryColor = Color(0xFF0E4944)      // Deep teal text
+private val AccentColor = Color(0xFF04786A)       // Teal accent
+private val BorderColor = Color(0xFFE5E7EB)       // Light gray border
+private val DependentColor = Color(0xFF04786A)    // Teal for dependents
+private val MintAccent = Color(0xFF76DCB0)        // Mint green accent
 
 /**
  * Data class representing a patient or dependent to display in the list
@@ -130,17 +131,19 @@ fun DoctorPatientListScreen(
                     Text(
                         "My Patients", 
                         fontWeight = FontWeight.Bold,
-                        fontSize = 20.sp
+                        fontSize = 20.sp,
+                        color = Color.White
                     ) 
                 },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.Default.ArrowBack, "Back")
+                        Icon(Icons.Default.ArrowBack, "Back", tint = Color.White)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceColor,
-                    titleContentColor = PrimaryColor
+                    containerColor = AccentColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White
                 )
             )
         },

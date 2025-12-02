@@ -184,14 +184,14 @@ fun AppointmentSuccessScreen(
                     SummaryItem(label = "Time Range", value = formatTimeRange(timeRange))
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
                     
-                    // Highlighted Appointment Number
+                    // Highlighted Time Slot (primary identifier)
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Appointment No.",
+                            text = "Your Time Slot",
                             fontSize = 15.sp,
                             color = Color.Gray,
                             fontWeight = FontWeight.Medium
@@ -201,8 +201,8 @@ fun AppointmentSuccessScreen(
                             color = SuccessGreen.copy(alpha = 0.15f)
                         ) {
                             Text(
-                                text = "#$appointmentNumber",
-                                fontSize = 20.sp,
+                                text = formatTimeRange(timeRange),
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = SuccessGreen,
                                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
@@ -256,7 +256,7 @@ fun AppointmentSuccessScreen(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "Note: This time is approximate. You will be called based on your appointment number.",
+                        text = "Please arrive 10 minutes before your scheduled time slot.",
                         fontSize = 13.sp,
                         color = Color(0xFF0D47A1),
                         lineHeight = 18.sp

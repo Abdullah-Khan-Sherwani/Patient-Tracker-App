@@ -47,10 +47,14 @@ sealed class HealthInfoEvent {
  * Mode for HealthInfoViewModel - determines which document to read/write
  */
 sealed class HealthInfoMode {
-    object Patient : HealthInfoMode()
-    data class Dependent(val dependentId: String, val parentUid: String) : HealthInfoMode()
-    data class DoctorReadOnly(val patientUid: String) : HealthInfoMode()
-    data class DoctorReadOnlyDependent(val dependentId: String, val parentUid: String) : HealthInfoMode()
+    object Patient : HealthInfoMode()  // Patient viewing own profile (read-only for height/weight)
+    data class Dependent(val dependentId: String, val parentUid: String) : HealthInfoMode()  // Patient viewing dependent (read-only for height/weight)
+    data class DoctorReadOnly(val patientUid: String) : HealthInfoMode()  // Doctor viewing patient (read-only)
+    data class DoctorReadOnlyDependent(val dependentId: String, val parentUid: String) : HealthInfoMode()  // Doctor viewing dependent (read-only)
+    data class DoctorEditable(val patientUid: String) : HealthInfoMode()  // Doctor/Admin editing patient
+    data class DoctorEditableDependent(val dependentId: String, val parentUid: String) : HealthInfoMode()  // Doctor/Admin editing dependent
+    data class AdminEditable(val patientUid: String) : HealthInfoMode()  // Admin editing patient
+    data class AdminEditableDependent(val dependentId: String, val parentUid: String) : HealthInfoMode()  // Admin editing dependent
 }
 
 /**
@@ -78,8 +82,28 @@ class HealthInfoViewModel(
     // Blood group options
     val bloodGroupOptions = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
     
-    // Check if this is read-only mode (doctor view)
-    val isReadOnly: Boolean = mode is HealthInfoMode.DoctorReadOnly || mode is HealthInfoMode.DoctorReadOnlyDependent
+    // Check if this is read-only mode
+    // Patients can only view their own health info (read-only)
+    // Only doctors and admins can edit height, weight, and blood group
+    val isReadOnly: Boolean = when (mode) {
+        is HealthInfoMode.Patient -> true  // Patient cannot edit any health info
+        is HealthInfoMode.Dependent -> true  // Patient cannot edit dependent's health info
+        is HealthInfoMode.DoctorReadOnly -> true  // Doctor read-only view
+        is HealthInfoMode.DoctorReadOnlyDependent -> true  // Doctor read-only view of dependent
+        is HealthInfoMode.DoctorEditable -> false  // Doctor can edit
+        is HealthInfoMode.DoctorEditableDependent -> false  // Doctor can edit dependent
+        is HealthInfoMode.AdminEditable -> false  // Admin can edit
+        is HealthInfoMode.AdminEditableDependent -> false  // Admin can edit dependent
+    }
+    
+    // Blood group can only be set by doctor/admin (not by patient)
+    val canEditBloodGroup: Boolean = when (mode) {
+        is HealthInfoMode.DoctorEditable -> true
+        is HealthInfoMode.DoctorEditableDependent -> true
+        is HealthInfoMode.AdminEditable -> true
+        is HealthInfoMode.AdminEditableDependent -> true
+        else -> false  // Patients cannot set blood group
+    }
     
     init {
         loadHealthInfo()
@@ -103,6 +127,20 @@ class HealthInfoViewModel(
                 db.collection("users").document(mode.patientUid)
             }
             is HealthInfoMode.DoctorReadOnlyDependent -> {
+                db.collection("users").document(mode.parentUid)
+                    .collection("dependents").document(mode.dependentId)
+            }
+            is HealthInfoMode.DoctorEditable -> {
+                db.collection("users").document(mode.patientUid)
+            }
+            is HealthInfoMode.DoctorEditableDependent -> {
+                db.collection("users").document(mode.parentUid)
+                    .collection("dependents").document(mode.dependentId)
+            }
+            is HealthInfoMode.AdminEditable -> {
+                db.collection("users").document(mode.patientUid)
+            }
+            is HealthInfoMode.AdminEditableDependent -> {
                 db.collection("users").document(mode.parentUid)
                     .collection("dependents").document(mode.dependentId)
             }
@@ -135,6 +173,20 @@ class HealthInfoViewModel(
                     }
                     is HealthInfoMode.DoctorReadOnlyDependent -> {
                         Log.d(TAG, "Loading dependent health info: parentUid=${mode.parentUid}, dependentId=${mode.dependentId}")
+                        db.collection("users").document(mode.parentUid)
+                            .collection("dependents").document(mode.dependentId)
+                    }
+                    is HealthInfoMode.DoctorEditable -> {
+                        db.collection("users").document(mode.patientUid)
+                    }
+                    is HealthInfoMode.DoctorEditableDependent -> {
+                        db.collection("users").document(mode.parentUid)
+                            .collection("dependents").document(mode.dependentId)
+                    }
+                    is HealthInfoMode.AdminEditable -> {
+                        db.collection("users").document(mode.patientUid)
+                    }
+                    is HealthInfoMode.AdminEditableDependent -> {
                         db.collection("users").document(mode.parentUid)
                             .collection("dependents").document(mode.dependentId)
                     }
@@ -270,9 +322,10 @@ class HealthInfoViewModel(
     
     /**
      * Save blood group (permanent, cannot be changed)
+     * Only patients can set their own blood group (or parent for dependent)
      */
     fun saveBloodGroup(bloodGroup: String) {
-        if (isReadOnly) return
+        if (!canEditBloodGroup) return
         val docRef = getDocumentRef() ?: return
         
         if (_state.value.isBloodGroupLocked) {

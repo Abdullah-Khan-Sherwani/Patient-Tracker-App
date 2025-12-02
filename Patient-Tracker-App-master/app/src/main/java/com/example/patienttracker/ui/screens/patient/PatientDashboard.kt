@@ -799,7 +799,7 @@ fun BookAppointmentCTA(navController: NavController, isDarkMode: Boolean = false
             .fillMaxWidth()
             .padding(horizontal = 16.dp)
             .height(80.dp)
-            .clickable { navController.navigate("select_specialty") },
+            .clickable { navController.navigate("doctor_catalogue") },
         color = ctaColor,
         shape = RoundedCornerShape(40.dp), // Pill shape as per design spec
         shadowElevation = 4.dp

@@ -285,21 +285,27 @@ fun ViewDependentScreen(
                 ) {
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Avatar
+                    // Avatar with gradient background for better visibility
                     Surface(
-                        modifier = Modifier.size(90.dp),
+                        modifier = Modifier.size(100.dp),
                         shape = CircleShape,
-                        color = AccentColor.copy(alpha = 0.3f)
+                        shadowElevation = 6.dp
                     ) {
                         Box(
-                            modifier = Modifier.fillMaxSize(),
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(
+                                    Brush.verticalGradient(
+                                        colors = listOf(HeaderTopColor, HeaderBottomColor)
+                                    )
+                                ),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = dependent!!.firstName.take(1).uppercase(),
-                                fontSize = 36.sp,
+                                fontSize = 40.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = ButtonColor
+                                color = Color.White
                             )
                         }
                     }

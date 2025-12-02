@@ -15,7 +15,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -42,8 +41,6 @@ fun GuestDoctorDetailsScreen(
 ) {
     var doctorName by remember { mutableStateOf("Doctor") }
     var specialization by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var phone by remember { mutableStateOf("") }
     var days by remember { mutableStateOf("") }
     var timings by remember { mutableStateOf("") }
     var availability by remember { mutableStateOf<List<DoctorAvailability>>(emptyList()) }
@@ -56,14 +53,13 @@ fun GuestDoctorDetailsScreen(
             try {
                 val db = Firebase.firestore
                 
-                // Load doctor info
+                // Load doctor info - only non-personal details for guests
                 val doctorDoc = db.collection("users").document(doctorUid).get().await()
                 val firstName = doctorDoc.getString("firstName") ?: ""
                 val lastName = doctorDoc.getString("lastName") ?: ""
                 doctorName = "Dr. $firstName $lastName".trim()
                 specialization = doctorDoc.getString("speciality") ?: "General Physician"
-                email = doctorDoc.getString("email") ?: ""
-                phone = doctorDoc.getString("phone") ?: ""
+                // Note: email and phone are NOT loaded for guest view - privacy protection
                 days = doctorDoc.getString("days") ?: ""
                 timings = doctorDoc.getString("timings") ?: ""
                 
@@ -163,35 +159,6 @@ fun GuestDoctorDetailsScreen(
                             fontWeight = FontWeight.Medium
                         )
                     }
-                }
-
-                Spacer(Modifier.height(24.dp))
-
-                // Contact Information
-                Text(
-                    text = "Contact Information",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = TextPrimary
-                )
-
-                Spacer(Modifier.height(12.dp))
-
-                if (email.isNotEmpty()) {
-                    InfoCard(
-                        icon = Icons.Default.Email,
-                        label = "Email",
-                        value = email
-                    )
-                    Spacer(Modifier.height(12.dp))
-                }
-
-                if (phone.isNotEmpty()) {
-                    InfoCard(
-                        icon = Icons.Default.Phone,
-                        label = "Phone",
-                        value = phone
-                    )
                 }
 
                 Spacer(Modifier.height(24.dp))
@@ -386,47 +353,6 @@ fun GuestDoctorDetailsScreen(
                 }
 
                 Spacer(Modifier.height(20.dp))
-            }
-        }
-    }
-}
-
-@Composable
-private fun InfoCard(
-    icon: ImageVector,
-    label: String,
-    value: String
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = CardColor
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = AccentColor,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(Modifier.width(16.dp))
-            Column {
-                Text(
-                    text = label,
-                    fontSize = 12.sp,
-                    color = TextSecondary
-                )
-                Text(
-                    text = value,
-                    fontSize = 16.sp,
-                    color = TextPrimary,
-                    fontWeight = FontWeight.Medium
-                )
             }
         }
     }

@@ -16,6 +16,9 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Cancel
 import androidx.compose.material.icons.filled.Update
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -40,6 +43,10 @@ fun PatientNotificationsScreen(navController: NavController, context: Context) {
     var notifications by remember { mutableStateOf<List<Notification>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var refreshTrigger by remember { mutableStateOf(0) }
+    var showClearAllDialog by remember { mutableStateOf(false) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
+    var notificationToDelete by remember { mutableStateOf<Notification?>(null) }
+    var showMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     val notificationRepo = remember { NotificationRepository() }
     val currentUser = FirebaseAuth.getInstance().currentUser
@@ -114,6 +121,43 @@ fun PatientNotificationsScreen(navController: NavController, context: Context) {
                             )
                         }
                     }
+                    
+                    // More options menu
+                    if (notifications.isNotEmpty()) {
+                        Box {
+                            IconButton(onClick = { showMenu = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = "More options",
+                                    tint = Color.White
+                                )
+                            }
+                            DropdownMenu(
+                                expanded = showMenu,
+                                onDismissRequest = { showMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { 
+                                        Row(
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Default.DeleteSweep,
+                                                contentDescription = null,
+                                                tint = Color(0xFFF44336)
+                                            )
+                                            Text("Clear all notifications")
+                                        }
+                                    },
+                                    onClick = {
+                                        showMenu = false
+                                        showClearAllDialog = true
+                                    }
+                                )
+                            }
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF0E4944),  // Deep Teal
@@ -145,7 +189,7 @@ fun PatientNotificationsScreen(navController: NavController, context: Context) {
                         contentPadding = PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        items(notifications) { notification ->
+                        items(notifications, key = { it.notificationId }) { notification ->
                             NotificationCard(
                                 notification = notification,
                                 onClick = {
@@ -172,6 +216,10 @@ fun PatientNotificationsScreen(navController: NavController, context: Context) {
                                             }
                                         }
                                     }
+                                },
+                                onDelete = {
+                                    notificationToDelete = notification
+                                    showDeleteDialog = true
                                 }
                             )
                         }
@@ -179,13 +227,121 @@ fun PatientNotificationsScreen(navController: NavController, context: Context) {
                 }
             }
         }
+        
+        // Clear All Confirmation Dialog
+        if (showClearAllDialog) {
+            AlertDialog(
+                onDismissRequest = { showClearAllDialog = false },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.DeleteSweep,
+                        contentDescription = null,
+                        tint = Color(0xFFF44336),
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        "Clear All Notifications",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text("Are you sure you want to delete all ${notifications.size} notifications? This action cannot be undone.")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                currentUser?.uid?.let { uid ->
+                                    try {
+                                        val count = notificationRepo.clearAllPatientNotifications(uid)
+                                        notifications = emptyList()
+                                        Toast.makeText(context, "Cleared $count notifications", Toast.LENGTH_SHORT).show()
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                            showClearAllDialog = false
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336))
+                    ) {
+                        Text("Clear All")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showClearAllDialog = false }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
+        
+        // Delete Single Notification Dialog
+        if (showDeleteDialog && notificationToDelete != null) {
+            AlertDialog(
+                onDismissRequest = { 
+                    showDeleteDialog = false
+                    notificationToDelete = null
+                },
+                icon = {
+                    Icon(
+                        imageVector = Icons.Default.Delete,
+                        contentDescription = null,
+                        tint = Color(0xFFF44336),
+                        modifier = Modifier.size(32.dp)
+                    )
+                },
+                title = {
+                    Text(
+                        "Delete Notification",
+                        fontWeight = FontWeight.Bold
+                    )
+                },
+                text = {
+                    Text("Are you sure you want to delete this notification?")
+                },
+                confirmButton = {
+                    Button(
+                        onClick = {
+                            scope.launch {
+                                notificationToDelete?.let { notification ->
+                                    try {
+                                        notificationRepo.deleteNotification(notification.notificationId)
+                                        notifications = notifications.filter { it.notificationId != notification.notificationId }
+                                        Toast.makeText(context, "Notification deleted", Toast.LENGTH_SHORT).show()
+                                    } catch (e: Exception) {
+                                        Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            }
+                            showDeleteDialog = false
+                            notificationToDelete = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF44336))
+                    ) {
+                        Text("Delete")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { 
+                        showDeleteDialog = false
+                        notificationToDelete = null
+                    }) {
+                        Text("Cancel")
+                    }
+                }
+            )
+        }
     }
 }
 
 @Composable
 private fun NotificationCard(
     notification: Notification,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onDelete: () -> Unit
 ) {
     val (icon, iconColor) = when (notification.type) {
         "appointment_created" -> Icons.Default.CheckCircle to Color(0xFF4CAF50)
@@ -210,8 +366,9 @@ private fun NotificationCard(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
-            horizontalArrangement = Arrangement.spacedBy(14.dp)
+                .padding(start = 20.dp, top = 20.dp, bottom = 20.dp, end = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.Top
         ) {
             // Icon
             Box(
@@ -270,6 +427,19 @@ private fun NotificationCard(
                     fontSize = 12.sp,
                     color = Color(0xFF6B7280),  // Subtle text
                     fontWeight = FontWeight.Light
+                )
+            }
+            
+            // Delete button
+            IconButton(
+                onClick = onDelete,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = "Delete notification",
+                    tint = Color(0xFF9CA3AF),
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }

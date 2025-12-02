@@ -6,18 +6,23 @@ import kotlinx.parcelize.Parcelize
 
 /**
  * Appointment data model for Firebase
+ * Updated to support time-slot based booking system
  */
 @Parcelize
 data class Appointment(
     val appointmentId: String = "",
-    val appointmentNumber: String = "", // Simple 3-digit number like 001, 002
+    val appointmentNumber: String = "", // Kept for backward compatibility
     val patientUid: String = "",
     val patientName: String = "",
     val doctorUid: String = "",
     val doctorName: String = "",
     val speciality: String = "",
     val appointmentDate: Timestamp = Timestamp.now(),
-    val timeSlot: String = "", // e.g., "09:00 AM - 10:00 AM"
+    val timeSlot: String = "", // Legacy: block name or time range string
+    // New time-slot booking fields
+    val slotStartTime: String = "", // Format: "HH:mm" (24-hour) e.g., "09:00"
+    val slotEndTime: String = "", // Format: "HH:mm" (24-hour) e.g., "09:20"
+    val blockName: String = "", // Morning, Afternoon, Evening, Night
     val status: String = "scheduled", // scheduled, completed, cancelled
     val cancelledBy: String = "", // patient, doctor, or admin - who cancelled the appointment
     val recipientType: String = "self", // "self" or "dependent"
@@ -42,6 +47,9 @@ data class Appointment(
                 speciality = data["speciality"] as? String ?: "",
                 appointmentDate = data["appointmentDate"] as? Timestamp ?: Timestamp.now(),
                 timeSlot = data["timeSlot"] as? String ?: "",
+                slotStartTime = data["slotStartTime"] as? String ?: "",
+                slotEndTime = data["slotEndTime"] as? String ?: "",
+                blockName = data["blockName"] as? String ?: "",
                 status = data["status"] as? String ?: "scheduled",
                 cancelledBy = data["cancelledBy"] as? String ?: "",
                 recipientType = data["recipientType"] as? String ?: "self",
@@ -65,6 +73,9 @@ data class Appointment(
             "speciality" to speciality,
             "appointmentDate" to appointmentDate,
             "timeSlot" to timeSlot,
+            "slotStartTime" to slotStartTime,
+            "slotEndTime" to slotEndTime,
+            "blockName" to blockName,
             "recipientType" to recipientType,
             "dependentId" to dependentId,
             "dependentName" to dependentName,
@@ -87,9 +98,43 @@ data class Appointment(
     }
     
     /**
-     * Get formatted time string
+     * Get formatted time string - prefers slot times over legacy timeSlot
      */
     fun getFormattedTime(): String {
+        // If we have slot times, format them nicely
+        if (slotStartTime.isNotBlank() && slotEndTime.isNotBlank()) {
+            return formatSlotTime(slotStartTime, slotEndTime)
+        }
+        // Fallback to legacy timeSlot
         return timeSlot
+    }
+    
+    /**
+     * Get display time in format like "3:20 PM – 3:40 PM"
+     */
+    fun getDisplaySlotTime(): String {
+        if (slotStartTime.isNotBlank() && slotEndTime.isNotBlank()) {
+            return formatSlotTime(slotStartTime, slotEndTime)
+        }
+        // Fallback: try to parse timeSlot if it looks like a time range
+        if (timeSlot.contains("-") || timeSlot.contains("–")) {
+            return timeSlot
+        }
+        return timeSlot
+    }
+    
+    /**
+     * Format slot times from 24-hour to 12-hour AM/PM format
+     */
+    private fun formatSlotTime(start: String, end: String): String {
+        return try {
+            val formatter24 = java.time.format.DateTimeFormatter.ofPattern("HH:mm")
+            val formatter12 = java.time.format.DateTimeFormatter.ofPattern("h:mm a")
+            val startTime = java.time.LocalTime.parse(start, formatter24)
+            val endTime = java.time.LocalTime.parse(end, formatter24)
+            "${startTime.format(formatter12)} – ${endTime.format(formatter12)}"
+        } catch (e: Exception) {
+            "$start – $end"
+        }
     }
 }

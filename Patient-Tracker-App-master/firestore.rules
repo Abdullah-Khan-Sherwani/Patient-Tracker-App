@@ -29,9 +29,12 @@ service cloud.firestore {
     }
 
     // users collection
+    // Note: Read is public to allow guest mode to browse doctors without login
+    // Security: Write operations still require authentication
+    // The app filters to role="doctor" for public listings
     match /users/{uid} {
-      // Allow read for role checking - MUST come before create to allow get() calls
-      allow read: if request.auth != null;
+      // Allow read for all users (including guests) to enable doctor catalogue
+      allow read: if true;
 
       // Create rules with proper admin check
       allow create: if request.auth != null && (
@@ -41,6 +44,7 @@ service cloud.firestore {
         isAdmin()
       );
 
+      // Update and delete require authentication
       allow update, delete: if request.auth != null &&
         (isOwn(uid) || isAdmin());
 
@@ -107,8 +111,12 @@ service cloud.firestore {
         isAdmin()
       );
       
-      // Only admin can delete notifications
-      allow delete: if request.auth != null && isAdmin();
+      // Delete notifications - patients and doctors can delete their own, admins can delete all
+      allow delete: if request.auth != null && (
+        resource.data.patientUid == request.auth.uid ||
+        resource.data.doctorUid == request.auth.uid ||
+        isAdmin()
+      );
     }
 
     // doctor_availability collection

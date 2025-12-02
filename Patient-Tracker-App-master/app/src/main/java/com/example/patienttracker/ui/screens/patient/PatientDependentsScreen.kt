@@ -337,109 +337,171 @@ fun DependentCard(
         } else "-"
     } catch (e: Exception) { "-" }
 
+    // Gender icon color
+    val genderColor = when (dependent.gender.lowercase()) {
+        "male" -> Color(0xFF3B82F6)  // Blue
+        "female" -> Color(0xFFEC4899) // Pink
+        else -> ButtonColor
+    }
+
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(20.dp),
         color = CardWhite,
-        shadowElevation = 2.dp
+        shadowElevation = 4.dp
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
+            // Avatar with gradient background
+            Box(
+                modifier = Modifier
+                    .size(56.dp)
+                    .clip(CircleShape)
+                    .background(
+                        Brush.linearGradient(
+                            colors = listOf(
+                                AccentColor.copy(alpha = 0.8f),
+                                ButtonColor.copy(alpha = 0.6f)
+                            )
+                        )
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                // Avatar
-                Surface(
-                    modifier = Modifier.size(48.dp),
-                    shape = CircleShape,
-                    color = AccentColor.copy(alpha = 0.3f)
+                Text(
+                    text = dependent.firstName.take(1).uppercase(),
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White
+                )
+            }
+            
+            Spacer(modifier = Modifier.width(16.dp))
+            
+            // Info section
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = dependent.getFullName(),
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = StatTextColor
+                )
+                
+                Spacer(modifier = Modifier.height(6.dp))
+                
+                // Tags row
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
+                    // Relationship tag
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = AccentColor.copy(alpha = 0.1f)
                     ) {
                         Text(
-                            text = dependent.firstName.take(1).uppercase(),
-                            fontSize = 20.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = ButtonColor
+                            text = dependent.relationship,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AccentColor,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                    
+                    // Age tag
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = ButtonColor.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = age,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = AccentColor,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                    
+                    // Gender tag
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = genderColor.copy(alpha = 0.1f)
+                    ) {
+                        Text(
+                            text = dependent.gender,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = genderColor,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+            
+            // Action buttons column
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                // Edit button
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { onEdit() },
+                    shape = RoundedCornerShape(10.dp),
+                    color = ButtonColor.copy(alpha = 0.1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Edit,
+                            contentDescription = "Edit",
+                            modifier = Modifier.size(16.dp),
+                            tint = AccentColor
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Edit",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = AccentColor
                         )
                     }
                 }
                 
-                Spacer(modifier = Modifier.width(12.dp))
-                
-                // Info
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = dependent.getFullName(),
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = StatTextColor
-                    )
-                    
-                    Spacer(modifier = Modifier.height(4.dp))
-                    
-                    Text(
-                        text = "${dependent.relationship} • $age",
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                    
-                    Spacer(modifier = Modifier.height(2.dp))
-                    
-                    Text(
-                        text = dependent.gender,
-                        fontSize = 13.sp,
-                        color = Color.Gray.copy(alpha = 0.8f)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            Divider(color = Color.LightGray.copy(alpha = 0.5f))
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.End,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextButton(
-                    onClick = onEdit,
-                    colors = ButtonDefaults.textButtonColors(contentColor = ButtonColor)
+                // Delete button
+                Surface(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .clickable { onDelete() },
+                    shape = RoundedCornerShape(10.dp),
+                    color = DeleteColor.copy(alpha = 0.1f)
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.Edit,
-                        contentDescription = "Edit",
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Edit", fontSize = 14.sp)
-                }
-                
-                Spacer(modifier = Modifier.width(8.dp))
-                
-                TextButton(
-                    onClick = onDelete,
-                    colors = ButtonDefaults.textButtonColors(contentColor = DeleteColor)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Delete,
-                        contentDescription = "Delete",
-                        modifier = Modifier.size(18.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Delete", fontSize = 14.sp)
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = "Delete",
+                            modifier = Modifier.size(16.dp),
+                            tint = DeleteColor
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Delete",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = DeleteColor
+                        )
+                    }
                 }
             }
         }

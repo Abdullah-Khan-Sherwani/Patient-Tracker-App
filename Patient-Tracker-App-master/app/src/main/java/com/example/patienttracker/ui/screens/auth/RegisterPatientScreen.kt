@@ -8,11 +8,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.*
@@ -25,6 +27,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -210,6 +213,38 @@ fun RegisterPatientScreen(navController: NavController, context: Context) {
                 supportingText = if (emailError != null) {
                     { Text(text = emailError!!, color = Color(0xFFD32F2F), fontSize = 12.sp) }
                 } else null
+            )
+
+            Spacer(Modifier.height(16.dp))
+
+            // Phone Number field
+            OutlinedTextField(
+                value = phone,
+                onValueChange = { newValue ->
+                    // Only allow digits and limit to reasonable phone length
+                    if (newValue.all { it.isDigit() } && newValue.length <= 15) {
+                        phone = newValue
+                    }
+                },
+                label = { Text("Phone Number") },
+                leadingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Phone,
+                        contentDescription = "Phone icon",
+                        tint = Color(0xFF6B5B54)
+                    )
+                },
+                placeholder = { Text("03001234567") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+                shape = RoundedCornerShape(28.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFB36B3C),
+                    unfocusedBorderColor = Color(0xFF9E8B82),
+                    focusedContainerColor = Color(0xFFF7ECE8),
+                    unfocusedContainerColor = Color(0xFFF7ECE8)
+                ),
+                modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(Modifier.height(16.dp))

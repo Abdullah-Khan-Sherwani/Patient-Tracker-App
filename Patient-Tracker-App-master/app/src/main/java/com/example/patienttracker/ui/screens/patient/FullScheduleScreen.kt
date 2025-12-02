@@ -190,7 +190,7 @@ fun FullScheduleScreen(navController: NavController, context: Context, initialTa
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = { navController.navigate("select_specialty") },
+                onClick = { navController.navigate("doctor_catalogue") },
                 containerColor = ButtonColor,
                 contentColor = Color.White,
                 modifier = Modifier.padding(16.dp)

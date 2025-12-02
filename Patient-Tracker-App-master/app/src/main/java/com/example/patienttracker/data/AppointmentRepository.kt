@@ -104,6 +104,12 @@ object AppointmentRepository {
             
             // Create appointment
             val appointmentId = UUID.randomUUID().toString()
+            
+            // Extract slot start and end times from timeSlot (format: "HH:mm-HH:mm")
+            val slotParts = timeSlot.split("-").map { it.trim() }
+            val slotStartTime = if (slotParts.size >= 1) slotParts[0] else ""
+            val slotEndTime = if (slotParts.size >= 2) slotParts[1] else ""
+            
             val appointment = Appointment(
                 appointmentId = appointmentId,
                 appointmentNumber = appointmentNumber,
@@ -114,6 +120,9 @@ object AppointmentRepository {
                 speciality = speciality,
                 appointmentDate = appointmentDate,
                 timeSlot = timeSlot,
+                slotStartTime = slotStartTime,
+                slotEndTime = slotEndTime,
+                blockName = blockName,
                 status = "scheduled",
                 notes = notes,
                 recipientType = recipientType,
@@ -124,12 +133,14 @@ object AppointmentRepository {
                 updatedAt = Timestamp.now()
             )
             
-            // Save to Firestore with blockName and dependent info for slot counting
+            // Save to Firestore with slot time fields and dependent info
             val appointmentData = appointment.toFirestore().toMutableMap()
             appointmentData["blockName"] = blockName
             appointmentData["recipientType"] = recipientType
             appointmentData["dependentId"] = dependentId
             appointmentData["dependentName"] = dependentName
+            appointmentData["slotStartTime"] = slotStartTime
+            appointmentData["slotEndTime"] = slotEndTime
 
             db.collection(COLLECTION)
                 .document(appointmentId)

@@ -190,7 +190,7 @@ fun DependentHealthInfoScreen(
                         }
                     }
                     
-                    // Blood Group Card
+                    // Blood Group Card (read-only for patients - only admin/doctor can set)
                     DependentHealthInfoCard(
                         title = stringResource(R.string.blood_group),
                         icon = Icons.Default.Bloodtype,
@@ -198,10 +198,11 @@ fun DependentHealthInfoScreen(
                         cardColor = cardColor,
                         textColor = textColor,
                         textLightColor = textLightColor,
-                        isLocked = state.isBloodGroupLocked,
+                        isLocked = state.isBloodGroupLocked || !healthInfoViewModel.canEditBloodGroup,
                         showMandatoryIndicator = !state.isBloodGroupLocked && state.bloodGroup.isNullOrEmpty()
                     ) {
-                        if (state.isBloodGroupLocked) {
+                        if (state.isBloodGroupLocked || !state.bloodGroup.isNullOrEmpty()) {
+                            // Display blood group (locked or set)
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -242,7 +243,8 @@ fun DependentHealthInfoScreen(
                                     )
                                 }
                             }
-                        } else {
+                        } else if (healthInfoViewModel.canEditBloodGroup) {
+                            // Blood group dropdown - only for doctors/admins
                             ExposedDropdownMenuBox(
                                 expanded = bloodGroupDropdownExpanded,
                                 onExpandedChange = { bloodGroupDropdownExpanded = it }
@@ -300,10 +302,25 @@ fun DependentHealthInfoScreen(
                                     }
                                 }
                             }
+                        } else {
+                            // Patient view - blood group not set yet, show message
+                            Column {
+                                Text(
+                                    text = stringResource(R.string.blood_group_not_set),
+                                    fontSize = 16.sp,
+                                    color = textLightColor
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = stringResource(R.string.only_doctor_can_edit),
+                                    fontSize = 12.sp,
+                                    color = textLightColor
+                                )
+                            }
                         }
                     }
                     
-                    // Height Card
+                    // Height Card (read-only for patients - only admin/doctor can edit)
                     DependentHealthInfoCard(
                         title = stringResource(R.string.height_label),
                         icon = Icons.Default.Height,
@@ -333,14 +350,27 @@ fun DependentHealthInfoScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
+                                readOnly = healthInfoViewModel.isReadOnly,
+                                enabled = !healthInfoViewModel.isReadOnly,
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = TealAccent,
                                     unfocusedBorderColor = dividerColor,
                                     focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent
+                                    unfocusedContainerColor = Color.Transparent,
+                                    disabledBorderColor = dividerColor,
+                                    disabledTextColor = textColor
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             )
+                            
+                            // Show info that only doctor/admin can edit
+                            if (healthInfoViewModel.isReadOnly && state.height.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.only_doctor_can_edit),
+                                    fontSize = 12.sp,
+                                    color = textLightColor
+                                )
+                            }
                             
                             state.heightLastUpdated?.let { timestamp ->
                                 Text(
@@ -355,7 +385,7 @@ fun DependentHealthInfoScreen(
                         }
                     }
                     
-                    // Weight Card
+                    // Weight Card (read-only for patients - only admin/doctor can edit)
                     DependentHealthInfoCard(
                         title = stringResource(R.string.weight_label),
                         icon = Icons.Default.MonitorWeight,
@@ -385,14 +415,27 @@ fun DependentHealthInfoScreen(
                                 modifier = Modifier.fillMaxWidth(),
                                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                                 singleLine = true,
+                                readOnly = healthInfoViewModel.isReadOnly,
+                                enabled = !healthInfoViewModel.isReadOnly,
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = TealAccent,
                                     unfocusedBorderColor = dividerColor,
                                     focusedContainerColor = Color.Transparent,
-                                    unfocusedContainerColor = Color.Transparent
+                                    unfocusedContainerColor = Color.Transparent,
+                                    disabledBorderColor = dividerColor,
+                                    disabledTextColor = textColor
                                 ),
                                 shape = RoundedCornerShape(12.dp)
                             )
+                            
+                            // Show info that only doctor/admin can edit
+                            if (healthInfoViewModel.isReadOnly && state.weight.isEmpty()) {
+                                Text(
+                                    text = stringResource(R.string.only_doctor_can_edit),
+                                    fontSize = 12.sp,
+                                    color = textLightColor
+                                )
+                            }
                             
                             state.weightLastUpdated?.let { timestamp ->
                                 Text(
@@ -409,45 +452,47 @@ fun DependentHealthInfoScreen(
                     
                     Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Save Button
-                    Button(
-                        onClick = { healthInfoViewModel.saveHeightAndWeight() },
-                        enabled = healthInfoViewModel.hasUnsavedChanges() && !state.isSaving,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = TealAccent,
-                            contentColor = Color.White,
-                            disabledContainerColor = TealAccent.copy(alpha = 0.3f),
-                            disabledContentColor = Color.White.copy(alpha = 0.5f)
-                        ),
-                        shape = RoundedCornerShape(16.dp)
-                    ) {
-                        if (state.isSaving) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(24.dp),
-                                strokeWidth = 2.dp
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.saving),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
-                        } else {
-                            Icon(
-                                imageVector = Icons.Default.Save,
-                                contentDescription = null,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = stringResource(R.string.save_changes),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                    // Save Button - only show if user can edit (doctors/admins)
+                    if (!healthInfoViewModel.isReadOnly) {
+                        Button(
+                            onClick = { healthInfoViewModel.saveHeightAndWeight() },
+                            enabled = healthInfoViewModel.hasUnsavedChanges() && !state.isSaving,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = TealAccent,
+                                contentColor = Color.White,
+                                disabledContainerColor = TealAccent.copy(alpha = 0.3f),
+                                disabledContentColor = Color.White.copy(alpha = 0.5f)
+                            ),
+                            shape = RoundedCornerShape(16.dp)
+                        ) {
+                            if (state.isSaving) {
+                                CircularProgressIndicator(
+                                    color = Color.White,
+                                    modifier = Modifier.size(24.dp),
+                                    strokeWidth = 2.dp
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = stringResource(R.string.saving),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Save,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = stringResource(R.string.save_changes),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                     

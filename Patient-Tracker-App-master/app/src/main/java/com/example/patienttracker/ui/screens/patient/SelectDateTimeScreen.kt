@@ -1,12 +1,16 @@
 package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -16,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -30,6 +35,9 @@ import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
+import java.time.Duration
+import java.net.URLEncoder
+import java.nio.charset.StandardCharsets
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.systemBars
@@ -44,6 +52,30 @@ private val BackgroundColor = Color(0xFFF0F5F4)     // Dim background
 private val CardWhite = Color(0xFFFFFFFF)           // Card surface
 private val StatTextColor = Color(0xFF1F2937)       // Dark charcoal text
 private val ButtonColor = Color(0xFF76DCB0)         // Mint accent
+private val TealAccent = Color(0xFF0E4944)          // Deep Teal for available slots
+private val BookedRed = Color(0xFFE53935)           // Red for booked slots
+private val SelectedTeal = Color(0xFF0E4944)        // Deep teal for selected slot
+
+// Default slot duration in minutes
+private const val DEFAULT_SLOT_DURATION_MINUTES = 10
+
+/**
+ * Time slot data class representing a bookable time slot
+ */
+data class TimeSlot(
+    val startTime: LocalTime,
+    val endTime: LocalTime,
+    val isBooked: Boolean = false,
+    val blockName: String = ""
+) {
+    fun getDisplayTime(): String {
+        val formatter = DateTimeFormatter.ofPattern("h:mm a")
+        return "${startTime.format(formatter)} – ${endTime.format(formatter)}"
+    }
+    
+    fun getStartTimeString(): String = startTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+    fun getEndTimeString(): String = endTime.format(DateTimeFormatter.ofPattern("HH:mm"))
+}
 
 /**
  * Time block definition with availability range
@@ -57,7 +89,8 @@ data class TimeBlock(
     val isAvailable: Boolean = false,
     val currentBookings: Int = 0,
     val maxCapacity: Int = 0,
-    val isFullyBooked: Boolean = false
+    val isFullyBooked: Boolean = false,
+    val slots: List<TimeSlot> = emptyList() // Generated time slots for this block
 )
 
 data class DateOption(
@@ -92,6 +125,7 @@ fun SelectDateTimeScreen(
 
     var selectedDate by remember { mutableStateOf(dates[0]) }
     var selectedBlock by remember { mutableStateOf<TimeBlock?>(null) }
+    var selectedSlot by remember { mutableStateOf<TimeSlot?>(null) }
     var timeBlocks by remember { mutableStateOf<List<TimeBlock>>(emptyList()) }
     var isLoading by remember { mutableStateOf(false) }
 
@@ -100,21 +134,9 @@ fun SelectDateTimeScreen(
         isLoading = true
         scope.launch {
             try {
-                android.util.Log.d("SelectDateTime", "=== STARTING AVAILABILITY LOAD ===")
-                android.util.Log.d("SelectDateTime", "Doctor ID: $doctorId")
-                android.util.Log.d("SelectDateTime", "Selected Date: ${selectedDate.date}")
-                android.util.Log.d("SelectDateTime", "Day of Week: ${selectedDate.date.dayOfWeek.value}")
-                
-                timeBlocks = loadTimeBlocksForDate(doctorId, selectedDate.date)
-                
-                android.util.Log.d("SelectDateTime", "Loaded ${timeBlocks.size} time blocks")
-                timeBlocks.forEach { block ->
-                    android.util.Log.d("SelectDateTime", "${block.name}: available=${block.isAvailable}, " +
-                            "times=${block.doctorStartTime}-${block.doctorEndTime}")
-                }
+                timeBlocks = loadTimeBlocksWithSlots(doctorId, selectedDate.date)
             } catch (e: Exception) {
-                android.util.Log.e("SelectDateTime", "Error in LaunchedEffect: ${e.message}", e)
-                // Show error blocks
+                android.util.Log.e("SelectDateTime", "Error loading time blocks: ${e.message}", e)
                 timeBlocks = listOf(
                     TimeBlock("Morning", 6, 12, isAvailable = false),
                     TimeBlock("Afternoon", 12, 16, isAvailable = false),
@@ -123,7 +145,8 @@ fun SelectDateTimeScreen(
                 )
             } finally {
                 isLoading = false
-                selectedBlock = null // Reset selection when date changes
+                selectedBlock = null
+                selectedSlot = null
             }
         }
     }
@@ -162,7 +185,7 @@ fun SelectDateTimeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Select Date & Time Block",
+                                text = "Select Date & Time Slot",
                                 color = Color.White,
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                 textAlign = TextAlign.Center
@@ -175,7 +198,6 @@ fun SelectDateTimeScreen(
                                 textAlign = TextAlign.Center
                             )
                         }
-                        // Spacer to balance the back button
                         Spacer(modifier = Modifier.width(48.dp))
                     }
                 }
@@ -189,20 +211,25 @@ fun SelectDateTimeScreen(
             ) {
                 Button(
                     onClick = {
-                        selectedBlock?.let { block ->
-                            val dateStr = selectedDate.date.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                            val timeRange = "${block.doctorStartTime} - ${block.doctorEndTime}"
-                            // URL encode the time range to handle special characters
-                            val encodedTimeRange = java.net.URLEncoder.encode(timeRange, "UTF-8")
-                            // Navigate with block name and time range
-                            navController.navigate("choose_patient_for_appointment/$doctorId/$doctorFullName/$specialty/$dateStr/${block.name}/$encodedTimeRange")
+                        selectedSlot?.let { slot ->
+                            selectedBlock?.let { block ->
+                                val dateStr = selectedDate.date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                                // Combine slot start and end into timeRange format
+                                val timeRange = "${slot.getStartTimeString()}-${slot.getEndTimeString()}"
+                                val encodedTimeRange = URLEncoder.encode(timeRange, StandardCharsets.UTF_8.toString())
+                                val encodedDoctorName = URLEncoder.encode(doctorFullName, StandardCharsets.UTF_8.toString())
+                                // Navigate to choose patient screen with slot info
+                                navController.navigate(
+                                    "choose_patient_for_appointment/$doctorId/$encodedDoctorName/$specialty/$dateStr/${block.name}/$encodedTimeRange"
+                                )
+                            }
                         }
                     },
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp)
                         .height(52.dp),
-                    enabled = selectedBlock != null && selectedBlock?.isAvailable == true && selectedBlock?.isFullyBooked == false,
+                    enabled = selectedSlot != null && selectedSlot?.isBooked == false,
                     colors = ButtonDefaults.buttonColors(
                         containerColor = ButtonColor,
                         contentColor = Color.White,
@@ -211,7 +238,7 @@ fun SelectDateTimeScreen(
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Text(
-                        text = if (selectedBlock != null) "Continue" else "Select a time block",
+                        text = if (selectedSlot != null) "Select Time Slot" else "Select a time slot",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -219,121 +246,68 @@ fun SelectDateTimeScreen(
             }
         }
     ) { innerPadding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .background(BackgroundColor)
                 .padding(innerPadding)
         ) {
             // Horizontal date selector
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(CardWhite)
-                    .horizontalScroll(rememberScrollState())
-                    .padding(vertical = 12.dp, horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                dates.forEach { dateOption ->
-                    DateCard(
-                        dateOption = dateOption,
-                        isSelected = selectedDate == dateOption,
-                        onClick = {
-                            selectedDate = dateOption
-                        }
-                    )
+            item {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(CardWhite)
+                        .horizontalScroll(rememberScrollState())
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    dates.forEach { dateOption ->
+                        DateCard(
+                            dateOption = dateOption,
+                            isSelected = selectedDate == dateOption,
+                            onClick = {
+                                selectedDate = dateOption
+                            }
+                        )
+                    }
                 }
+                Divider(color = Color.LightGray, thickness = 1.dp)
             }
 
-            Divider(color = Color.LightGray, thickness = 1.dp)
-
-            // Time blocks content
+            // Loading state
             if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    CircularProgressIndicator(color = ButtonColor)
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = ButtonColor)
+                    }
                 }
             } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
+                // Time blocks section
+                item {
+                    Text(
+                        text = "Select Time Block",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = StatTextColor,
+                        modifier = Modifier.padding(16.dp)
+                    )
+                }
+
+                // Show message if no blocks are available
+                if (timeBlocks.all { !it.isAvailable }) {
                     item {
-                        Text(
-                            text = "Available Time Blocks",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = StatTextColor,
-                            modifier = Modifier.padding(bottom = 8.dp)
-                        )
-                    }
-
-                    // Show message if no blocks are available
-                    if (timeBlocks.all { !it.isAvailable }) {
-                        item {
-                            Card(
-                                modifier = Modifier.fillMaxWidth(),
-                                shape = RoundedCornerShape(12.dp),
-                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(16.dp),
-                                    verticalAlignment = Alignment.Top
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Default.Info,
-                                        contentDescription = null,
-                                        tint = Color(0xFFD32F2F),
-                                        modifier = Modifier.size(24.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(12.dp))
-                                    Column {
-                                        Text(
-                                            text = "Doctor Not Available",
-                                            fontSize = 16.sp,
-                                            fontWeight = FontWeight.Bold,
-                                            color = Color(0xFFD32F2F)
-                                        )
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = "The doctor has not set availability for ${selectedDate.dayOfWeek}. Please select a different date or contact the clinic.",
-                                            fontSize = 14.sp,
-                                            color = Color(0xFFC62828),
-                                            lineHeight = 20.sp
-                                        )
-                                    }
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                        }
-                    }
-
-                    items(timeBlocks.size) { index ->
-                        TimeBlockCard(
-                            block = timeBlocks[index],
-                            isSelected = selectedBlock == timeBlocks[index],
-                            onClick = {
-                                if (timeBlocks[index].isAvailable && !timeBlocks[index].isFullyBooked) {
-                                    selectedBlock = timeBlocks[index]
-                                }
-                            }
-                        )
-                    }
-
-                    item {
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        // Information card
                         Card(
-                            modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp),
                             shape = RoundedCornerShape(12.dp),
-                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF8E1))
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
                         ) {
                             Row(
                                 modifier = Modifier.padding(16.dp),
@@ -342,17 +316,242 @@ fun SelectDateTimeScreen(
                                 Icon(
                                     imageVector = Icons.Default.Info,
                                     contentDescription = null,
-                                    tint = Color(0xFFF57C00),
-                                    modifier = Modifier.size(20.dp)
+                                    tint = Color(0xFFD32F2F),
+                                    modifier = Modifier.size(24.dp)
                                 )
                                 Spacer(modifier = Modifier.width(12.dp))
-                                Text(
-                                    text = "You'll be called based on your appointment number. The time shown is the doctor's availability window for that block.",
-                                    fontSize = 13.sp,
-                                    color = Color(0xFF5D4037),
-                                    lineHeight = 18.sp
-                                )
+                                Column {
+                                    Text(
+                                        text = "Doctor Not Available",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFFD32F2F)
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "The doctor has not set availability for ${selectedDate.dayOfWeek}. Please select a different date.",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFFC62828),
+                                        lineHeight = 20.sp
+                                    )
+                                }
                             }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+
+                // Time blocks
+                items(timeBlocks) { block ->
+                    Column {
+                        TimeBlockCard(
+                            block = block,
+                            isSelected = selectedBlock == block,
+                            onClick = {
+                                if (block.isAvailable && !block.isFullyBooked) {
+                                    selectedBlock = if (selectedBlock == block) null else block
+                                    selectedSlot = null // Reset slot selection when changing block
+                                }
+                            }
+                        )
+                        
+                        // Show time slots when block is selected
+                        if (selectedBlock == block && block.isAvailable) {
+                            TimeSlotSection(
+                                block = block,
+                                selectedSlot = selectedSlot,
+                                onSlotSelected = { slot ->
+                                    if (!slot.isBooked) {
+                                        selectedSlot = slot
+                                    }
+                                }
+                            )
+                        }
+                        
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                }
+
+                // Footer info
+                item {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.Top
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = null,
+                                tint = Color(0xFF1976D2),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                text = "Select your preferred time slot. Each slot is ${DEFAULT_SLOT_DURATION_MINUTES} minutes. Arrive 10 minutes before your scheduled time.",
+                                fontSize = 13.sp,
+                                color = Color(0xFF0D47A1),
+                                lineHeight = 18.sp
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Time slot section with legend and slot grid
+ */
+@Composable
+fun TimeSlotSection(
+    block: TimeBlock,
+    selectedSlot: TimeSlot?,
+    onSlotSelected: (TimeSlot) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp)
+            .padding(top = 8.dp)
+    ) {
+        // Color Legend
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = CardWhite)
+        ) {
+            Column(
+                modifier = Modifier.padding(12.dp)
+            ) {
+                Text(
+                    text = "Time Slots",
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = StatTextColor,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                // Legend row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Available legend
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(TealAccent.copy(alpha = 0.15f))
+                                .border(1.dp, TealAccent, RoundedCornerShape(4.dp))
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Available",
+                            fontSize = 12.sp,
+                            color = TealAccent,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    // Booked legend
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(BookedRed.copy(alpha = 0.15f))
+                                .border(1.dp, BookedRed, RoundedCornerShape(4.dp))
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Booked",
+                            fontSize = 12.sp,
+                            color = BookedRed,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    
+                    // Selected legend
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(SelectedTeal)
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(
+                            text = "Selected",
+                            fontSize = 12.sp,
+                            color = SelectedTeal,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Time slots grid
+                if (block.slots.isEmpty()) {
+                    Text(
+                        text = "No time slots available in this block.",
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(vertical = 16.dp)
+                    )
+                } else if (block.slots.all { it.isBooked }) {
+                    // All slots booked message
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFFEBEE)
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.EventBusy,
+                                contentDescription = null,
+                                tint = BookedRed,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "No free time slots in this block.",
+                                fontSize = 14.sp,
+                                color = BookedRed,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                } else {
+                    // Slots grid - 3 columns
+                    LazyVerticalGrid(
+                        columns = GridCells.Fixed(3),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 300.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        userScrollEnabled = true
+                    ) {
+                        items(block.slots) { slot ->
+                            TimeSlotChip(
+                                slot = slot,
+                                isSelected = selectedSlot == slot,
+                                onClick = { onSlotSelected(slot) }
+                            )
                         }
                     }
                 }
@@ -362,37 +561,79 @@ fun SelectDateTimeScreen(
 }
 
 /**
- * Load time blocks for a specific date based on doctor availability
+ * Individual time slot chip
  */
-suspend fun loadTimeBlocksForDate(doctorId: String, date: LocalDate): List<TimeBlock> {
-    android.util.Log.e("SelectDateTime", "╔═══════════════════════════════════════════╗")
-    android.util.Log.e("SelectDateTime", "║  LOAD TIME BLOCKS - FUNCTION CALLED      ║")
-    android.util.Log.e("SelectDateTime", "╚═══════════════════════════════════════════╝")
+@Composable
+fun TimeSlotChip(
+    slot: TimeSlot,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val backgroundColor = when {
+        isSelected -> SelectedTeal
+        slot.isBooked -> BookedRed.copy(alpha = 0.15f)
+        else -> TealAccent.copy(alpha = 0.1f)
+    }
     
+    val borderColor = when {
+        isSelected -> SelectedTeal
+        slot.isBooked -> BookedRed
+        else -> TealAccent
+    }
+    
+    val textColor = when {
+        isSelected -> Color.White
+        slot.isBooked -> BookedRed
+        else -> TealAccent
+    }
+    
+    val formatter = DateTimeFormatter.ofPattern("h:mm a")
+    
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = !slot.isBooked) { onClick() },
+        shape = RoundedCornerShape(8.dp),
+        color = backgroundColor,
+        border = androidx.compose.foundation.BorderStroke(1.dp, borderColor)
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 10.dp, horizontal = 6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = slot.startTime.format(formatter),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = textColor,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = "–",
+                fontSize = 10.sp,
+                color = textColor.copy(alpha = 0.7f)
+            )
+            Text(
+                text = slot.endTime.format(formatter),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = textColor,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+/**
+ * Load time blocks with generated time slots for a specific date
+ */
+suspend fun loadTimeBlocksWithSlots(doctorId: String, date: LocalDate): List<TimeBlock> {
     val db = Firebase.firestore
-    
-    // Get day of week (1=Monday, 7=Sunday)
     val dayOfWeek = date.dayOfWeek.value
+    val dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
     
     try {
-        android.util.Log.e("SelectDateTime", "🔍 INPUTS:")
-        android.util.Log.e("SelectDateTime", "   Doctor ID: $doctorId")
-        android.util.Log.e("SelectDateTime", "   Day of Week: $dayOfWeek (1=Mon, 7=Sun)")
-        android.util.Log.e("SelectDateTime", "   Date: $date")
-        
-        // Test connection - try to read any document from doctor_availability
-        try {
-            val testQuery = db.collection("doctor_availability").limit(1).get().await()
-            android.util.Log.d("SelectDateTime", "Connection test: SUCCESS - Can read doctor_availability collection")
-            android.util.Log.d("SelectDateTime", "Total documents in test query: ${testQuery.documents.size}")
-        } catch (testError: Exception) {
-            android.util.Log.e("SelectDateTime", "Connection test: FAILED - Cannot read doctor_availability", testError)
-            android.util.Log.e("SelectDateTime", "Error type: ${testError.javaClass.simpleName}")
-            android.util.Log.e("SelectDateTime", "Error message: ${testError.message}")
-        }
-        
         // Fetch doctor availability for this day
-        android.util.Log.d("SelectDateTime", "Querying: doctor_availability WHERE doctorUid='$doctorId' AND dayOfWeek=$dayOfWeek AND isActive=true")
         val availabilitySnapshot = db.collection("doctor_availability")
             .whereEqualTo("doctorUid", doctorId)
             .whereEqualTo("dayOfWeek", dayOfWeek)
@@ -400,87 +641,34 @@ suspend fun loadTimeBlocksForDate(doctorId: String, date: LocalDate): List<TimeB
             .get()
             .await()
         
-        android.util.Log.d("SelectDateTime", "Query result: ${availabilitySnapshot.documents.size} documents found")
-        
-        // Log all documents found (even if not active)
-        if (availabilitySnapshot.isEmpty) {
-            android.util.Log.w("SelectDateTime", "❌ No availability documents found for this doctor on this day")
-            android.util.Log.w("SelectDateTime", "Query was: doctorUid='$doctorId', dayOfWeek=$dayOfWeek, isActive=true")
-            // Try querying without isActive filter to see if documents exist
-            val allDocsForDoctor = db.collection("doctor_availability")
-                .whereEqualTo("doctorUid", doctorId)
-                .get()
-                .await()
-            android.util.Log.d("SelectDateTime", "📊 Total documents for this doctor (all days): ${allDocsForDoctor.documents.size}")
-            if (allDocsForDoctor.documents.isEmpty()) {
-                android.util.Log.e("SelectDateTime", "⚠️ CRITICAL: Doctor has NO availability documents at all!")
-                android.util.Log.e("SelectDateTime", "⚠️ Doctor needs to set availability in Edit Availability screen")
-            } else {
-                allDocsForDoctor.documents.forEach { doc ->
-                    val docDayOfWeek = doc.getLong("dayOfWeek")
-                    val docIsActive = doc.getBoolean("isActive")
-                    val docStartTime = doc.getString("startTime")
-                    val docEndTime = doc.getString("endTime")
-                    android.util.Log.d("SelectDateTime", "📅 Doc ID: ${doc.id}")
-                    android.util.Log.d("SelectDateTime", "   - dayOfWeek: $docDayOfWeek (${if (docDayOfWeek == dayOfWeek.toLong()) "MATCHES" else "different"})")
-                    android.util.Log.d("SelectDateTime", "   - isActive: $docIsActive")
-                    android.util.Log.d("SelectDateTime", "   - times: $docStartTime - $docEndTime")
-                }
-            }
-        } else {
-            android.util.Log.d("SelectDateTime", "✅ Found availability document!")
-        }
-        
-        // Get availability (should be one document per day per doctor)
         val availability = availabilitySnapshot.documents.firstOrNull()
-        val startTime = availability?.getString("startTime") // Format: "HH:mm"
+        val startTime = availability?.getString("startTime")
         val endTime = availability?.getString("endTime")
         
-        android.util.Log.e("SelectDateTime", "")
-        android.util.Log.e("SelectDateTime", "📋 AVAILABILITY DATA EXTRACTED:")
-        android.util.Log.e("SelectDateTime", "   startTime = '$startTime'")
-        android.util.Log.e("SelectDateTime", "   endTime = '$endTime'")
-        if (availability != null) {
-            android.util.Log.e("SelectDateTime", "   Document ID: ${availability.id}")
-            android.util.Log.e("SelectDateTime", "   All fields: ${availability.data}")
-        } else {
-            android.util.Log.e("SelectDateTime", "   ⚠️ availability document is NULL")
-        }
-        
-        // Count existing bookings for this date
-        val dateStr = date.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        // Fetch existing appointments for this date to mark booked slots
         val appointmentsSnapshot = db.collection("appointments")
             .whereEqualTo("doctorUid", doctorId)
             .get()
             .await()
         
-        // Filter appointments by date and count by block
-        val appointmentsByBlock = mutableMapOf(
-            "Morning" to 0,
-            "Afternoon" to 0,
-            "Evening" to 0,
-            "Night" to 0
-        )
-        
+        // Filter appointments for this specific date and get booked slots
+        val bookedSlots = mutableSetOf<String>()
         appointmentsSnapshot.documents.forEach { doc ->
             val appointmentDate = doc.getTimestamp("appointmentDate")
             val status = doc.getString("status")?.lowercase() ?: ""
-            val blockName = doc.getString("blockName") ?: "" // Use blockName field
+            val slotStartTime = doc.getString("slotStartTime") ?: ""
             
-            // Only count scheduled or confirmed appointments (not cancelled or completed)
             if (appointmentDate != null && (status == "scheduled" || status == "confirmed")) {
                 val appointmentLocalDate = appointmentDate.toDate()
                     .toInstant()
                     .atZone(java.time.ZoneId.systemDefault())
                     .toLocalDate()
                 
-                if (appointmentLocalDate == date && blockName.isNotEmpty()) {
-                    appointmentsByBlock[blockName] = (appointmentsByBlock[blockName] ?: 0) + 1
+                if (appointmentLocalDate == date && slotStartTime.isNotBlank()) {
+                    bookedSlots.add(slotStartTime)
                 }
             }
         }
-        
-        android.util.Log.d("SelectDateTime", "Appointments by block for $date: $appointmentsByBlock")
         
         // Define time blocks
         val blockDefinitions = listOf(
@@ -490,21 +678,22 @@ suspend fun loadTimeBlocksForDate(doctorId: String, date: LocalDate): List<TimeB
             Triple("Night", 20, 24)
         )
         
-        android.util.Log.e("SelectDateTime", "")
-        android.util.Log.e("SelectDateTime", "🕐 CALCULATING TIME BLOCKS:")
-        
         return blockDefinitions.map { (name, blockStart, blockEnd) ->
-            android.util.Log.e("SelectDateTime", "  Processing: $name ($blockStart:00 - $blockEnd:00)")
             val (doctorStart, doctorEnd, hours) = calculateBlockAvailability(
                 startTime, endTime, blockStart, blockEnd
             )
             
-            android.util.Log.e("SelectDateTime", "  Result: doctorStart=$doctorStart, doctorEnd=$doctorEnd, hours=$hours")
-            
             val isAvailable = doctorStart != null && doctorEnd != null
-            val maxCapacity = if (isAvailable) (hours * 10) else 0
-            val currentBookings = appointmentsByBlock[name] ?: 0
-            val isFullyBooked = isAvailable && currentBookings >= maxCapacity
+            
+            // Generate time slots for this block
+            val slots = if (isAvailable && doctorStart != null && doctorEnd != null) {
+                generateTimeSlots(doctorStart, doctorEnd, name, bookedSlots)
+            } else {
+                emptyList()
+            }
+            
+            val availableSlots = slots.count { !it.isBooked }
+            val isFullyBooked = isAvailable && availableSlots == 0
             
             TimeBlock(
                 name = name,
@@ -513,31 +702,78 @@ suspend fun loadTimeBlocksForDate(doctorId: String, date: LocalDate): List<TimeB
                 doctorStartTime = doctorStart,
                 doctorEndTime = doctorEnd,
                 isAvailable = isAvailable,
-                currentBookings = currentBookings,
-                maxCapacity = maxCapacity,
-                isFullyBooked = isFullyBooked
+                currentBookings = slots.count { it.isBooked },
+                maxCapacity = slots.size,
+                isFullyBooked = isFullyBooked,
+                slots = slots
             )
         }
     } catch (e: Exception) {
-        android.util.Log.e("SelectDateTime", "╔═══════════════════════════════════════════╗")
-        android.util.Log.e("SelectDateTime", "║  ❌ EXCEPTION IN loadTimeBlocksForDate   ║")
-        android.util.Log.e("SelectDateTime", "╚═══════════════════════════════════════════╝")
-        android.util.Log.e("SelectDateTime", "Exception type: ${e.javaClass.simpleName}")
-        android.util.Log.e("SelectDateTime", "Error message: ${e.message}", e)
-        e.printStackTrace()
-        // Return empty blocks on error (all marked as unavailable)
+        android.util.Log.e("SelectDateTime", "Error loading time blocks: ${e.message}", e)
         return listOf(
-            TimeBlock("Morning", 6, 12, doctorStartTime = null, doctorEndTime = null, isAvailable = false),
-            TimeBlock("Afternoon", 12, 16, doctorStartTime = null, doctorEndTime = null, isAvailable = false),
-            TimeBlock("Evening", 16, 20, doctorStartTime = null, doctorEndTime = null, isAvailable = false),
-            TimeBlock("Night", 20, 24, doctorStartTime = null, doctorEndTime = null, isAvailable = false)
+            TimeBlock("Morning", 6, 12, isAvailable = false),
+            TimeBlock("Afternoon", 12, 16, isAvailable = false),
+            TimeBlock("Evening", 16, 20, isAvailable = false),
+            TimeBlock("Night", 20, 24, isAvailable = false)
         )
     }
 }
 
 /**
+ * Generate time slots based on doctor's availability window
+ */
+fun generateTimeSlots(
+    startTimeStr: String,
+    endTimeStr: String,
+    blockName: String,
+    bookedSlots: Set<String>
+): List<TimeSlot> {
+    val slots = mutableListOf<TimeSlot>()
+    
+    try {
+        // Parse the time strings - handle both 12-hour and 24-hour formats
+        val formatter12 = DateTimeFormatter.ofPattern("h:mm a")
+        val formatter24 = DateTimeFormatter.ofPattern("HH:mm")
+        
+        val startTime = try {
+            LocalTime.parse(startTimeStr.trim(), formatter12)
+        } catch (e: Exception) {
+            LocalTime.parse(startTimeStr.trim(), formatter24)
+        }
+        
+        val endTime = try {
+            LocalTime.parse(endTimeStr.trim(), formatter12)
+        } catch (e: Exception) {
+            LocalTime.parse(endTimeStr.trim(), formatter24)
+        }
+        
+        var currentStart = startTime
+        val slotDuration = Duration.ofMinutes(DEFAULT_SLOT_DURATION_MINUTES.toLong())
+        
+        while (currentStart.plus(slotDuration) <= endTime || currentStart.plus(slotDuration) == endTime) {
+            val currentEnd = currentStart.plus(slotDuration)
+            val slotStartStr = currentStart.format(formatter24)
+            
+            slots.add(
+                TimeSlot(
+                    startTime = currentStart,
+                    endTime = currentEnd,
+                    isBooked = bookedSlots.contains(slotStartStr),
+                    blockName = blockName
+                )
+            )
+            
+            currentStart = currentEnd
+        }
+    } catch (e: Exception) {
+        android.util.Log.e("SelectDateTime", "Error generating time slots: ${e.message}", e)
+    }
+    
+    return slots
+}
+
+/**
  * Calculate doctor availability within a time block
- * Returns (startTime, endTime, hours) or (null, null, 0) if not available
  */
 fun calculateBlockAvailability(
     doctorStart: String?,
@@ -545,36 +781,21 @@ fun calculateBlockAvailability(
     blockStartHour: Int,
     blockEndHour: Int
 ): Triple<String?, String?, Int> {
-    // Return null if doctor times are missing
     if (doctorStart.isNullOrBlank() || doctorEnd.isNullOrBlank()) {
-        android.util.Log.d("SelectDateTime", "Doctor times are null or blank")
         return Triple(null, null, 0)
     }
     
     try {
-        android.util.Log.d("SelectDateTime", "🔍 calculateBlockAvailability called:")
-        android.util.Log.d("SelectDateTime", "   Input: doctorStart='$doctorStart', doctorEnd='$doctorEnd'")
-        android.util.Log.d("SelectDateTime", "   Block: $blockStartHour:00 - $blockEndHour:00")
-        
-        // Parse doctor's working hours (24-hour format: "09:00", "17:00")
         val docStartTime = LocalTime.parse(doctorStart, DateTimeFormatter.ofPattern("HH:mm"))
         val docEndTime = LocalTime.parse(doctorEnd, DateTimeFormatter.ofPattern("HH:mm"))
         val blockStart = LocalTime.of(blockStartHour, 0)
         val blockEnd = LocalTime.of(blockEndHour, 0)
         
-        android.util.Log.d("SelectDateTime", "   Parsed: Doctor=$docStartTime-$docEndTime, Block=$blockStart-$blockEnd")
-        
         // Check if doctor works during this block
         val noOverlap = docEndTime.isBefore(blockStart) || docEndTime == blockStart || 
                         docStartTime.isAfter(blockEnd) || docStartTime == blockEnd
         
-        android.util.Log.d("SelectDateTime", "   Overlap check:")
-        android.util.Log.d("SelectDateTime", "   - docEndTime ($docEndTime) <= blockStart ($blockStart)? ${docEndTime.isBefore(blockStart) || docEndTime == blockStart}")
-        android.util.Log.d("SelectDateTime", "   - docStartTime ($docStartTime) >= blockEnd ($blockEnd)? ${docStartTime.isAfter(blockEnd) || docStartTime == blockEnd}")
-        android.util.Log.d("SelectDateTime", "   - No overlap: $noOverlap")
-        
         if (noOverlap) {
-            android.util.Log.d("SelectDateTime", "   ❌ No overlap - doctor not working during this block")
             return Triple(null, null, 0)
         }
         
@@ -582,27 +803,20 @@ fun calculateBlockAvailability(
         val overlapStart = if (docStartTime.isAfter(blockStart)) docStartTime else blockStart
         val overlapEnd = if (docEndTime.isBefore(blockEnd)) docEndTime else blockEnd
         
-        android.util.Log.d("SelectDateTime", "   Calculated overlap: $overlapStart - $overlapEnd")
-        
         if (overlapStart.isBefore(overlapEnd)) {
-            // Calculate hours - round up to ensure partial hours count (e.g., 1.5 hours = 2 slots)
-            val duration = java.time.Duration.between(overlapStart, overlapEnd)
+            val duration = Duration.between(overlapStart, overlapEnd)
             val hours = kotlin.math.ceil(duration.toMinutes() / 60.0).toInt()
             
-            // Format as 12-hour time with AM/PM (use 'h' for 1-12 hour without leading zero)
             val formatter = DateTimeFormatter.ofPattern("h:mm a")
             val formattedStart = overlapStart.format(formatter)
             val formattedEnd = overlapEnd.format(formatter)
             
-            android.util.Log.d("SelectDateTime", "   ✅ AVAILABLE: $formattedStart - $formattedEnd ($hours hours, ${duration.toMinutes()} minutes)")
             return Triple(formattedStart, formattedEnd, hours)
         }
         
-        android.util.Log.d("SelectDateTime", "   ❌ overlapStart ($overlapStart) not before overlapEnd ($overlapEnd)")
         return Triple(null, null, 0)
     } catch (e: Exception) {
         android.util.Log.e("SelectDateTime", "Error calculating block availability: ${e.message}", e)
-        e.printStackTrace()
         return Triple(null, null, 0)
     }
 }
@@ -665,13 +879,13 @@ fun TimeBlockCard(
         isDisabled -> Color.Transparent
         isSelected -> Color.Transparent
         isDarkMode -> Color(0xFF555555)
-        else -> Color(0xFF0E4944).copy(alpha = 0.3f)  // Deep Teal border
+        else -> Color(0xFF0E4944).copy(alpha = 0.3f)
     }
     
     Surface(
         modifier = Modifier
             .fillMaxWidth()
-            .height(100.dp)
+            .padding(horizontal = 16.dp)
             .clickable(enabled = !isDisabled) { onClick() },
         shape = RoundedCornerShape(12.dp),
         color = backgroundColor,
@@ -680,13 +894,14 @@ fun TimeBlockCard(
     ) {
         Box(
             modifier = Modifier
-                .fillMaxSize()
+                .fillMaxWidth()
                 .padding(16.dp)
         ) {
             // Available slots text in top right
             if (block.isAvailable && !block.isFullyBooked) {
+                val availableSlots = block.slots.count { !it.isBooked }
                 Text(
-                    text = "Available: ${block.maxCapacity - block.currentBookings}/${block.maxCapacity} slots",
+                    text = "$availableSlots/${block.slots.size} slots free",
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,
                     color = when {
@@ -698,9 +913,25 @@ fun TimeBlockCard(
                 )
             }
             
+            // Expand/collapse indicator
+            if (block.isAvailable && !block.isFullyBooked) {
+                Icon(
+                    imageVector = if (isSelected) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                    contentDescription = if (isSelected) "Collapse" else "Expand",
+                    tint = when {
+                        isSelected -> Color.White
+                        isDarkMode -> Color(0xFF76DCB0)
+                        else -> ButtonColor
+                    },
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(24.dp)
+                )
+            }
+            
             // Main content row
             Row(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxWidth(0.8f),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Icon based on block type
@@ -716,7 +947,7 @@ fun TimeBlockCard(
                     isDisabled && isDarkMode -> Color(0xFF666666)
                     isDisabled -> Color.Gray
                     isSelected -> Color.White
-                    isDarkMode -> Color(0xFF76DCB0)  // Mint in dark mode
+                    isDarkMode -> Color(0xFF76DCB0)
                     else -> ButtonColor
                 }
                 
@@ -724,18 +955,16 @@ fun TimeBlockCard(
                     imageVector = icon,
                     contentDescription = block.name,
                     tint = iconColor,
-                    modifier = Modifier.size(40.dp)
+                    modifier = Modifier.size(36.dp)
                 )
                 
                 Spacer(modifier = Modifier.width(16.dp))
                 
                 // Block info
-                Column(
-                    modifier = Modifier.weight(1f)
-                ) {
+                Column {
                     Text(
                         text = block.name,
-                        fontSize = 18.sp,
+                        fontSize = 17.sp,
                         fontWeight = FontWeight.Bold,
                         color = when {
                             isDisabled && isDarkMode -> Color(0xFF888888)
@@ -746,7 +975,7 @@ fun TimeBlockCard(
                         }
                     )
                     
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(2.dp))
                     
                     if (block.isAvailable && !block.isFullyBooked) {
                         Text(
@@ -755,17 +984,8 @@ fun TimeBlockCard(
                             fontWeight = FontWeight.Medium,
                             color = when {
                                 isSelected -> Color.White.copy(alpha = 0.9f)
-                                isDarkMode -> Color(0xFF76DCB0)  // Mint in dark mode
+                                isDarkMode -> Color(0xFF76DCB0)
                                 else -> ButtonColor
-                            }
-                        )
-                        Text(
-                            text = "${block.maxCapacity - block.currentBookings} slots available",
-                            fontSize = 12.sp,
-                            color = when {
-                                isSelected -> Color.White.copy(alpha = 0.7f)
-                                isDarkMode -> Color(0xFFB8B8B8)
-                                else -> Color.Gray
                             }
                         )
                     } else if (block.isFullyBooked) {
@@ -801,16 +1021,6 @@ fun TimeBlockCard(
                             )
                         }
                     }
-                }
-                
-                // Selection indicator
-                if (isSelected) {
-                    Icon(
-                        imageVector = Icons.Default.CheckCircle,
-                        contentDescription = "Selected",
-                        tint = Color.White,
-                        modifier = Modifier.size(28.dp)
-                    )
                 }
             }
         }

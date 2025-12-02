@@ -137,6 +137,52 @@ fun DoctorCatalogueScreen(
         }
     }
     
+    // Local search results - instant filtering from already loaded doctors
+    val localSearchResults = remember(searchQuery, allDoctors) {
+        if (searchQuery.isBlank()) {
+            emptyList()
+        } else {
+            val lowerQuery = searchQuery.lowercase().trim()
+            allDoctors.filter { doctor ->
+                val firstName = doctor.firstName.lowercase()
+                val lastName = doctor.lastName.lowercase()
+                val fullName = "$firstName $lastName"
+                val speciality = doctor.speciality.lowercase()
+                val normalizedSpeciality = normalizeSpecialty(doctor.speciality).lowercase()
+                
+                // Match doctor name OR speciality
+                firstName.contains(lowerQuery) ||
+                lastName.contains(lowerQuery) ||
+                fullName.contains(lowerQuery) ||
+                speciality.contains(lowerQuery) ||
+                normalizedSpeciality.contains(lowerQuery)
+            }
+        }
+    }
+    
+    // Filter specialties based on search query (for specialty grid filtering)
+    val filteredSpecialties = remember(searchQuery, allSpecialties) {
+        if (searchQuery.isBlank()) {
+            allSpecialties
+        } else {
+            val lowerQuery = searchQuery.lowercase().trim()
+            allSpecialties.filter { specialty ->
+                specialty.name.lowercase().contains(lowerQuery) ||
+                specialty.description.lowercase().contains(lowerQuery)
+            }
+        }
+    }
+    
+    // Combine local and remote search results (prefer local for instant feedback)
+    val effectiveSearchResults = remember(localSearchResults, searchResults, searchQuery) {
+        if (searchQuery.isBlank()) {
+            emptyList()
+        } else {
+            // Use local results for instant feedback, they're the same source anyway
+            localSearchResults.ifEmpty { searchResults }
+        }
+    }
+    
     // Load all doctors
     LaunchedEffect(Unit) {
         try {
@@ -148,7 +194,7 @@ fun DoctorCatalogueScreen(
         }
     }
     
-    // Handle search
+    // Handle search (still keep remote search for completeness)
     val scope = rememberCoroutineScope()
     LaunchedEffect(searchQuery) {
         if (searchQuery.isNotEmpty()) {
@@ -221,8 +267,8 @@ fun DoctorCatalogueScreen(
                 ) {
                     CircularProgressIndicator(color = HeaderTopColor)
                 }
-            } else if (searchQuery.isNotEmpty() && searchResults.isNotEmpty()) {
-                // Search results view
+            } else if (searchQuery.isNotEmpty() && effectiveSearchResults.isNotEmpty()) {
+                // Search results view - shows doctor cards when searching
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
@@ -232,7 +278,7 @@ fun DoctorCatalogueScreen(
                     SearchBar(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = "Search doctors by name, specialty...",
+                        placeholder = "Search by doctor name or specialty...",
                         backgroundColor = CardWhite,
                         modifier = Modifier.padding(16.dp)
                     )
@@ -262,7 +308,7 @@ fun DoctorCatalogueScreen(
                                     onClick = { selectedSpecialty = null },
                                     label = {
                                         Text(
-                                            text = "All (${searchResults.size})",
+                                            text = "All (${effectiveSearchResults.size})",
                                             fontSize = 13.sp
                                         )
                                     },
@@ -276,13 +322,13 @@ fun DoctorCatalogueScreen(
                             }
                             
                             // Specialty chips for specialties in search results
-                            val specialtiesInResults = searchResults
+                            val specialtiesInResults = effectiveSearchResults
                                 .map { normalizeSpecialty(it.speciality) }
                                 .distinct()
                                 .sorted()
                             
                             items(specialtiesInResults) { specialty ->
-                                val count = searchResults.count { 
+                                val count = effectiveSearchResults.count { 
                                     normalizeSpecialty(it.speciality) == specialty 
                                 }
                                 FilterChip(
@@ -311,9 +357,9 @@ fun DoctorCatalogueScreen(
 
                     // Filter search results by selected specialty
                     val filteredSearchResults = if (selectedSpecialty != null) {
-                        searchResults.filter { normalizeSpecialty(it.speciality) == selectedSpecialty }
+                        effectiveSearchResults.filter { normalizeSpecialty(it.speciality) == selectedSpecialty }
                     } else {
-                        searchResults
+                        effectiveSearchResults
                     }
 
                     // Search results count
@@ -358,7 +404,7 @@ fun DoctorCatalogueScreen(
                     SearchBar(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
-                        placeholder = "Search doctors by name, specialty...",
+                        placeholder = "Search by doctor name or specialty...",
                         backgroundColor = CardWhite,
                         modifier = Modifier.padding(16.dp)
                     )
@@ -382,15 +428,15 @@ fun DoctorCatalogueScreen(
                                 )
                             }
                         }
-                    } else if (isSearching) {
-                        // Loading indicator while searching
+                    } else if (isSearching && localSearchResults.isEmpty()) {
+                        // Loading indicator while searching (only if no local results yet)
                         Box(
                             modifier = Modifier.fillMaxSize(),
                             contentAlignment = Alignment.Center
                         ) {
                             CircularProgressIndicator(color = HeaderTopColor)
                         }
-                    } else if (searchResults.isEmpty()) {
+                    } else if (effectiveSearchResults.isEmpty()) {
                         // No results found
                         Box(
                             modifier = Modifier
@@ -410,14 +456,15 @@ fun DoctorCatalogueScreen(
                                 )
                                 Spacer(modifier = Modifier.height(16.dp))
                                 Text(
-                                    text = "No doctors found",
+                                    text = "No doctors found for \"$searchQuery\"",
                                     fontSize = 18.sp,
                                     fontWeight = FontWeight.SemiBold,
-                                    color = StatTextColor
+                                    color = StatTextColor,
+                                    textAlign = TextAlign.Center
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "Try searching by name or specialization",
+                                    text = "Try searching by doctor name (e.g., \"Dr. Smith\")\nor specialty (e.g., \"Cardiologist\")",
                                     fontSize = 14.sp,
                                     color = StatTextColor.copy(alpha = 0.7f),
                                     textAlign = TextAlign.Center

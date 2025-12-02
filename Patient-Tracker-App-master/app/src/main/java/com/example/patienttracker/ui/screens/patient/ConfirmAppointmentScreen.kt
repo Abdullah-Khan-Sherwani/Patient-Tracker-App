@@ -252,15 +252,16 @@ fun ConfirmAppointmentScreen(
                                         
                                         if (currentUser != null && appointment != null) {
                                             android.util.Log.d("ConfirmAppointment", "Creating notifications for patient and doctor")
+                                            val formattedSlotTime = formatTimeRange(timeRange)
                                             val (patientNotifId, doctorNotifId) = NotificationRepository().createNotificationForBoth(
                                                 patientUid = currentUser.uid,
                                                 doctorUid = doctorId,
                                                 patientTitle = "Appointment Booked",
-                                                patientMessage = "Your appointment with $doctorName on $formattedDate ($blockName block: $timeRange) has been confirmed. Appointment #${appointment.appointmentNumber}".let {
+                                                patientMessage = "Your appointment with $doctorName on $formattedDate at $formattedSlotTime has been confirmed.".let {
                                                     if (dependentName.isNotBlank()) "$it (for $dependentName)" else it
                                                 },
                                                 doctorTitle = "New Appointment",
-                                                doctorMessage = "New appointment booked by patient on $formattedDate ($blockName block: $timeRange). Appointment #${appointment.appointmentNumber}".let {
+                                                doctorMessage = "New appointment booked by patient on $formattedDate at $formattedSlotTime.".let {
                                                     if (dependentName.isNotBlank()) "$it (for $dependentName)" else it
                                                 },
                                                 type = "appointment_created",
@@ -452,7 +453,7 @@ fun ConfirmAppointmentScreen(
                 }
             }
 
-            // Important Notice - Appointment Time
+            // Important Notice - Appointment Time Slot
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp),
@@ -472,7 +473,7 @@ fun ConfirmAppointmentScreen(
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
-                        text = "This time is approximate. You will be called based on your appointment number.",
+                        text = "Your time slot is ${formatTimeRange(timeRange)}. Please arrive 10 minutes early.",
                         fontSize = 13.sp,
                         color = Color(0xFF0D47A1),
                         lineHeight = 18.sp,

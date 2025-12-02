@@ -302,4 +302,31 @@ class NotificationRepository {
             .delete()
             .await()
     }
+    
+    /**
+     * Clear all notifications for a patient
+     */
+    suspend fun clearAllPatientNotifications(patientUid: String): Int {
+        try {
+            android.util.Log.d("NotificationRepo", "Clearing all notifications for patient: $patientUid")
+            
+            val snapshot = db.collection("notifications")
+                .whereEqualTo("patientUid", patientUid)
+                .get()
+                .await()
+            
+            val count = snapshot.size()
+            val batch = db.batch()
+            snapshot.documents.forEach { doc ->
+                batch.delete(doc.reference)
+            }
+            batch.commit().await()
+            
+            android.util.Log.d("NotificationRepo", "Cleared $count notifications")
+            return count
+        } catch (e: Exception) {
+            android.util.Log.e("NotificationRepo", "Error clearing notifications: ${e.message}", e)
+            throw e
+        }
+    }
 }

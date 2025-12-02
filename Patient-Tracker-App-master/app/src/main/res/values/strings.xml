@@ -52,6 +52,8 @@
     <string name="health_info_updated">Health information updated.</string>
     <string name="saving">Saving…</string>
     <string name="error_saving">Failed to save. Please try again.</string>
+    <string name="only_doctor_can_edit">Only a doctor or admin can update this field</string>
+    <string name="blood_group_not_set">Not set</string>
     
     <!-- Blood Group Options -->
     <string name="blood_a_positive">A+</string>

@@ -662,14 +662,16 @@ private fun DoctorNoteDialog(
                 Text(
                     text = "Confirm Prescription",
                     fontWeight = FontWeight.Bold,
-                    textAlign = TextAlign.Center
+                    textAlign = TextAlign.Center,
+                    color = TextPrimary
                 )
             },
             text = {
                 Column {
                     Text(
                         text = "Are you sure you want to save this prescription for ${appointment.patientName}?",
-                        textAlign = TextAlign.Center
+                        textAlign = TextAlign.Center,
+                        color = TextPrimary
                     )
                     Spacer(Modifier.height(12.dp))
                     Text(
@@ -687,7 +689,10 @@ private fun DoctorNoteDialog(
                         isSaving = true
                         onSave(comments, prescription)
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = TealAccent)
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = TealAccent,
+                        contentColor = Color.White
+                    )
                 ) {
                     Icon(
                         imageVector = Icons.Default.Check,
@@ -704,6 +709,8 @@ private fun DoctorNoteDialog(
                 }
             },
             containerColor = Color.White,
+            titleContentColor = TextPrimary,
+            textContentColor = TextPrimary,
             shape = RoundedCornerShape(16.dp)
         )
     }
@@ -780,10 +787,15 @@ private fun DoctorNoteDialog(
                         modifier = Modifier
                             .weight(1f)
                             .height(120.dp),
-                        placeholder = { Text("Enter your comments and diagnosis...") },
+                        placeholder = { Text("Enter your comments and diagnosis...", color = TextSecondary) },
                         colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
                             focusedBorderColor = TealAccent,
-                            cursorColor = TealAccent
+                            unfocusedBorderColor = TextSecondary.copy(alpha = 0.5f),
+                            cursorColor = TealAccent,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
                         ),
                         shape = RoundedCornerShape(8.dp)
                     )
@@ -842,10 +854,15 @@ private fun DoctorNoteDialog(
                         modifier = Modifier
                             .weight(1f)
                             .height(150.dp),
-                        placeholder = { Text("Enter prescribed medications...\nExample:\n- Medicine 1 - Dosage - Frequency\n- Medicine 2 - Dosage - Frequency") },
+                        placeholder = { Text("Enter prescribed medications...\nExample:\n- Medicine 1 - Dosage - Frequency\n- Medicine 2 - Dosage - Frequency", color = TextSecondary) },
                         colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = TextPrimary,
+                            unfocusedTextColor = TextPrimary,
                             focusedBorderColor = TealAccent,
-                            cursorColor = TealAccent
+                            unfocusedBorderColor = TextSecondary.copy(alpha = 0.5f),
+                            cursorColor = TealAccent,
+                            focusedContainerColor = Color.White,
+                            unfocusedContainerColor = Color.White
                         ),
                         shape = RoundedCornerShape(8.dp)
                     )
@@ -894,9 +911,12 @@ private fun DoctorNoteDialog(
                         onClick = onDismiss,
                         modifier = Modifier.weight(1f),
                         enabled = !isSaving,
-                        shape = RoundedCornerShape(8.dp)
+                        shape = RoundedCornerShape(8.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = TextPrimary
+                        )
                     ) {
-                        Text("Cancel")
+                        Text("Cancel", color = TextPrimary)
                     }
                     
                     Button(
@@ -913,7 +933,10 @@ private fun DoctorNoteDialog(
                         },
                         modifier = Modifier.weight(1f),
                         enabled = !isSaving && (comments.isNotBlank() || prescription.isNotBlank()),
-                        colors = ButtonDefaults.buttonColors(containerColor = TealAccent),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = TealAccent,
+                            contentColor = Color.White
+                        ),
                         shape = RoundedCornerShape(8.dp)
                     ) {
                         if (isSaving) {
@@ -926,10 +949,11 @@ private fun DoctorNoteDialog(
                             Icon(
                                 imageVector = Icons.Default.Check,
                                 contentDescription = null,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(18.dp),
+                                tint = Color.White
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Save")
+                            Text("Save", color = Color.White)
                         }
                     }
                 }

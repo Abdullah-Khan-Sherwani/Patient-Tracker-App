@@ -361,7 +361,7 @@ fun AdminAppointmentDetailsScreen(
                                             patientUid = currentAppointment.patientUid,
                                             doctorUid = currentAppointment.doctorUid,
                                             patientTitle = "Appointment Cancelled",
-                                            patientMessage = "Your appointment with Dr. ${currentAppointment.doctorName} scheduled on $formattedDate at ${currentAppointment.timeSlot} has been cancelled.",
+                                            patientMessage = "Your appointment with ${currentAppointment.formatDoctorName()} scheduled on $formattedDate at ${currentAppointment.timeSlot} has been cancelled.",
                                             doctorTitle = "Appointment Cancelled",
                                             doctorMessage = "Your appointment with ${currentAppointment.patientName} scheduled on $formattedDate at ${currentAppointment.timeSlot} has been cancelled.",
                                             type = "appointment_cancelled",

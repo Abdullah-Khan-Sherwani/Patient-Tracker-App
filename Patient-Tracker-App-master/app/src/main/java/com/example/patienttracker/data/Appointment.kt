@@ -137,4 +137,17 @@ data class Appointment(
             "$start – $end"
         }
     }
+    
+    /**
+     * Format doctor name ensuring "Dr." prefix appears only once
+     * Handles cases where doctorName already contains "Dr." prefix
+     */
+    fun formatDoctorName(): String {
+        return if (doctorName.startsWith("Dr.", ignoreCase = true) || 
+                   doctorName.startsWith("Dr ", ignoreCase = true)) {
+            doctorName
+        } else {
+            "Dr. $doctorName"
+        }
+    }
 }

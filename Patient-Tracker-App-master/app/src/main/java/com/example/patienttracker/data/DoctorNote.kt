@@ -68,4 +68,16 @@ data class DoctorNote(
             "Unknown date"
         }
     }
+    
+    /**
+     * Get formatted doctor name (avoids "Dr. Dr." duplication)
+     */
+    fun getFormattedDoctorName(): String {
+        return if (doctorName.startsWith("Dr.", ignoreCase = true) || 
+                   doctorName.startsWith("Dr ", ignoreCase = true)) {
+            doctorName
+        } else {
+            "Dr. $doctorName"
+        }
+    }
 }

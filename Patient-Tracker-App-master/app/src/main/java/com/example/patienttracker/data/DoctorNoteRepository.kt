@@ -161,4 +161,69 @@ object DoctorNoteRepository {
             false
         }
     }
+    
+    /**
+     * Update or create a doctor's note for an appointment
+     * If note exists, updates it; otherwise creates a new one
+     */
+    suspend fun saveOrUpdateDoctorNote(
+        appointmentId: String,
+        patientUid: String,
+        patientName: String,
+        doctorName: String,
+        speciality: String,
+        comments: String,
+        prescription: String,
+        appointmentDate: Timestamp
+    ): Result<DoctorNote> {
+        return try {
+            val currentUser = Firebase.auth.currentUser
+                ?: return Result.failure(Exception("User not authenticated"))
+            
+            // Check if note already exists
+            val existingSnapshot = db.collection(COLLECTION)
+                .whereEqualTo("appointmentId", appointmentId)
+                .limit(1)
+                .get()
+                .await()
+            
+            if (!existingSnapshot.isEmpty) {
+                // Update existing note
+                val existingDoc = existingSnapshot.documents.first()
+                val updateData = hashMapOf<String, Any>(
+                    "comments" to comments,
+                    "prescription" to prescription,
+                    "updatedAt" to Timestamp.now()
+                )
+                
+                db.collection(COLLECTION).document(existingDoc.id).update(updateData).await()
+                
+                val note = DoctorNote(
+                    noteId = existingDoc.id,
+                    appointmentId = appointmentId,
+                    patientUid = patientUid,
+                    patientName = patientName,
+                    doctorUid = currentUser.uid,
+                    doctorName = doctorName,
+                    speciality = speciality,
+                    comments = comments,
+                    prescription = prescription,
+                    appointmentDate = appointmentDate,
+                    createdAt = existingDoc.data?.get("createdAt") as? Timestamp ?: Timestamp.now()
+                )
+                
+                android.util.Log.d("DoctorNoteRepo", "Doctor note updated: ${existingDoc.id}")
+                Result.success(note)
+            } else {
+                // Create new note
+                saveDoctorNote(
+                    appointmentId, patientUid, patientName, doctorName,
+                    speciality, comments, prescription, appointmentDate
+                )
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("DoctorNoteRepo", "Failed to save/update doctor note: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
 }

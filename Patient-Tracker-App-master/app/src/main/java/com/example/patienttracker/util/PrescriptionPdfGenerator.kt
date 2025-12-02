@@ -195,7 +195,7 @@ object PrescriptionPdfGenerator {
             isFakeBoldText = true
             textAlign = Paint.Align.RIGHT
         }
-        canvas.drawText("Dr. ${note.doctorName}", PAGE_WIDTH - MARGIN, footerY + 20f, doctorNamePaint)
+        canvas.drawText(note.getFormattedDoctorName(), PAGE_WIDTH - MARGIN, footerY + 20f, doctorNamePaint)
         
         // Specialty
         val specialtyPaint = Paint().apply {

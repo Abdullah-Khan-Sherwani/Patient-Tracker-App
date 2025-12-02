@@ -240,11 +240,19 @@ fun DoctorAppointmentsFullScreen(
                             onSave = { comments, prescription ->
                                 scope.launch {
                                     val apt = selectedAppointment!!
-                                    val result = DoctorNoteRepository.saveDoctorNote(
+                                    // Format doctor name to avoid "Dr. Dr." duplication
+                                    val formattedDoctorName = if (apt.doctorName.startsWith("Dr.", ignoreCase = true) || 
+                                                                   apt.doctorName.startsWith("Dr ", ignoreCase = true)) {
+                                        apt.doctorName.removePrefix("Dr.").removePrefix("Dr ").trim()
+                                    } else {
+                                        apt.doctorName
+                                    }
+                                    
+                                    val result = DoctorNoteRepository.saveOrUpdateDoctorNote(
                                         appointmentId = apt.appointmentId,
                                         patientUid = apt.patientUid,
                                         patientName = apt.patientName,
-                                        doctorName = apt.doctorName,
+                                        doctorName = formattedDoctorName,
                                         speciality = apt.speciality,
                                         comments = comments,
                                         prescription = prescription,
@@ -252,12 +260,12 @@ fun DoctorAppointmentsFullScreen(
                                     )
                                     
                                     if (result.isSuccess) {
-                                        // Send notification to patient
+                                        // Send notification to patient (only for new notes, not updates)
                                         try {
                                             NotificationRepository().createNotification(
                                                 patientUid = apt.patientUid,
-                                                title = "New Prescription Available",
-                                                message = "Dr. ${apt.doctorName} has added a prescription for your appointment. View it in your Medical History.",
+                                                title = "Prescription Updated",
+                                                message = "Dr. $formattedDoctorName has updated the prescription for your appointment. View it in your Medical History.",
                                                 type = "doctor_note",
                                                 appointmentId = apt.appointmentId
                                             )
@@ -346,7 +354,7 @@ fun DoctorAppointmentsFullScreen(
                                                 NotificationRepository().createNotification(
                                                     patientUid = appointment.patientUid,
                                                     title = "Appointment Cancelled",
-                                                    message = "Your appointment with Dr. ${appointment.doctorName} scheduled on $formattedDate at ${appointment.timeSlot} has been cancelled by the doctor.",
+                                                    message = "Your appointment with ${appointment.formatDoctorName()} scheduled on $formattedDate at ${appointment.timeSlot} has been cancelled by the doctor.",
                                                     type = "appointment_cancelled",
                                                     appointmentId = appointment.appointmentId
                                                 )
@@ -644,7 +652,27 @@ private fun DoctorNoteDialog(
     var comments by remember { mutableStateOf("") }
     var prescription by remember { mutableStateOf("") }
     var isSaving by remember { mutableStateOf(false) }
+    var isLoading by remember { mutableStateOf(true) }
     var showConfirmDialog by remember { mutableStateOf(false) }
+    var existingNote by remember { mutableStateOf<com.example.patienttracker.data.DoctorNote?>(null) }
+    
+    // Load existing note if any
+    LaunchedEffect(appointment.appointmentId) {
+        isLoading = true
+        try {
+            val result = DoctorNoteRepository.getNoteForAppointment(appointment.appointmentId)
+            if (result.isSuccess) {
+                result.getOrNull()?.let { note ->
+                    existingNote = note
+                    comments = note.comments
+                    prescription = note.prescription
+                }
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("DoctorNoteDialog", "Failed to load existing note: ${e.message}")
+        }
+        isLoading = false
+    }
     
     // Confirmation Dialog
     if (showConfirmDialog) {
@@ -715,7 +743,7 @@ private fun DoctorNoteDialog(
         )
     }
     
-    Dialog(onDismissRequest = { if (!isSaving) onDismiss() }) {
+    Dialog(onDismissRequest = { if (!isSaving && !isLoading) onDismiss() }) {
         Surface(
             modifier = Modifier
                 .fillMaxWidth()
@@ -735,14 +763,23 @@ private fun DoctorNoteDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = "Doctor's Note",
-                        fontSize = 20.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = TealAccent
-                    )
+                    Column {
+                        Text(
+                            text = if (existingNote != null) "Edit Doctor's Note" else "Doctor's Note",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TealAccent
+                        )
+                        if (existingNote != null) {
+                            Text(
+                                text = "Previously saved - editing will update",
+                                fontSize = 12.sp,
+                                color = TextSecondary
+                            )
+                        }
+                    }
                     IconButton(
-                        onClick = { if (!isSaving) onDismiss() }
+                        onClick = { if (!isSaving && !isLoading) onDismiss() }
                     ) {
                         Icon(
                             imageVector = Icons.Default.Close,
@@ -767,6 +804,22 @@ private fun DoctorNoteDialog(
                 )
                 
                 Spacer(Modifier.height(16.dp))
+                
+                // Show loading indicator when loading existing note
+                if (isLoading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(200.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            CircularProgressIndicator(color = TealAccent)
+                            Spacer(Modifier.height(8.dp))
+                            Text("Loading existing note...", color = TextSecondary, fontSize = 14.sp)
+                        }
+                    }
+                } else {
                 
                 // Comments field
                 Text(
@@ -953,10 +1006,11 @@ private fun DoctorNoteDialog(
                                 tint = Color.White
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Save", color = Color.White)
+                            Text(if (existingNote != null) "Update" else "Save", color = Color.White)
                         }
                     }
                 }
+                } // End of if (!isLoading)
             }
         }
     }

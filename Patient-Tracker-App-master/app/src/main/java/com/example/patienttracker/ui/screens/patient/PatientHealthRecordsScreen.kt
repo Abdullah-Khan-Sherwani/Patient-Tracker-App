@@ -335,7 +335,7 @@ fun DoctorNoteCard(
                     Spacer(Modifier.width(12.dp))
                     Column {
                         Text(
-                            "Dr. ${note.doctorName}",
+                            note.getFormattedDoctorName(),
                             fontWeight = FontWeight.Bold,
                             fontSize = 16.sp,
                             color = DeepTeal

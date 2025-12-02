@@ -509,7 +509,7 @@ fun HeaderWithStats(fullName: String, navController: NavController, isDarkMode: 
                 .fillMaxWidth()
                 .padding(top = 40.dp, start = 20.dp, end = 20.dp, bottom = 20.dp)
         ) {
-            // Top row: Greeting + Bell
+            // Top row: Greeting
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -524,32 +524,6 @@ fun HeaderWithStats(fullName: String, navController: NavController, isDarkMode: 
                     color = statTextCol,
                     modifier = Modifier.weight(1f)
                 )
-
-                // Notification bell button
-                Surface(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(RoundedCornerShape(12.dp)),
-                    color = if (isDarkMode) DarkBackgroundColor else CardWhite
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null,
-                                onClick = { }
-                            ),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Notifications,
-                            contentDescription = "Notifications",
-                            tint = if (isDarkMode) DarkIconTint else HeaderTopColor,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-                }
             }
 
             // Upcoming Appointment heading with box

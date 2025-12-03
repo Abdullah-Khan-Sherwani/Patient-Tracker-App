@@ -20,6 +20,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -106,10 +107,13 @@ fun SelectDateTimeScreen(
     doctorId: String,
     doctorFirstName: String,
     doctorLastName: String,
-    specialty: String
+    specialty: String,
+    rescheduleAppointmentId: String? = null
 ) {
     val doctorFullName = "Dr. $doctorFirstName $doctorLastName"
     val scope = rememberCoroutineScope()
+    val isRescheduling = rescheduleAppointmentId != null
+    var isReschedulingInProgress by remember { mutableStateOf(false) }
     
     // Generate next 14 days
     val dates = remember {
@@ -185,7 +189,7 @@ fun SelectDateTimeScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = "Select Date & Time Slot",
+                                text = if (isRescheduling) "Reschedule Appointment" else "Select Date & Time Slot",
                                 color = Color.White,
                                 style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
                                 textAlign = TextAlign.Center
@@ -216,12 +220,56 @@ fun SelectDateTimeScreen(
                                 val dateStr = selectedDate.date.format(DateTimeFormatter.ISO_LOCAL_DATE)
                                 // Combine slot start and end into timeRange format
                                 val timeRange = "${slot.getStartTimeString()}-${slot.getEndTimeString()}"
-                                val encodedTimeRange = URLEncoder.encode(timeRange, StandardCharsets.UTF_8.toString())
-                                val encodedDoctorName = URLEncoder.encode(doctorFullName, StandardCharsets.UTF_8.toString())
-                                // Navigate to choose patient screen with slot info
-                                navController.navigate(
-                                    "choose_patient_for_appointment/$doctorId/$encodedDoctorName/$specialty/$dateStr/${block.name}/$encodedTimeRange"
-                                )
+                                
+                                if (isRescheduling && rescheduleAppointmentId != null) {
+                                    // Handle reschedule flow
+                                    scope.launch {
+                                        isReschedulingInProgress = true
+                                        try {
+                                            // Convert date string to Timestamp
+                                            val localDate = LocalDate.parse(dateStr)
+                                            val instant = localDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant()
+                                            val timestamp = com.google.firebase.Timestamp(instant.epochSecond, instant.nano)
+                                            
+                                            // Call reschedule
+                                            com.example.patienttracker.data.AppointmentRepository.rescheduleAppointment(
+                                                appointmentId = rescheduleAppointmentId,
+                                                newDate = timestamp,
+                                                newTimeSlot = timeRange,
+                                                newBlockName = block.name
+                                            ).getOrThrow()
+                                            
+                                            // Show success message
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "Appointment rescheduled successfully",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                            
+                                            // Navigate back to appointments list
+                                            navController.navigate("full_schedule") {
+                                                popUpTo("full_schedule") { inclusive = true }
+                                            }
+                                        } catch (e: Exception) {
+                                            android.util.Log.e("SelectDateTime", "Reschedule failed: ${e.message}", e)
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                "Failed to reschedule: ${e.message}",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        } finally {
+                                            isReschedulingInProgress = false
+                                        }
+                                    }
+                                } else {
+                                    // Normal booking flow
+                                    val encodedTimeRange = URLEncoder.encode(timeRange, StandardCharsets.UTF_8.toString())
+                                    val encodedDoctorName = URLEncoder.encode(doctorFullName, StandardCharsets.UTF_8.toString())
+                                    // Navigate to choose patient screen with slot info
+                                    navController.navigate(
+                                        "choose_patient_for_appointment/$doctorId/$encodedDoctorName/$specialty/$dateStr/${block.name}/$encodedTimeRange"
+                                    )
+                                }
                             }
                         }
                     },
@@ -229,19 +277,31 @@ fun SelectDateTimeScreen(
                         .fillMaxWidth()
                         .padding(16.dp)
                         .height(52.dp),
-                    enabled = selectedSlot != null && selectedSlot?.isBooked == false,
+                    enabled = selectedSlot != null && selectedSlot?.isBooked == false && !isReschedulingInProgress,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = ButtonColor,
+                        containerColor = if (isRescheduling) TealAccent else ButtonColor,
                         contentColor = Color.White,
                         disabledContainerColor = Color.Gray.copy(alpha = 0.3f)
                     ),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(
-                        text = if (selectedSlot != null) "Select Time Slot" else "Select a time slot",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.SemiBold
-                    )
+                    if (isReschedulingInProgress) {
+                        androidx.compose.material3.CircularProgressIndicator(
+                            modifier = Modifier.size(24.dp),
+                            color = Color.White,
+                            strokeWidth = 2.dp
+                        )
+                    } else {
+                        Text(
+                            text = if (isRescheduling) {
+                                if (selectedSlot != null) "Confirm Reschedule" else "Select a time slot"
+                            } else {
+                                if (selectedSlot != null) "Select Time Slot" else "Select a time slot"
+                            },
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }
@@ -571,19 +631,19 @@ fun TimeSlotChip(
 ) {
     val backgroundColor = when {
         isSelected -> SelectedTeal
-        slot.isBooked -> BookedRed.copy(alpha = 0.15f)
-        else -> TealAccent.copy(alpha = 0.1f)
+        slot.isBooked -> BookedRed.copy(alpha = 0.12f)
+        else -> TealAccent.copy(alpha = 0.08f)
     }
     
     val borderColor = when {
         isSelected -> SelectedTeal
-        slot.isBooked -> BookedRed
-        else -> TealAccent
+        slot.isBooked -> BookedRed.copy(alpha = 0.6f)
+        else -> TealAccent.copy(alpha = 0.5f)
     }
     
     val textColor = when {
         isSelected -> Color.White
-        slot.isBooked -> BookedRed
+        slot.isBooked -> BookedRed.copy(alpha = 0.7f)
         else -> TealAccent
     }
     
@@ -592,6 +652,13 @@ fun TimeSlotChip(
     Surface(
         modifier = Modifier
             .fillMaxWidth()
+            .then(
+                if (slot.isBooked) {
+                    Modifier.alpha(0.6f)
+                } else {
+                    Modifier
+                }
+            )
             .clickable(enabled = !slot.isBooked) { onClick() },
         shape = RoundedCornerShape(8.dp),
         color = backgroundColor,
@@ -658,7 +725,10 @@ suspend fun loadTimeBlocksWithSlots(doctorId: String, date: LocalDate): List<Tim
             val status = doc.getString("status")?.lowercase() ?: ""
             val slotStartTime = doc.getString("slotStartTime") ?: ""
             
-            if (appointmentDate != null && (status == "scheduled" || status == "confirmed")) {
+            // Consider scheduled, confirmed, rescheduled, and pending as booked (not cancelled or completed)
+            val isActiveStatus = status in listOf("scheduled", "confirmed", "rescheduled", "pending")
+            
+            if (appointmentDate != null && isActiveStatus) {
                 val appointmentLocalDate = appointmentDate.toDate()
                     .toInstant()
                     .atZone(java.time.ZoneId.systemDefault())
@@ -666,9 +736,12 @@ suspend fun loadTimeBlocksWithSlots(doctorId: String, date: LocalDate): List<Tim
                 
                 if (appointmentLocalDate == date && slotStartTime.isNotBlank()) {
                     bookedSlots.add(slotStartTime)
+                    android.util.Log.d("SelectDateTime", "Booked slot found: $slotStartTime on $appointmentLocalDate (status: $status)")
                 }
             }
         }
+        
+        android.util.Log.d("SelectDateTime", "Total booked slots for $date: ${bookedSlots.size} - $bookedSlots")
         
         // Define time blocks
         val blockDefinitions = listOf(

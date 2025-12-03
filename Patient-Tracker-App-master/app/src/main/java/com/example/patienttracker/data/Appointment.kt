@@ -11,7 +11,6 @@ import kotlinx.parcelize.Parcelize
 @Parcelize
 data class Appointment(
     val appointmentId: String = "",
-    val appointmentNumber: String = "", // Kept for backward compatibility
     val patientUid: String = "",
     val patientName: String = "",
     val doctorUid: String = "",
@@ -23,7 +22,7 @@ data class Appointment(
     val slotStartTime: String = "", // Format: "HH:mm" (24-hour) e.g., "09:00"
     val slotEndTime: String = "", // Format: "HH:mm" (24-hour) e.g., "09:20"
     val blockName: String = "", // Morning, Afternoon, Evening, Night
-    val status: String = "scheduled", // scheduled, completed, cancelled
+    val status: String = "scheduled", // scheduled, completed, cancelled, rescheduled
     val cancelledBy: String = "", // patient, doctor, or admin - who cancelled the appointment
     val recipientType: String = "self", // "self" or "dependent"
     val dependentId: String = "",
@@ -39,7 +38,6 @@ data class Appointment(
         fun fromFirestore(data: Map<String, Any>, appointmentId: String): Appointment {
             return Appointment(
                 appointmentId = appointmentId,
-                appointmentNumber = data["appointmentNumber"] as? String ?: "",
                 patientUid = data["patientUid"] as? String ?: "",
                 patientName = data["patientName"] as? String ?: "",
                 doctorUid = data["doctorUid"] as? String ?: "",
@@ -65,7 +63,6 @@ data class Appointment(
     
     fun toFirestore(): Map<String, Any> {
         return hashMapOf(
-            "appointmentNumber" to appointmentNumber,
             "patientUid" to patientUid,
             "patientName" to patientName,
             "doctorUid" to doctorUid,

@@ -551,12 +551,22 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             SelectDoctorScreen(navController, context, specialty)
         }
 
-        composable("select_datetime/{doctorId}/{doctorFirstName}/{doctorLastName}/{specialty}") { backStackEntry ->
+        composable(
+            route = "select_datetime/{doctorId}/{doctorFirstName}/{doctorLastName}/{specialty}?rescheduleFrom={rescheduleFrom}",
+            arguments = listOf(
+                navArgument("rescheduleFrom") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                }
+            )
+        ) { backStackEntry ->
             val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
             val doctorFirstName = backStackEntry.arguments?.getString("doctorFirstName") ?: ""
             val doctorLastName = backStackEntry.arguments?.getString("doctorLastName") ?: ""
             val specialty = backStackEntry.arguments?.getString("specialty") ?: ""
-            SelectDateTimeScreen(navController, context, doctorId, doctorFirstName, doctorLastName, specialty)
+            val rescheduleFrom = backStackEntry.arguments?.getString("rescheduleFrom")
+            SelectDateTimeScreen(navController, context, doctorId, doctorFirstName, doctorLastName, specialty, rescheduleFrom)
         }
         composable("choose_patient_for_appointment/{doctorId}/{doctorName}/{specialty}/{date}/{blockName}/{timeRange}") { backStackEntry ->
             val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
@@ -595,8 +605,7 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
             com.example.patienttracker.ui.screens.patient.ConfirmAppointmentScreen(navController, context, doctorId, doctorName, specialty, date, blockName, timeRange, dependentId, dependentName)
         }
 
-        composable("appointment_success/{appointmentNumber}/{doctorName}/{date}/{blockName}/{timeRange}/{recipientType}") { backStackEntry ->
-            val appointmentNumber = backStackEntry.arguments?.getString("appointmentNumber") ?: "000"
+        composable("appointment_success/{doctorName}/{date}/{blockName}/{timeRange}/{recipientType}") { backStackEntry ->
             val doctorName = try {
                 java.net.URLDecoder.decode(
                     backStackEntry.arguments?.getString("doctorName") ?: "",
@@ -612,7 +621,7 @@ fun AppNavHost(context: Context, themeViewModel: ThemeViewModel) {
                 )
             } catch (e: Exception) { backStackEntry.arguments?.getString("timeRange") ?: "" }
             val recipientType = backStackEntry.arguments?.getString("recipientType") ?: "self"
-            AppointmentSuccessScreen(navController, context, appointmentNumber, doctorName, date, blockName, timeRange, recipientType)
+            AppointmentSuccessScreen(navController, context, doctorName, date, blockName, timeRange, recipientType)
         }
 
         // Chatbot Route

@@ -37,15 +37,22 @@ import java.text.SimpleDateFormat
 import java.util.*
 import com.example.patienttracker.ui.components.PatientHealthSummaryCard
 
-// Design Colors
-private val BackgroundColor = Color(0xFFFAF8F3)
-private val SurfaceColor = Color(0xFFF5F0E8)
-private val PrimaryColor = Color(0xFF2F2019)
-private val AccentColor = Color(0xFFB8956A)
-private val BorderColor = Color(0xFFD4C4B0)
-private val PrivateColor = Color(0xFFE57373)
-private val GlassBreakColor = Color(0xFFFF5722)
-private val AccessDeniedColor = Color(0xFFD32F2F)
+// ============================================================
+// Deep Teal & Mint Design System - Matching App Theme
+// WCAG Compliant - Professional Healthcare Theme
+// ============================================================
+private val HeaderTopColor = Color(0xFF0E4944)      // Deep Teal
+private val HeaderBottomColor = Color(0xFF16605A)   // Lighter Teal
+private val BackgroundColor = Color(0xFFF0F5F4)     // Light teal-tinted background
+private val SurfaceColor = Color(0xFFFFFFFF)        // White card surface
+private val PrimaryColor = Color(0xFF0E4944)        // Deep teal for text
+private val AccentColor = Color(0xFF0F8B8D)         // Teal accent
+private val TextSecondary = Color(0xFF6B7280)       // Gray secondary text
+private val BorderColor = Color(0xFFE5E7EB)         // Light gray border
+private val PrivateColor = Color(0xFFDC2626)        // Red for private records
+private val GlassBreakColor = Color(0xFFFF5722)     // Orange for glass break
+private val AccessDeniedColor = Color(0xFFD32F2F)   // Red for access denied
+private val MintAccent = Color(0xFF76DCB0)          // Mint green accent
 
 /**
  * Open a file URL in an external app (browser, PDF viewer, image viewer)
@@ -247,8 +254,8 @@ fun EnhancedDoctorViewPatientRecordsScreen(
         )
     }
 
-    // Teal color for dependent indicator
-    val DependentColor = Color(0xFF0E4944)
+    // Teal color for dependent indicator (on white badge)
+    val DependentBadgeColor = MintAccent
 
     Scaffold(
         topBar = {
@@ -262,18 +269,19 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                             Text(
                                 if (isViewingDependent) "Dependent Records" else "Patient Records", 
                                 fontWeight = FontWeight.Bold,
-                                fontSize = 18.sp
+                                fontSize = 18.sp,
+                                color = Color.White
                             )
                             if (isViewingDependent) {
                                 Surface(
                                     shape = RoundedCornerShape(8.dp),
-                                    color = DependentColor.copy(alpha = 0.15f)
+                                    color = Color.White.copy(alpha = 0.2f)
                                 ) {
                                     Text(
                                         "Dependent",
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.SemiBold,
-                                        color = DependentColor,
+                                        color = Color.White,
                                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
@@ -282,7 +290,7 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                         Text(
                             patientName,
                             fontSize = 14.sp,
-                            color = if (isViewingDependent) DependentColor else AccentColor
+                            color = Color.White.copy(alpha = 0.8f)
                         )
                     }
                 },
@@ -384,8 +392,10 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = SurfaceColor,
-                    titleContentColor = PrimaryColor
+                    containerColor = HeaderTopColor,
+                    titleContentColor = Color.White,
+                    navigationIconContentColor = Color.White,
+                    actionIconContentColor = Color.White
                 )
             )
         },
@@ -400,7 +410,7 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                         .padding(padding),
                     contentAlignment = Alignment.Center
                 ) {
-                    CircularProgressIndicator(color = AccentColor)
+                    CircularProgressIndicator(color = HeaderTopColor)
                 }
             }
             
@@ -441,7 +451,7 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                         Text(
                             state.message,
                             fontSize = 15.sp,
-                            color = PrimaryColor.copy(alpha = 0.7f),
+                            color = TextSecondary,
                             textAlign = TextAlign.Center
                         )
                         
@@ -459,17 +469,17 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                                     "To access patient records:",
                                     fontSize = 14.sp,
                                     fontWeight = FontWeight.Medium,
-                                    color = PrimaryColor
+                                    color = HeaderTopColor
                                 )
                                 Text(
                                     "• Patient must have an appointment with you scheduled for today or later",
                                     fontSize = 13.sp,
-                                    color = PrimaryColor.copy(alpha = 0.7f)
+                                    color = TextSecondary
                                 )
                                 Text(
                                     "• Or you must have previously completed an appointment with this patient",
                                     fontSize = 13.sp,
-                                    color = PrimaryColor.copy(alpha = 0.7f)
+                                    color = TextSecondary
                                 )
                             }
                         }
@@ -478,7 +488,7 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                         
                         Button(
                             onClick = { navController.popBackStack() },
-                            colors = ButtonDefaults.buttonColors(containerColor = AccentColor),
+                            colors = ButtonDefaults.buttonColors(containerColor = HeaderTopColor),
                             shape = RoundedCornerShape(16.dp)
                         ) {
                             Icon(Icons.Default.ArrowBack, contentDescription = null)
@@ -539,14 +549,14 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                             Icon(
                                 Icons.Default.FolderOpen,
                                 contentDescription = null,
-                                tint = AccentColor,
+                                tint = HeaderTopColor,
                                 modifier = Modifier.size(64.dp)
                             )
                             Text(
                                 "No records found",
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = PrimaryColor
+                                color = HeaderTopColor
                             )
                             Text(
                                 if (filterOption != FilterOption.ALL) 
@@ -554,7 +564,7 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                                 else 
                                     "Patient hasn't uploaded any records yet",
                                 fontSize = 14.sp,
-                                color = PrimaryColor.copy(alpha = 0.6f)
+                                color = TextSecondary
                             )
                         }
                     }
@@ -574,7 +584,7 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                         // Stats Bar
                         Surface(
                             modifier = Modifier.fillMaxWidth(),
-                            color = SurfaceColor.copy(alpha = 0.5f)
+                            color = HeaderTopColor.copy(alpha = 0.08f)
                         ) {
                             Row(
                                 modifier = Modifier
@@ -587,12 +597,12 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                                         "${displayedRecords.size}",
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = PrimaryColor
+                                        color = HeaderTopColor
                                     )
                                     Text(
                                         "Records",
                                         fontSize = 11.sp,
-                                        color = AccentColor
+                                        color = TextSecondary
                                     )
                                 }
                                 
@@ -601,12 +611,12 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                                         "${displayedRecords.count { it.isImage() }}",
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = PrimaryColor
+                                        color = HeaderTopColor
                                     )
                                     Text(
                                         "Images",
                                         fontSize = 11.sp,
-                                        color = AccentColor
+                                        color = TextSecondary
                                     )
                                 }
                                 
@@ -615,12 +625,12 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                                         "${displayedRecords.count { it.isPdf() }}",
                                         fontSize = 20.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = PrimaryColor
+                                        color = HeaderTopColor
                                     )
                                     Text(
                                         "PDFs",
                                         fontSize = 11.sp,
-                                        color = AccentColor
+                                        color = TextSecondary
                                     )
                                 }
                                 
@@ -634,7 +644,7 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                                     Text(
                                         "Private",
                                         fontSize = 11.sp,
-                                        color = AccentColor
+                                        color = TextSecondary
                                     )
                                 }
                             }
@@ -686,12 +696,12 @@ fun DoctorRecordCard(
             .clickable(enabled = canAccess) { onOpenFile() },
         colors = CardDefaults.cardColors(
             containerColor = when {
-                !canAccess -> PrivateColor.copy(alpha = 0.15f)
-                record.isPrivate -> PrivateColor.copy(alpha = 0.1f)
+                !canAccess -> PrivateColor.copy(alpha = 0.08f)
+                record.isPrivate -> PrivateColor.copy(alpha = 0.05f)
                 else -> SurfaceColor
             }
         ),
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Row(
@@ -703,7 +713,7 @@ fun DoctorRecordCard(
                 modifier = Modifier
                     .size(80.dp)
                     .clip(RoundedCornerShape(12.dp))
-                    .background(if (canAccess) AccentColor.copy(alpha = 0.1f) else PrivateColor.copy(alpha = 0.1f))
+                    .background(if (canAccess) HeaderTopColor.copy(alpha = 0.08f) else PrivateColor.copy(alpha = 0.1f))
                     .clickable(enabled = canAccess) { onOpenFile() },
                 contentAlignment = Alignment.Center
             ) {
@@ -733,14 +743,14 @@ fun DoctorRecordCard(
                                     else -> Icons.Default.InsertDriveFile
                                 },
                                 contentDescription = null,
-                                tint = if (record.isPdf()) Color(0xFFE53935) else AccentColor,
+                                tint = if (record.isPdf()) Color(0xFFE53935) else HeaderTopColor,
                                 modifier = Modifier.size(36.dp)
                             )
                             Text(
                                 record.getFileExtension().uppercase(),
                                 fontSize = 10.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = PrimaryColor.copy(alpha = 0.6f)
+                                color = TextSecondary
                             )
                         }
                     }
@@ -771,14 +781,14 @@ fun DoctorRecordCard(
                             record.fileName,
                             fontWeight = FontWeight.Bold,
                             fontSize = 14.sp,
-                            color = PrimaryColor,
+                            color = HeaderTopColor,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
                         Text(
                             record.getFormattedFileSize(),
                             fontSize = 11.sp,
-                            color = AccentColor
+                            color = TextSecondary
                         )
                     }
 
@@ -814,7 +824,7 @@ fun DoctorRecordCard(
                         Text(
                             record.description,
                             fontSize = 12.sp,
-                            color = PrimaryColor.copy(alpha = 0.8f),
+                            color = HeaderTopColor.copy(alpha = 0.8f),
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
                         )
@@ -835,7 +845,7 @@ fun DoctorRecordCard(
                         Text(
                             "Past Medication: ${record.pastMedication}",
                             fontSize = 11.sp,
-                            color = PrimaryColor,
+                            color = HeaderTopColor,
                             fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
                             maxLines = 2,
                             overflow = TextOverflow.Ellipsis
@@ -860,7 +870,7 @@ fun DoctorRecordCard(
                         SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
                             .format(record.uploadDate.toDate()),
                         fontSize = 11.sp,
-                        color = AccentColor
+                        color = TextSecondary
                     )
 
                     if (!canAccess) {
@@ -892,7 +902,7 @@ fun DoctorRecordCard(
                         // Open icon for accessible records
                         Surface(
                             onClick = onOpenFile,
-                            color = AccentColor.copy(alpha = 0.15f),
+                            color = HeaderTopColor.copy(alpha = 0.1f),
                             shape = RoundedCornerShape(12.dp)
                         ) {
                             Row(
@@ -903,14 +913,14 @@ fun DoctorRecordCard(
                                     Icons.Default.OpenInNew,
                                     contentDescription = null,
                                     modifier = Modifier.size(14.dp),
-                                    tint = AccentColor
+                                    tint = HeaderTopColor
                                 )
                                 Spacer(Modifier.width(4.dp))
                                 Text(
                                     "Open",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
-                                    color = AccentColor
+                                    color = HeaderTopColor
                                 )
                             }
                         }

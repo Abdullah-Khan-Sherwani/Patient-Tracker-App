@@ -70,7 +70,7 @@ fun AdminAppointmentDetailsScreen(
             TopAppBar(
                 title = { Text("Appointment Details", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.navigate("admin_home") }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 },

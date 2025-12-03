@@ -938,8 +938,7 @@ private fun generateBotResponse(
                                                                "• Doctor: ${confirmResult.doctorName}\n" +
                                                                "• Speciality: ${specialty.replaceFirstChar { it.uppercase() }}\n" +
                                                                "• Date: ${confirmResult.date}\n" +
-                                                               "• Time Block: ${confirmResult.timeBlock}\n" +
-                                                               "• Appointment #: ${confirmResult.appointmentNumber}\n\n" +
+                                                               "• Time Block: ${confirmResult.timeBlock}\n\n" +
                                                                "You can view details in your appointments.",
                                                         isFromUser = false,
                                                         actionButtons = listOf(
@@ -1318,7 +1317,6 @@ suspend fun bookAppointment(
 data class UrgentBookingResult(
     val success: Boolean,
     val needsConfirmation: Boolean = false,
-    val appointmentNumber: String? = null,
     val doctorId: String? = null,
     val doctorName: String? = null,
     val date: String? = null,
@@ -1555,9 +1553,9 @@ suspend fun confirmUrgentBooking(
                         patientUid = currentUser.uid,
                         doctorUid = doctorId,
                         patientTitle = "Urgent Appointment Booked",
-                        patientMessage = "Your urgent appointment with Dr. $doctorName on $date ($timeBlock) has been confirmed. Appointment #${appointment.appointmentNumber}",
+                        patientMessage = "Your urgent appointment with Dr. $doctorName on $date ($timeBlock) has been confirmed.",
                         doctorTitle = "New Urgent Appointment",
-                        doctorMessage = "Urgent appointment booked by patient on $date ($timeBlock). Reason: $symptom. Appointment #${appointment.appointmentNumber}",
+                        doctorMessage = "Urgent appointment booked by patient on $date ($timeBlock). Reason: $symptom.",
                         type = "appointment_created",
                         appointmentId = appointment.appointmentId
                     )
@@ -1568,7 +1566,6 @@ suspend fun confirmUrgentBooking(
             
             return UrgentBookingResult(
                 success = true,
-                appointmentNumber = appointment?.appointmentNumber ?: "N/A",
                 doctorName = doctorName,
                 date = date,
                 timeBlock = timeBlock

@@ -3,6 +3,7 @@ package com.example.patienttracker.ui.components
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -13,13 +14,16 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.patienttracker.R
 import com.example.patienttracker.ui.viewmodel.HealthInfoMode
 import com.example.patienttracker.ui.viewmodel.HealthInfoViewModel
 import com.google.firebase.Timestamp
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -37,15 +41,20 @@ private val WarningColor = Color(0xFFF59E0B)
 /**
  * Read-only health information summary card for doctors
  * Displays patient's or dependent's blood group, height, weight, age, gender, and last updated time
+ * Doctors can edit the health summary by clicking the edit button
  */
 @Composable
 fun PatientHealthSummaryCard(
     patientUid: String,
     dependentId: String = "", // Empty or "_self" for patient's own health info
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    allowEdit: Boolean = true // Allow doctors to edit health summary
 ) {
     // Determine viewing mode
     val isDependent = dependentId.isNotBlank() && dependentId != "_self"
+    
+    // State for edit dialog
+    var showEditDialog by remember { mutableStateOf(false) }
     
     // Use a unique key combining both patientUid and dependentId
     val viewModelKey = if (isDependent) {
@@ -105,14 +114,16 @@ fun PatientHealthSummaryCard(
         return
     }
     
-    val age = healthInfoViewModel.calculateAge()
+    val age = healthInfoViewModel.calculateAge() ?: 21  // Default age if not set
     val lastUpdated = healthInfoViewModel.getLatestUpdateTimestamp()
+    
+    // Default gender to "Male" if not set
+    val displayGender = state.gender?.takeIf { it.isNotEmpty() } ?: "Male"
     
     val hasAnyData = !state.bloodGroup.isNullOrEmpty() || 
                      state.height.isNotEmpty() || 
                      state.weight.isNotEmpty() ||
-                     !state.gender.isNullOrEmpty() ||
-                     age != null
+                     true  // Always true since we have defaults for gender and age
     
     val isComplete = !state.bloodGroup.isNullOrEmpty() && 
                      state.height.isNotEmpty() && 
@@ -166,21 +177,41 @@ fun PatientHealthSummaryCard(
                     )
                 }
                 
-                // Last updated badge
-                lastUpdated?.let { timestamp ->
-                    Surface(
-                        shape = RoundedCornerShape(12.dp),
-                        color = TealAccent.copy(alpha = 0.08f)
-                    ) {
-                        Text(
-                            text = stringResource(
-                                R.string.last_updated, 
-                                formatTimestamp(timestamp)
-                            ),
-                            fontSize = 11.sp,
-                            color = TealAccent,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                        )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    // Last updated badge
+                    lastUpdated?.let { timestamp ->
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = TealAccent.copy(alpha = 0.08f)
+                        ) {
+                            Text(
+                                text = stringResource(
+                                    R.string.last_updated, 
+                                    formatTimestamp(timestamp)
+                                ),
+                                fontSize = 11.sp,
+                                color = TealAccent,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                    
+                    // Edit button for doctors
+                    if (allowEdit) {
+                        IconButton(
+                            onClick = { showEditDialog = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Health Summary",
+                                tint = TealAccent,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -245,9 +276,8 @@ fun PatientHealthSummaryCard(
                         HealthStatItem(
                             icon = Icons.Default.Person,
                             label = stringResource(R.string.gender_label),
-                            value = state.gender?.takeIf { it.isNotEmpty() } 
-                                ?: stringResource(R.string.not_set),
-                            isSet = !state.gender.isNullOrEmpty()
+                            value = displayGender,
+                            isSet = true  // Always true since we have default
                         )
                     }
                     
@@ -260,9 +290,8 @@ fun PatientHealthSummaryCard(
                         HealthStatItem(
                             icon = Icons.Default.Cake,
                             label = stringResource(R.string.age_label),
-                            value = age?.let { stringResource(R.string.age_years, it) } 
-                                ?: stringResource(R.string.not_set),
-                            isSet = age != null
+                            value = stringResource(R.string.age_years, age),
+                            isSet = true  // Always true since we have default
                         )
                         
                         // Weight
@@ -308,6 +337,23 @@ fun PatientHealthSummaryCard(
                 }
             }
         }
+    }
+    
+    // Edit Health Summary Dialog
+    if (showEditDialog) {
+        EditHealthSummaryDialog(
+            patientUid = patientUid,
+            dependentId = dependentId,
+            currentBloodGroup = state.bloodGroup,
+            currentHeight = state.height,
+            currentWeight = state.weight,
+            onDismiss = { showEditDialog = false },
+            onSaved = {
+                showEditDialog = false
+                // Reload health info to show updated values
+                healthInfoViewModel.loadHealthInfo()
+            }
+        )
     }
 }
 
@@ -359,4 +405,316 @@ private fun HealthStatItem(
 private fun formatTimestamp(timestamp: Timestamp): String {
     val sdf = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
     return sdf.format(timestamp.toDate())
+}
+
+/**
+ * Dialog for editing patient health summary
+ * Allows doctors to update blood group, height, and weight
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun EditHealthSummaryDialog(
+    patientUid: String,
+    dependentId: String,
+    currentBloodGroup: String?,
+    currentHeight: String,
+    currentWeight: String,
+    onDismiss: () -> Unit,
+    onSaved: () -> Unit
+) {
+    val isDependent = dependentId.isNotBlank() && dependentId != "_self"
+    val scope = rememberCoroutineScope()
+    
+    // Use DoctorEditable mode for the edit ViewModel
+    val editViewModelKey = if (isDependent) {
+        "doctor_edit_dep_${patientUid}_$dependentId"
+    } else {
+        "doctor_edit_patient_$patientUid"
+    }
+    
+    val editViewModel: HealthInfoViewModel = viewModel(
+        key = editViewModelKey,
+        factory = HealthInfoViewModel.Factory(
+            if (isDependent) {
+                HealthInfoMode.DoctorEditableDependent(dependentId, patientUid)
+            } else {
+                HealthInfoMode.DoctorEditable(patientUid)
+            }
+        )
+    )
+    
+    // Local state for editing
+    var bloodGroup by remember { mutableStateOf(currentBloodGroup ?: "") }
+    var height by remember { mutableStateOf(currentHeight) }
+    var weight by remember { mutableStateOf(currentWeight) }
+    var isSaving by remember { mutableStateOf(false) }
+    var showBloodGroupDropdown by remember { mutableStateOf(false) }
+    
+    val bloodGroupOptions = listOf("A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-")
+    val isBloodGroupLocked = !currentBloodGroup.isNullOrEmpty()
+    
+    Dialog(onDismissRequest = { if (!isSaving) onDismiss() }) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            shape = RoundedCornerShape(16.dp),
+            color = CardWhite,
+            tonalElevation = 8.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(20.dp)
+            ) {
+                // Header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = TealAccent.copy(alpha = 0.1f),
+                            modifier = Modifier.size(40.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier.fillMaxSize(),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Edit,
+                                    contentDescription = null,
+                                    tint = TealAccent,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                        
+                        Text(
+                            text = "Edit Health Summary",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = TextDark
+                        )
+                    }
+                    
+                    IconButton(
+                        onClick = { if (!isSaving) onDismiss() }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = TextLight
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(20.dp))
+                
+                // Blood Group
+                Text(
+                    text = "Blood Group",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextDark
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                ExposedDropdownMenuBox(
+                    expanded = showBloodGroupDropdown && !isBloodGroupLocked,
+                    onExpandedChange = { 
+                        if (!isBloodGroupLocked) showBloodGroupDropdown = it 
+                    }
+                ) {
+                    OutlinedTextField(
+                        value = bloodGroup.ifEmpty { "Select Blood Group" },
+                        onValueChange = {},
+                        readOnly = true,
+                        enabled = !isBloodGroupLocked,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        trailingIcon = {
+                            if (!isBloodGroupLocked) {
+                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = showBloodGroupDropdown)
+                            } else {
+                                Icon(
+                                    imageVector = Icons.Default.Lock,
+                                    contentDescription = "Locked",
+                                    tint = TextLight
+                                )
+                            }
+                        },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = TealAccent,
+                            unfocusedBorderColor = DividerColor,
+                            disabledBorderColor = DividerColor,
+                            disabledTextColor = TextDark
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    )
+                    
+                    ExposedDropdownMenu(
+                        expanded = showBloodGroupDropdown && !isBloodGroupLocked,
+                        onDismissRequest = { showBloodGroupDropdown = false }
+                    ) {
+                        bloodGroupOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    bloodGroup = option
+                                    showBloodGroupDropdown = false
+                                }
+                            )
+                        }
+                    }
+                }
+                
+                if (isBloodGroupLocked) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Blood group cannot be changed once set",
+                        fontSize = 11.sp,
+                        color = TextLight
+                    )
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Height
+                Text(
+                    text = "Height (cm)",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextDark
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = height,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.all { it.isDigit() || it == '.' }) {
+                            height = newValue
+                        }
+                    },
+                    placeholder = { Text("Enter height in cm") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = TealAccent,
+                        unfocusedBorderColor = DividerColor
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Weight
+                Text(
+                    text = "Weight (kg)",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = TextDark
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                OutlinedTextField(
+                    value = weight,
+                    onValueChange = { newValue ->
+                        if (newValue.isEmpty() || newValue.all { it.isDigit() || it == '.' }) {
+                            weight = newValue
+                        }
+                    },
+                    placeholder = { Text("Enter weight in kg") },
+                    modifier = Modifier.fillMaxWidth(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = TealAccent,
+                        unfocusedBorderColor = DividerColor
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    singleLine = true
+                )
+                
+                Spacer(modifier = Modifier.height(24.dp))
+                
+                // Buttons
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    OutlinedButton(
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving,
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = TextDark
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text("Cancel")
+                    }
+                    
+                    Button(
+                        onClick = {
+                            isSaving = true
+                            scope.launch {
+                                try {
+                                    // Update the ViewModel with new values
+                                    editViewModel.updateHeight(height)
+                                    editViewModel.updateWeight(weight)
+                                    
+                                    // Save blood group if changed and not locked
+                                    if (!isBloodGroupLocked && bloodGroup.isNotEmpty()) {
+                                        editViewModel.saveBloodGroup(bloodGroup)
+                                    }
+                                    
+                                    // Save height and weight
+                                    editViewModel.saveHeightAndWeight()
+                                    
+                                    // Small delay to ensure save completes
+                                    kotlinx.coroutines.delay(500)
+                                    
+                                    isSaving = false
+                                    onSaved()
+                                } catch (e: Exception) {
+                                    android.util.Log.e("EditHealthSummary", "Error saving: ${e.message}")
+                                    isSaving = false
+                                }
+                            }
+                        },
+                        modifier = Modifier.weight(1f),
+                        enabled = !isSaving,
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = TealAccent,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        if (isSaving) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(18.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Default.Save,
+                                contentDescription = null,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Save")
+                        }
+                    }
+                }
+            }
+        }
+    }
 }

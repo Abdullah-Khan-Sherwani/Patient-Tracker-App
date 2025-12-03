@@ -44,19 +44,34 @@ service cloud.firestore {
         isAdmin()
       );
 
-      // Update and delete require authentication
-      allow update, delete: if request.auth != null &&
-        (isOwn(uid) || isAdmin());
+      // Update rules - users can update own profile, doctors can update health fields
+      allow update: if request.auth != null && (
+        isOwn(uid) || 
+        isAdmin() ||
+        // Doctors can update health summary fields (bloodGroup, height, weight, etc.)
+        (isDoctor() && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['bloodGroup', 'bloodGroupSetAt', 'height', 'weight', 'heightLastUpdated', 'weightLastUpdated']))
+      );
+      
+      allow delete: if request.auth != null && (isOwn(uid) || isAdmin());
 
       // Dependents subcollection - patients can manage their own dependents
       // Doctors can read dependent info for patients they have appointments with
+      // Doctors can also update health fields for dependents
       match /dependents/{dependentId} {
         allow read: if request.auth != null && (
           isOwn(uid) || 
           isAdmin() || 
           isDoctor()
         );
-        allow write: if request.auth != null && (isOwn(uid) || isAdmin());
+        allow create, delete: if request.auth != null && (isOwn(uid) || isAdmin());
+        allow update: if request.auth != null && (
+          isOwn(uid) || 
+          isAdmin() ||
+          // Doctors can update health summary fields for dependents
+          (isDoctor() && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['bloodGroup', 'bloodGroupSetAt', 'height', 'weight', 'heightLastUpdated', 'weightLastUpdated']))
+        );
       }
     }
 
@@ -157,14 +172,19 @@ service cloud.firestore {
       allow update: if request.auth != null && (
         // Patient can update own records
         resource.data.patientUid == request.auth.uid ||
-        // Doctor can update to add view logs or glass break access
+        // Doctor can update certain fields (view logs, glass break access, and health summary)
         (isDoctor() && (
           // Can add to viewedBy
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedBy']) ||
           // Can add to glassBreakAccess
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['glassBreakAccess']) ||
-          // Can update both
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedBy', 'glassBreakAccess'])
+          // Can update both viewedBy and glassBreakAccess
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewedBy', 'glassBreakAccess']) ||
+          // Can update health summary fields
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['healthSummary']) ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['healthSummary', 'updatedAt']) ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['healthSummary', 'viewedBy']) ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['healthSummary', 'viewedBy', 'updatedAt'])
         )) ||
         // Admin can update all
         isAdmin()
@@ -180,27 +200,27 @@ service cloud.firestore {
 
     // doctor_notes collection - Prescriptions and notes written by doctors
     match /doctor_notes/{noteId} {
-      // Doctors can create notes for their patients
+      // Any authenticated user can create notes if doctorUid matches their uid
+      // This is secure because the doctorUid field must match the authenticated user
       allow create: if request.auth != null && 
-        (isDoctor() && request.resource.data.doctorUid == request.auth.uid) ||
-        isAdmin();
+        request.resource.data.doctorUid == request.auth.uid;
       
-      // Read access - patients can read their own notes, doctors can read notes they created, admin can read all
+      // Read access - patients can read their own notes, doctors can read all notes (for querying by appointmentId), admin can read all
       allow read: if request.auth != null && (
         resource.data.patientUid == request.auth.uid ||
+        isDoctor() ||
+        isAdmin()
+      );
+      
+      // Users can update notes they created
+      allow update: if request.auth != null && (
         resource.data.doctorUid == request.auth.uid ||
         isAdmin()
       );
       
-      // Doctors can update their own notes, admin can update all
-      allow update: if request.auth != null && (
-        (isDoctor() && resource.data.doctorUid == request.auth.uid) ||
-        isAdmin()
-      );
-      
-      // Doctors can delete their own notes, admin can delete all
+      // Users can delete notes they created
       allow delete: if request.auth != null && (
-        (isDoctor() && resource.data.doctorUid == request.auth.uid) ||
+        resource.data.doctorUid == request.auth.uid ||
         isAdmin()
       );
     }

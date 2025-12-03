@@ -119,7 +119,7 @@ fun DoctorAppointmentsFullScreen(
             TopAppBar(
                 title = { Text("All Appointments", fontWeight = FontWeight.Bold, color = Color.White) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
+                    IconButton(onClick = { navController.navigate("doctor_home") }) {
                         Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = Color.White)
                     }
                 },
@@ -275,7 +275,9 @@ fun DoctorAppointmentsFullScreen(
                                         
                                         android.widget.Toast.makeText(context, "Doctor's note saved successfully", android.widget.Toast.LENGTH_SHORT).show()
                                     } else {
-                                        android.widget.Toast.makeText(context, "Failed to save note", android.widget.Toast.LENGTH_SHORT).show()
+                                        val errorMsg = result.exceptionOrNull()?.message ?: "Unknown error"
+                                        android.util.Log.e("DoctorAppointments", "Failed to save note: $errorMsg")
+                                        android.widget.Toast.makeText(context, "Failed to save note: $errorMsg", android.widget.Toast.LENGTH_LONG).show()
                                     }
                                     
                                     showNoteDialog = false

@@ -105,7 +105,7 @@ fun DependentAppointmentHistoryScreen(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        IconButton(onClick = { navController.popBackStack() }) {
+                        IconButton(onClick = { navController.navigate("patient_home") }) {
                             Icon(
                                 imageVector = Icons.Default.ArrowBack,
                                 contentDescription = "Back",
@@ -263,6 +263,7 @@ private fun DependentAppointmentCard(
     
     val statusColor = when (appointment.status.lowercase()) {
         "confirmed" -> Color(0xFF4CAF50)
+        "scheduled" -> Color(0xFFE57373)
         "cancelled" -> Color(0xFFE57373)
         "completed" -> Color(0xFF2196F3)
         else -> Color.Gray
@@ -387,23 +388,6 @@ private fun DependentAppointmentCard(
                         fontSize = 13.sp,
                         color = Color.Gray
                     )
-                }
-                
-                if (appointment.appointmentNumber.isNotBlank()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                            imageVector = Icons.Default.ConfirmationNumber,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = Color.Gray
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Appt #${appointment.appointmentNumber}",
-                            fontSize = 13.sp,
-                            color = Color.Gray
-                        )
-                    }
                 }
             }
             

@@ -27,12 +27,16 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.navigation.NavController
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.*
 import androidx.compose.animation.core.*
 import androidx.compose.animation.animateColorAsState
+import com.google.firebase.ktx.Firebase
+import com.google.firebase.auth.ktx.auth
+import com.google.firebase.firestore.ktx.firestore
 
 // ============================================================
 // Deep Teal & Mint Design System - Light Mode
@@ -75,14 +79,41 @@ fun PatientDashboard(navController: NavController, context: Context, isDarkMode:
     val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     
-    // Get user name from saved state or default
-    val userName = navController.previousBackStackEntry?.savedStateHandle?.get<String>("firstName")
-        ?: navController.currentBackStackEntry?.arguments?.getString("firstName")
-        ?: "Patient"
+    // State for user name (will be loaded from Firebase if not available from navigation)
+    var userName by remember { mutableStateOf(
+        navController.previousBackStackEntry?.savedStateHandle?.get<String>("firstName")
+            ?: navController.currentBackStackEntry?.arguments?.getString("firstName")
+            ?: "Patient"
+    )}
     
-    val userLastName = navController.previousBackStackEntry?.savedStateHandle?.get<String>("lastName")
-        ?: navController.currentBackStackEntry?.arguments?.getString("lastName")
-        ?: ""
+    var userLastName by remember { mutableStateOf(
+        navController.previousBackStackEntry?.savedStateHandle?.get<String>("lastName")
+            ?: navController.currentBackStackEntry?.arguments?.getString("lastName")
+            ?: ""
+    )}
+    
+    // Fetch user name from Firebase if needed
+    LaunchedEffect(Unit) {
+        if (userName == "Patient" || userName.isBlank()) {
+            val currentUser = Firebase.auth.currentUser
+            if (currentUser != null) {
+                try {
+                    val userDoc = Firebase.firestore
+                        .collection("users")
+                        .document(currentUser.uid)
+                        .get()
+                        .await()
+                    
+                    val firstName = userDoc.getString("firstName") ?: "Patient"
+                    val lastName = userDoc.getString("lastName") ?: ""
+                    userName = firstName
+                    userLastName = lastName
+                } catch (e: Exception) {
+                    android.util.Log.e("PatientDashboard", "Error fetching user name: ${e.message}")
+                }
+            }
+        }
+    }
     
     val fullName = if (userLastName.isNotEmpty()) "$userName $userLastName" else userName
 
@@ -435,7 +466,11 @@ fun DashboardBottomNavigationBar(
             Triple("Home", Icons.Default.Home, { /* Stay on dashboard */ }),
             Triple("Favorites", Icons.Default.Favorite, { navController.navigate("favorite_doctors") }),
             Triple("Doctors", Icons.Default.LocalHospital, { navController.navigate("doctor_catalogue") }),
-            Triple("Profile", Icons.Default.Person, { navController.navigate("patient_profile/$userName/$userLastName") })
+            Triple("Profile", Icons.Default.Person, { 
+                val safeFirstName = userName.ifBlank { "Patient" }
+                val safeLastName = userLastName.ifBlank { "" }
+                navController.navigate("patient_profile/$safeFirstName/$safeLastName") 
+            })
         )
 
         tabs.forEachIndexed { index, (label, icon, action) ->

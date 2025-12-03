@@ -47,7 +47,6 @@ private val SuccessGreen = Color(0xFF10B981)        // Success green
 fun AppointmentSuccessScreen(
     navController: NavController,
     context: Context,
-    appointmentNumber: String,
     doctorName: String,
     date: String,
     blockName: String,
@@ -180,8 +179,6 @@ fun AppointmentSuccessScreen(
                     SummaryItem(label = "Date", value = date)
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
                     SummaryItem(label = "Block", value = blockName)
-                    Divider(color = Color.LightGray.copy(alpha = 0.5f))
-                    SummaryItem(label = "Time Range", value = formatTimeRange(timeRange))
                     Divider(color = Color.LightGray.copy(alpha = 0.5f))
                     
                     // Highlighted Time Slot (primary identifier)

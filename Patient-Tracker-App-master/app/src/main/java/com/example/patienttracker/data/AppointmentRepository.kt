@@ -18,60 +18,6 @@ object AppointmentRepository {
     private const val COLLECTION = "appointments"
     
     /**
-     * Generate next appointment number per doctor, per day (resets daily)
-     * Format: Simple integer (1, 2, 3...)
-     * Each doctor has their own sequence that resets at midnight
-     */
-    private suspend fun getNextAppointmentNumber(doctorUid: String, appointmentDate: Timestamp): String {
-        return try {
-            // Extract date string from timestamp (yyyy-MM-dd format)
-            val calendar = java.util.Calendar.getInstance()
-            calendar.timeInMillis = appointmentDate.seconds * 1000
-            val dateString = String.format(
-                "%04d-%02d-%02d",
-                calendar.get(java.util.Calendar.YEAR),
-                calendar.get(java.util.Calendar.MONTH) + 1,
-                calendar.get(java.util.Calendar.DAY_OF_MONTH)
-            )
-            
-            // Count existing appointments for this doctor on this date (exclude cancelled)
-            val existingAppointments = db.collection(COLLECTION)
-                .whereEqualTo("doctorUid", doctorUid)
-                .get()
-                .await()
-            
-            // Filter by date and non-cancelled status
-            val appointmentsOnDate = existingAppointments.documents.count { doc ->
-                val docDate = doc.getTimestamp("appointmentDate")
-                val docStatus = doc.getString("status") ?: ""
-                
-                if (docDate != null && docStatus != "cancelled") {
-                    val docCalendar = java.util.Calendar.getInstance()
-                    docCalendar.timeInMillis = docDate.seconds * 1000
-                    val docDateString = String.format(
-                        "%04d-%02d-%02d",
-                        docCalendar.get(java.util.Calendar.YEAR),
-                        docCalendar.get(java.util.Calendar.MONTH) + 1,
-                        docCalendar.get(java.util.Calendar.DAY_OF_MONTH)
-                    )
-                    docDateString == dateString
-                } else {
-                    false
-                }
-            }
-            
-            // Next number is count + 1
-            val nextNumber = appointmentsOnDate + 1
-            nextNumber.toString()
-            
-        } catch (e: Exception) {
-            e.printStackTrace()
-            // Fallback to "1" if something goes wrong
-            "1"
-        }
-    }
-    
-    /**
      * Create a new appointment
      */
     suspend fun createAppointment(
@@ -96,9 +42,6 @@ object AppointmentRepository {
             val lastName = userDoc.getString("lastName") ?: ""
             val patientName = "$firstName $lastName"
             
-            // Generate appointment number (per doctor, per day)
-            val appointmentNumber = getNextAppointmentNumber(doctorUid, appointmentDate)
-            
             // Fetch consultation fee from configuration (admin-editable)
             val consultationFee = ConsultationFeeRepository.getDoctorFee(doctorUid)
             
@@ -112,7 +55,6 @@ object AppointmentRepository {
             
             val appointment = Appointment(
                 appointmentId = appointmentId,
-                appointmentNumber = appointmentNumber,
                 patientUid = currentUser.uid,
                 patientName = patientName,
                 doctorUid = doctorUid,
@@ -321,6 +263,44 @@ object AppointmentRepository {
             Result.success(Unit)
             
         } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Reschedule appointment - updates date, time, and sets status to "rescheduled"
+     */
+    suspend fun rescheduleAppointment(
+        appointmentId: String,
+        newDate: Timestamp,
+        newTimeSlot: String,
+        newBlockName: String = ""
+    ): Result<Unit> {
+        return try {
+            // Extract slot times from timeSlot
+            val slotParts = newTimeSlot.split("-").map { it.trim() }
+            val slotStartTime = if (slotParts.isNotEmpty()) slotParts[0] else ""
+            val slotEndTime = if (slotParts.size >= 2) slotParts[1] else ""
+            
+            db.collection(COLLECTION)
+                .document(appointmentId)
+                .update(
+                    mapOf(
+                        "appointmentDate" to newDate,
+                        "timeSlot" to newTimeSlot,
+                        "slotStartTime" to slotStartTime,
+                        "slotEndTime" to slotEndTime,
+                        "blockName" to newBlockName,
+                        "status" to "rescheduled",
+                        "updatedAt" to Timestamp.now()
+                    )
+                )
+                .await()
+            
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            android.util.Log.e("AppointmentRepo", "Error rescheduling appointment: ${e.message}", e)
             Result.failure(e)
         }
     }

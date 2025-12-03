@@ -279,7 +279,7 @@ fun ConfirmAppointmentScreen(
                                     
                                     // Navigate to success screen and clear booking flow from back stack
                                     val recipientType = if (dependentId.isBlank() || dependentId == "self") "self" else "dependent"
-                                    navController.navigate("appointment_success/${appointment?.appointmentNumber ?: "000"}/$doctorName/$formattedDate/$blockName/$timeRange/$recipientType") {
+                                    navController.navigate("appointment_success/$doctorName/$formattedDate/$blockName/$timeRange/$recipientType") {
                                         popUpTo("patient_home") { inclusive = false }
                                     }
                                 } else {

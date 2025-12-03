@@ -12,18 +12,24 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
@@ -53,6 +59,8 @@ private val CardWhite = Color(0xFFFFFFFF)           // Card surface
 private val StatTextColor = Color(0xFF1F2937)       // Dark charcoal
 private val ButtonColor = Color(0xFF76DCB0)         // Mint accent
 private val AccentColor = Color(0xFF0E4944)         // Deep Teal
+private val ChipSelectedColor = Color(0xFF0E4944)   // Deep Teal for selected chips
+private val ChipUnselectedColor = Color(0xFFE6F4F1) // Light teal for unselected chips
 
 // Dark mode colors
 private val DarkBackgroundColor = Color(0xFF0B0F12)
@@ -60,6 +68,103 @@ private val DarkCardColor = Color(0xFF1A2228)
 private val DarkTextColor = Color(0xFFFFFFFF)
 private val DarkSecondaryTextColor = Color(0xFFC3CCD2)
 private val DarkIconTint = Color(0xFFFFFFFF)
+private val DarkChipSelectedColor = Color(0xFF0F8B8D)
+private val DarkChipUnselectedColor = Color(0xFF1A2228)
+
+// ============================================================
+// Symptom to Specialty Mapping (Filtered for available specialties)
+// ============================================================
+private val symptomToSpecialtyMap = mapOf(
+    // General Physician
+    "Fever" to listOf("General Physician"),
+    "Cough" to listOf("General Physician"),
+    "Allergic Reaction" to listOf("General Physician"),
+    "Persistent Fatigue" to listOf("General Physician"),
+    "Dehydration Symptoms" to listOf("General Physician"),
+    "Heat Exhaustion" to listOf("General Physician"),
+    "Swollen Lymph Nodes" to listOf("General Physician", "Oncologist"),
+    
+    // Cardiologist
+    "Shortness of Breath" to listOf("Cardiologist"),
+    "Chest Pain" to listOf("Cardiologist", "General Physician"),
+    "Dizziness" to listOf("Cardiologist", "Neurologist"),
+    "Palpitations" to listOf("Cardiologist"),
+    "High Blood Pressure" to listOf("Cardiologist"),
+    "Low Blood Pressure" to listOf("Cardiologist"),
+    "Swelling in Legs" to listOf("Cardiologist"),
+    "High Cholesterol" to listOf("Cardiologist"),
+    "Cold Hands and Feet" to listOf("Cardiologist"),
+    
+    // Dermatologist
+    "Skin Rash" to listOf("Dermatologist"),
+    "Acne" to listOf("Dermatologist"),
+    "Hair Loss" to listOf("Dermatologist"),
+    "Itching" to listOf("Dermatologist"),
+    "Hives" to listOf("Dermatologist"),
+    
+    // Neurologist
+    "Headache" to listOf("Neurologist", "General Physician"),
+    "Migraine" to listOf("Neurologist"),
+    "Blurred Vision" to listOf("Neurologist"),
+    "Muscle Weakness" to listOf("Neurologist"),
+    "Numbness or Tingling" to listOf("Neurologist"),
+    "Tremors" to listOf("Neurologist"),
+    "Memory Loss" to listOf("Neurologist", "Psychiatrist"),
+    "Sleep Problems" to listOf("Neurologist", "Psychiatrist"),
+    "Hand Tremors" to listOf("Neurologist"),
+    "Seizures" to listOf("Neurologist"),
+    
+    // Psychiatrist
+    "Anxiety" to listOf("Psychiatrist"),
+    "Depression" to listOf("Psychiatrist"),
+    "Behavioral Issues" to listOf("Psychiatrist"),
+    
+    // ENT Specialist
+    "Hearing Loss" to listOf("ENT Specialist"),
+    "Ear Pain" to listOf("ENT Specialist"),
+    "Sore Throat" to listOf("ENT Specialist", "General Physician"),
+    "Blocked Nose" to listOf("ENT Specialist"),
+    "Sinus Pain" to listOf("ENT Specialist"),
+    "Difficulty Swallowing" to listOf("ENT Specialist"),
+    
+    // Orthopedic
+    "Joint Pain" to listOf("Orthopedic"),
+    "Back Pain" to listOf("Orthopedic"),
+    "Neck Pain" to listOf("Orthopedic"),
+    "Shoulder Pain" to listOf("Orthopedic"),
+    "Knee Pain" to listOf("Orthopedic"),
+    "Chronic Pain" to listOf("Orthopedic"),
+    
+    // Gynecologist
+    "Menstrual Pain" to listOf("Gynecologist"),
+    "Irregular Periods" to listOf("Gynecologist"),
+    "Pregnancy Symptoms" to listOf("Gynecologist"),
+    "Vaginal Discharge" to listOf("Gynecologist"),
+    "Infertility" to listOf("Gynecologist"),
+    
+    // Pediatrician
+    "Children Fever" to listOf("Pediatrician"),
+    "Children Cough" to listOf("Pediatrician"),
+    "Poor Growth in Children" to listOf("Pediatrician"),
+    "Developmental Delay" to listOf("Pediatrician"),
+    "Behavioral Problems in Children" to listOf("Pediatrician", "Psychiatrist"),
+    
+    // Dentist
+    "Tooth Pain" to listOf("Dentist"),
+    "Gum Bleeding" to listOf("Dentist"),
+    "Chipped Tooth" to listOf("Dentist"),
+    
+    // Urologist
+    "Urinary Burning" to listOf("Urologist"),
+    "Frequent Urination" to listOf("Urologist"),
+    "Blood in Urine" to listOf("Urologist"),
+    
+    // Oncologist
+    "Breast Lump" to listOf("Oncologist")
+)
+
+// Get all symptoms sorted alphabetically
+private fun getAllSymptoms(): List<String> = symptomToSpecialtyMap.keys.sorted()
 
 data class SpecialtyInfo(
     val name: String,
@@ -120,30 +225,72 @@ fun DoctorCatalogueScreen(
     var searchResults by remember { mutableStateOf<List<DoctorFull>>(emptyList()) }
     var isSearching by remember { mutableStateOf(false) }
     
+    // Symptom selection state
+    var selectedSymptoms by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var isSymptomDropdownExpanded by remember { mutableStateOf(false) }
+    var symptomSearchQuery by remember { mutableStateOf("") }
+    
+    val isDarkMode = androidx.compose.foundation.isSystemInDarkTheme()
+    
     // Always show all specialties
     val allSpecialties = getAllSpecialties()
+    val allSymptoms = remember { getAllSymptoms() }
+    
+    // Filter symptoms based on search query
+    val filteredSymptoms = remember(symptomSearchQuery, allSymptoms) {
+        if (symptomSearchQuery.isBlank()) {
+            allSymptoms
+        } else {
+            allSymptoms.filter { it.lowercase().contains(symptomSearchQuery.lowercase()) }
+        }
+    }
+    
+    // Get specialties that match selected symptoms
+    val symptomMatchedSpecialties = remember(selectedSymptoms) {
+        if (selectedSymptoms.isEmpty()) {
+            emptySet()
+        } else {
+            selectedSymptoms.flatMap { symptom ->
+                symptomToSpecialtyMap[symptom] ?: emptyList()
+            }.toSet()
+        }
+    }
     
     // Normalize doctor specialties and group by standardized names
     val doctorsBySpecialty = remember(allDoctors) {
         allDoctors.groupBy { normalizeSpecialty(it.speciality) }
     }
     
-    // Filtered doctors based on selected specialty
-    val filteredDoctors = remember(selectedSpecialty, doctorsBySpecialty) {
-        if (selectedSpecialty == null) {
-            emptyList()
+    // Filter doctors based on selected symptoms
+    val symptomFilteredDoctors = remember(selectedSymptoms, allDoctors, symptomMatchedSpecialties) {
+        if (selectedSymptoms.isEmpty()) {
+            allDoctors
         } else {
-            doctorsBySpecialty[selectedSpecialty] ?: emptyList()
+            allDoctors.filter { doctor ->
+                val normalizedSpec = normalizeSpecialty(doctor.speciality)
+                symptomMatchedSpecialties.contains(normalizedSpec)
+            }
         }
     }
     
-    // Local search results - instant filtering from already loaded doctors
-    val localSearchResults = remember(searchQuery, allDoctors) {
+    // Filtered doctors based on selected specialty (from symptom-filtered list)
+    val filteredDoctors = remember(selectedSpecialty, symptomFilteredDoctors) {
+        if (selectedSpecialty == null) {
+            emptyList()
+        } else if (selectedSpecialty == "General") {
+            symptomFilteredDoctors
+        } else {
+            symptomFilteredDoctors.filter { normalizeSpecialty(it.speciality) == selectedSpecialty }
+        }
+    }
+    
+    // Local search results - instant filtering from symptom-filtered doctors
+    val localSearchResults = remember(searchQuery, symptomFilteredDoctors) {
         if (searchQuery.isBlank()) {
             emptyList()
         } else {
             val lowerQuery = searchQuery.lowercase().trim()
-            allDoctors.filter { doctor ->
+            symptomFilteredDoctors.filter { doctor ->
                 val firstName = doctor.firstName.lowercase()
                 val lastName = doctor.lastName.lowercase()
                 val fullName = "$firstName $lastName"
@@ -398,32 +545,96 @@ fun DoctorCatalogueScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .background(BackgroundColor)
+                        .background(if (isDarkMode) DarkBackgroundColor else BackgroundColor)
                 ) {
                     // Search bar on main catalogue
                     SearchBar(
                         value = searchQuery,
                         onValueChange = { searchQuery = it },
                         placeholder = "Search by doctor name or specialty...",
-                        backgroundColor = CardWhite,
-                        modifier = Modifier.padding(16.dp)
+                        backgroundColor = if (isDarkMode) DarkCardColor else CardWhite,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
                     )
+                    
+                    // Symptom Selection Dropdown
+                    SymptomSelectionDropdown(
+                        selectedSymptoms = selectedSymptoms,
+                        onSymptomToggle = { symptom ->
+                            selectedSymptoms = if (selectedSymptoms.contains(symptom)) {
+                                selectedSymptoms - symptom
+                            } else {
+                                selectedSymptoms + symptom
+                            }
+                        },
+                        onClearAll = { selectedSymptoms = emptySet() },
+                        symptomSearchQuery = symptomSearchQuery,
+                        onSymptomSearchChange = { symptomSearchQuery = it },
+                        filteredSymptoms = filteredSymptoms,
+                        isExpanded = isSymptomDropdownExpanded,
+                        onExpandedChange = { isSymptomDropdownExpanded = it },
+                        isDarkMode = isDarkMode,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)
+                    )
+                    
+                    // Show matched specialties info when symptoms are selected
+                    if (selectedSymptoms.isNotEmpty()) {
+                        Surface(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp),
+                            color = if (isDarkMode) DarkChipSelectedColor.copy(alpha = 0.2f) else ChipUnselectedColor
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.FilterList,
+                                    contentDescription = null,
+                                    tint = if (isDarkMode) DarkChipSelectedColor else AccentColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Showing ${symptomFilteredDoctors.size} doctor(s) matching your symptoms",
+                                    fontSize = 13.sp,
+                                    color = if (isDarkMode) DarkTextColor else StatTextColor,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
 
                     if (searchQuery.isEmpty()) {
+                        // Filter specialties based on selected symptoms
+                        val displaySpecialties = if (selectedSymptoms.isEmpty()) {
+                            allSpecialties
+                        } else {
+                            allSpecialties.filter { specialty ->
+                                specialty.name == "General" || symptomMatchedSpecialties.contains(specialty.name)
+                            }
+                        }
+                        
                         // Specialties grid
                         LazyVerticalGrid(
                             columns = GridCells.Fixed(2),
                             modifier = Modifier
                                 .fillMaxSize()
-                                .background(BackgroundColor),
-                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
+                                .background(if (isDarkMode) DarkBackgroundColor else BackgroundColor),
+                            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 16.dp),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
-                            items(allSpecialties) { specialtyInfo ->
+                            items(displaySpecialties) { specialtyInfo ->
+                                val doctorCount = if (selectedSymptoms.isEmpty()) {
+                                    doctorsBySpecialty[specialtyInfo.name]?.size ?: 0
+                                } else {
+                                    symptomFilteredDoctors.count { normalizeSpecialty(it.speciality) == specialtyInfo.name }
+                                }
                                 SpecialtyCategoryCard(
                                     specialtyInfo = specialtyInfo,
-                                    doctorCount = doctorsBySpecialty[specialtyInfo.name]?.size ?: 0,
+                                    doctorCount = doctorCount,
                                     onClick = { selectedSpecialty = specialtyInfo.name }
                                 )
                             }
@@ -573,6 +784,280 @@ fun DoctorCatalogueScreen(
                 onClick = { navController.navigate("chatbot") },
                 modifier = Modifier.align(Alignment.BottomEnd)
             )
+        }
+    }
+}
+
+// ============================================================
+// Symptom Selection Dropdown Component
+// ============================================================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SymptomSelectionDropdown(
+    selectedSymptoms: Set<String>,
+    onSymptomToggle: (String) -> Unit,
+    onClearAll: () -> Unit,
+    symptomSearchQuery: String,
+    onSymptomSearchChange: (String) -> Unit,
+    filteredSymptoms: List<String>,
+    isExpanded: Boolean,
+    onExpandedChange: (Boolean) -> Unit,
+    isDarkMode: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val focusManager = LocalFocusManager.current
+    
+    val cardColor = if (isDarkMode) DarkCardColor else CardWhite
+    val textColor = if (isDarkMode) DarkTextColor else StatTextColor
+    val secondaryTextColor = if (isDarkMode) DarkSecondaryTextColor else StatTextColor.copy(alpha = 0.7f)
+    val chipSelectedBg = if (isDarkMode) DarkChipSelectedColor else ChipSelectedColor
+    val chipUnselectedBg = if (isDarkMode) DarkChipUnselectedColor else ChipUnselectedColor
+    val borderColor = if (isDarkMode) DarkChipSelectedColor.copy(alpha = 0.5f) else AccentColor.copy(alpha = 0.3f)
+    
+    Column(modifier = modifier) {
+        // Main dropdown card
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = cardColor,
+            tonalElevation = 2.dp,
+            shadowElevation = 2.dp
+        ) {
+            Column {
+                // Dropdown header - clickable to expand/collapse
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onExpandedChange(!isExpanded) }
+                        .padding(12.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Healing,
+                            contentDescription = null,
+                            tint = if (isDarkMode) DarkChipSelectedColor else AccentColor,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = if (selectedSymptoms.isEmpty()) {
+                                "Select symptoms to find specialists"
+                            } else {
+                                "${selectedSymptoms.size} symptom(s) selected"
+                            },
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = textColor
+                        )
+                    }
+                    
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (selectedSymptoms.isNotEmpty()) {
+                            IconButton(
+                                onClick = onClearAll,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Clear,
+                                    contentDescription = "Clear all",
+                                    tint = secondaryTextColor,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+                        }
+                        Icon(
+                            imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                            contentDescription = if (isExpanded) "Collapse" else "Expand",
+                            tint = secondaryTextColor,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                }
+                
+                // Selected symptoms chips (always visible when there are selections)
+                if (selectedSymptoms.isNotEmpty()) {
+                    LazyRow(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        items(selectedSymptoms.toList()) { symptom ->
+                            InputChip(
+                                selected = true,
+                                onClick = { onSymptomToggle(symptom) },
+                                label = {
+                                    Text(
+                                        text = symptom,
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = "Remove",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                },
+                                colors = InputChipDefaults.inputChipColors(
+                                    selectedContainerColor = chipSelectedBg,
+                                    selectedLabelColor = Color.White,
+                                    selectedTrailingIconColor = Color.White
+                                ),
+                                shape = RoundedCornerShape(16.dp),
+                                border = null
+                            )
+                        }
+                    }
+                }
+                
+                // Expanded content - search and symptom list
+                if (isExpanded) {
+                    Divider(color = borderColor, thickness = 1.dp)
+                    
+                    // Search field
+                    OutlinedTextField(
+                        value = symptomSearchQuery,
+                        onValueChange = onSymptomSearchChange,
+                        placeholder = {
+                            Text(
+                                "Search symptoms...",
+                                fontSize = 14.sp,
+                                color = secondaryTextColor
+                            )
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = null,
+                                tint = secondaryTextColor,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        },
+                        trailingIcon = {
+                            if (symptomSearchQuery.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { onSymptomSearchChange("") },
+                                    modifier = Modifier.size(28.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Clear,
+                                        contentDescription = "Clear search",
+                                        tint = secondaryTextColor,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = if (isDarkMode) DarkChipSelectedColor else AccentColor,
+                            unfocusedBorderColor = borderColor,
+                            focusedContainerColor = Color.Transparent,
+                            unfocusedContainerColor = Color.Transparent,
+                            cursorColor = if (isDarkMode) DarkChipSelectedColor else AccentColor,
+                            focusedTextColor = textColor,
+                            unfocusedTextColor = textColor
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() })
+                    )
+                    
+                    // Symptom list
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 250.dp)
+                            .padding(horizontal = 12.dp)
+                            .padding(bottom = 12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        items(filteredSymptoms) { symptom ->
+                            val isSelected = selectedSymptoms.contains(symptom)
+                            val specialties = symptomToSpecialtyMap[symptom] ?: emptyList()
+                            
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onSymptomToggle(symptom) },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (isSelected) {
+                                    chipSelectedBg.copy(alpha = 0.15f)
+                                } else {
+                                    Color.Transparent
+                                }
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = symptom,
+                                            fontSize = 14.sp,
+                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                            color = if (isSelected) {
+                                                if (isDarkMode) DarkChipSelectedColor else AccentColor
+                                            } else {
+                                                textColor
+                                            }
+                                        )
+                                        Text(
+                                            text = specialties.joinToString(", "),
+                                            fontSize = 11.sp,
+                                            color = secondaryTextColor,
+                                            maxLines = 1
+                                        )
+                                    }
+                                    
+                                    Checkbox(
+                                        checked = isSelected,
+                                        onCheckedChange = { onSymptomToggle(symptom) },
+                                        colors = CheckboxDefaults.colors(
+                                            checkedColor = if (isDarkMode) DarkChipSelectedColor else AccentColor,
+                                            uncheckedColor = secondaryTextColor,
+                                            checkmarkColor = Color.White
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                        
+                        if (filteredSymptoms.isEmpty()) {
+                            item {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "No symptoms match \"$symptomSearchQuery\"",
+                                        fontSize = 14.sp,
+                                        color = secondaryTextColor,
+                                        textAlign = TextAlign.Center
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 }

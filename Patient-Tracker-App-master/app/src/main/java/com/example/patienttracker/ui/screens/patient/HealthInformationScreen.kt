@@ -154,33 +154,34 @@ fun HealthInformationScreen(
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     // Age Card (non-editable, calculated from DOB)
-                    val age = healthInfoViewModel.calculateAge()
-                    if (age != null) {
-                        HealthInfoCard(
-                            title = stringResource(R.string.age_label),
-                            icon = Icons.Default.Cake,
-                            isDarkMode = isDarkMode,
-                            cardColor = cardColor,
-                            textColor = textColor,
-                            textLightColor = textLightColor
+                    val age = healthInfoViewModel.calculateAge() ?: 21  // Default to 21 if not set
+                    HealthInfoCard(
+                        title = stringResource(R.string.age_label),
+                        icon = Icons.Default.Cake,
+                        isDarkMode = isDarkMode,
+                        cardColor = cardColor,
+                        textColor = textColor,
+                        textLightColor = textLightColor
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = stringResource(R.string.age_years, age),
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = textColor
-                                )
-                                Text(
-                                    text = stringResource(R.string.age_calculated),
-                                    fontSize = 12.sp,
-                                    color = textLightColor
-                                )
-                            }
+                            Text(
+                                text = stringResource(R.string.age_years, age),
+                                fontSize = 20.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = textColor
+                            )
+                            Text(
+                                text = if (healthInfoViewModel.calculateAge() != null) 
+                                    stringResource(R.string.age_calculated) 
+                                else 
+                                    "Default",
+                                fontSize = 12.sp,
+                                color = textLightColor
+                            )
                         }
                     }
                     

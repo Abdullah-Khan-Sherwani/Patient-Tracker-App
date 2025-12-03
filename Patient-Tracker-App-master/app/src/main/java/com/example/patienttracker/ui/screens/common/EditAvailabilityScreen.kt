@@ -457,7 +457,7 @@ private suspend fun saveAvailability(
                     notificationRepo.createNotificationForDoctor(
                         doctorUid = doctorUid,
                         title = "Appointment Auto-Cancelled",
-                        message = "Appointment #${appointment.appointmentNumber} with ${appointment.patientName} on ${appointment.getFormattedDate()} at ${appointment.timeSlot} has been cancelled due to availability change.",
+                        message = "Appointment with ${appointment.patientName} on ${appointment.getFormattedDate()} at ${appointment.timeSlot} has been cancelled due to availability change.",
                         type = "appointment_cancelled",
                         appointmentId = appointmentId
                     )

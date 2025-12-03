@@ -713,9 +713,12 @@ private fun AppointmentListCard(
             }
             Surface(
                 shape = RoundedCornerShape(8.dp),
-                color = when (appointment.status) {
+                color = when (appointment.status.lowercase()) {
                     "confirmed" -> Color(0xFF10B981).copy(alpha = 0.1f)
                     "pending" -> Color(0xFFF59E0B).copy(alpha = 0.1f)
+                    "completed" -> Color(0xFF2196F3).copy(alpha = 0.1f)
+                    "scheduled" -> Color(0xFF10B981).copy(alpha = 0.1f)
+                    "rescheduled" -> Color(0xFFFF9800).copy(alpha = 0.1f)
                     else -> Color(0xFFEF4444).copy(alpha = 0.1f)
                 }
             ) {
@@ -723,9 +726,12 @@ private fun AppointmentListCard(
                     text = appointment.status.replaceFirstChar { it.uppercase() },
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    color = when (appointment.status) {
+                    color = when (appointment.status.lowercase()) {
                         "confirmed" -> Color(0xFF10B981)
                         "pending" -> Color(0xFFF59E0B)
+                        "completed" -> Color(0xFF2196F3)
+                        "scheduled" -> Color(0xFF10B981)
+                        "rescheduled" -> Color(0xFFFF9800)
                         else -> Color(0xFFEF4444)
                     },
                     modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)

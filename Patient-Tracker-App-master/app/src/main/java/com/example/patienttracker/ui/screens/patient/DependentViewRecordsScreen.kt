@@ -1,6 +1,8 @@
 package com.example.patienttracker.ui.screens.patient
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -23,6 +25,8 @@ import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.patienttracker.data.HealthRecord
 import com.example.patienttracker.data.HealthRecordRepository
+import com.example.patienttracker.ui.components.CompactRecordCard
+import com.example.patienttracker.ui.components.RecordDetailsBottomSheet
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
@@ -43,6 +47,20 @@ private val StatTextColor = Color(0xFF1F2937)       // Dark charcoal
 private val ButtonColor = Color(0xFF76DCB0)         // Mint accent
 private val AccentColor = Color(0xFF0E4944)         // Deep Teal
 
+/**
+ * Open a file URL in an external app
+ */
+private fun openDependentFileUrl(context: Context, url: String, mimeType: String) {
+    try {
+        val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_GRANT_READ_URI_PERMISSION
+        }
+        context.startActivity(browserIntent)
+    } catch (e: Exception) {
+        Toast.makeText(context, "Cannot open file: ${e.message}", Toast.LENGTH_SHORT).show()
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DependentViewRecordsScreen(
@@ -55,6 +73,8 @@ fun DependentViewRecordsScreen(
     var isLoading by remember { mutableStateOf(true) }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var recordToDelete by remember { mutableStateOf<HealthRecord?>(null) }
+    var showDetailsSheet by remember { mutableStateOf(false) }
+    var detailsRecord by remember { mutableStateOf<HealthRecord?>(null) }
     val scope = rememberCoroutineScope()
 
     // Load dependent records on screen open
@@ -134,6 +154,44 @@ fun DependentViewRecordsScreen(
             },
             containerColor = CardWhite,
             shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    // Record Details Bottom Sheet
+    if (showDetailsSheet && detailsRecord != null) {
+        RecordDetailsBottomSheet(
+            record = detailsRecord!!,
+            context = context,
+            onDismiss = { 
+                showDetailsSheet = false
+                detailsRecord = null
+            },
+            onOpenFile = {
+                openDependentFileUrl(context, detailsRecord!!.fileUrl, detailsRecord!!.fileType)
+            },
+            onDownload = {
+                openDependentFileUrl(context, detailsRecord!!.fileUrl, detailsRecord!!.fileType)
+            },
+            onDelete = {
+                scope.launch {
+                    val recordIdToDelete = detailsRecord!!.recordId
+                    val result = HealthRecordRepository.deleteRecord(recordIdToDelete)
+                    if (result.isSuccess) {
+                        Toast.makeText(context, "Record deleted", Toast.LENGTH_SHORT).show()
+                        records = records.filter { it.recordId != recordIdToDelete }
+                        showDetailsSheet = false
+                        detailsRecord = null
+                    } else {
+                        Toast.makeText(
+                            context,
+                            "Failed to delete: ${result.exceptionOrNull()?.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+            },
+            onViewAccessLog = null,
+            showDeleteButton = true // Patient manages dependent records
         )
     }
 
@@ -276,15 +334,16 @@ fun DependentViewRecordsScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(records) { record ->
-                            DependentRecordCard(
+                            CompactRecordCard(
                                 record = record,
-                                onDelete = {
-                                    recordToDelete = record
-                                    showDeleteDialog = true
+                                context = context,
+                                onOpenFile = {
+                                    openDependentFileUrl(context, record.fileUrl, record.fileType)
                                 },
-                                onView = {
-                                    Toast.makeText(context, "Opening ${record.fileName}", Toast.LENGTH_SHORT).show()
-                                    // TODO: Open file in viewer
+                                onCardClick = {
+                                    // Open details bottom sheet
+                                    detailsRecord = record
+                                    showDetailsSheet = true
                                 }
                             )
                         }
@@ -293,143 +352,4 @@ fun DependentViewRecordsScreen(
             }
         }
     }
-}
-
-@Composable
-private fun DependentRecordCard(
-    record: HealthRecord,
-    onDelete: () -> Unit,
-    onView: () -> Unit
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
-        color = CardWhite,
-        shadowElevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // File icon + name
-                Row(
-                    modifier = Modifier.weight(1f),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Surface(
-                        modifier = Modifier.size(48.dp),
-                        shape = RoundedCornerShape(10.dp),
-                        color = AccentColor.copy(alpha = 0.2f)
-                    ) {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = when {
-                                    record.isImage() -> Icons.Default.Image
-                                    record.isPdf() -> Icons.Default.Description
-                                    else -> Icons.Default.AttachFile
-                                },
-                                contentDescription = null,
-                                tint = ButtonColor,
-                                modifier = Modifier.size(24.dp)
-                            )
-                        }
-                    }
-                    
-                    Spacer(modifier = Modifier.width(12.dp))
-                    
-                    Column {
-                        Text(
-                            text = record.fileName,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            color = StatTextColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        
-                        Text(
-                            text = record.getFormattedFileSize(),
-                            fontSize = 12.sp,
-                            color = Color.Gray
-                        )
-                    }
-                }
-                
-                // Action buttons
-                Row {
-                    IconButton(onClick = onView) {
-                        Icon(
-                            Icons.Default.Visibility,
-                            "View",
-                            tint = ButtonColor
-                        )
-                    }
-                    IconButton(onClick = onDelete) {
-                        Icon(
-                            Icons.Default.Delete,
-                            "Delete",
-                            tint = Color(0xFFE57373)
-                        )
-                    }
-                }
-            }
-            
-            if (record.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = record.description,
-                    fontSize = 13.sp,
-                    color = StatTextColor.copy(alpha = 0.7f),
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            
-            // Show notes if available
-            if (record.notes.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Notes: ${record.notes}",
-                    fontSize = 12.sp,
-                    color = ButtonColor,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            
-            // Show past medication if available
-            if (record.pastMedication.isNotBlank()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "Past Medication: ${record.pastMedication}",
-                    fontSize = 12.sp,
-                    color = AccentColor,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            Text(
-                text = "Uploaded: ${formatRecordDate(record.uploadDate.toDate())}",
-                fontSize = 11.sp,
-                color = Color.Gray
-            )
-        }
-    }
-}
-
-private fun formatRecordDate(date: Date): String {
-    val formatter = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
-    return formatter.format(date)
 }

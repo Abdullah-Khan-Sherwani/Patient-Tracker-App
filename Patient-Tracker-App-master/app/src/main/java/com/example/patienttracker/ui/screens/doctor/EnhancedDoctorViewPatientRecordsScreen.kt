@@ -30,6 +30,8 @@ import coil.request.ImageRequest
 import com.example.patienttracker.data.AccessDeniedException
 import com.example.patienttracker.data.HealthRecord
 import com.example.patienttracker.data.HealthRecordRepository
+import com.example.patienttracker.ui.components.CompactRecordCard
+import com.example.patienttracker.ui.components.RecordDetailsBottomSheet
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
 import kotlinx.coroutines.launch
@@ -118,6 +120,8 @@ fun EnhancedDoctorViewPatientRecordsScreen(
     var showGlassBreakDialog by remember { mutableStateOf(false) }
     var glassBreakReason by remember { mutableStateOf("") }
     var selectedPrivateRecord by remember { mutableStateOf<HealthRecord?>(null) }
+    var showDetailsSheet by remember { mutableStateOf(false) }
+    var detailsRecord by remember { mutableStateOf<HealthRecord?>(null) }
     val scope = rememberCoroutineScope()
 
     // Load records - separate for patient self vs dependent
@@ -252,6 +256,41 @@ fun EnhancedDoctorViewPatientRecordsScreen(
             containerColor = SurfaceColor,
             shape = RoundedCornerShape(28.dp)
         )
+    }
+
+    // Record Details Bottom Sheet for Doctors
+    if (showDetailsSheet && detailsRecord != null) {
+        val currentUserUid = Firebase.auth.currentUser?.uid
+        val canAccess = !detailsRecord!!.isPrivate || 
+                       detailsRecord!!.doctorAccessList.contains(currentUserUid) ||
+                       detailsRecord!!.glassBreakAccess.any { it.doctorUid == currentUserUid }
+        
+        if (canAccess) {
+            RecordDetailsBottomSheet(
+                record = detailsRecord!!,
+                context = context,
+                onDismiss = { 
+                    showDetailsSheet = false
+                    detailsRecord = null
+                },
+                onOpenFile = {
+                    openFileUrlDoctor(context, detailsRecord!!.fileUrl, detailsRecord!!.fileType)
+                },
+                onDownload = {
+                    // Open in browser for download
+                    openFileUrlDoctor(context, detailsRecord!!.fileUrl, detailsRecord!!.fileType)
+                },
+                onDelete = null, // Doctors cannot delete patient records
+                onViewAccessLog = null, // Only patients see access logs
+                showDeleteButton = false // Doctors cannot delete patient records
+            )
+        } else {
+            // If can't access, trigger glass break dialog
+            selectedPrivateRecord = detailsRecord
+            showGlassBreakDialog = true
+            showDetailsSheet = false
+            detailsRecord = null
+        }
     }
 
     // Teal color for dependent indicator (on white badge)
@@ -658,269 +697,38 @@ fun EnhancedDoctorViewPatientRecordsScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(displayedRecords) { record ->
-                                DoctorRecordCard(
+                                val currentUserUid = Firebase.auth.currentUser?.uid
+                                val canAccess = !record.isPrivate || 
+                                               record.doctorAccessList.contains(currentUserUid) ||
+                                               record.glassBreakAccess.any { it.doctorUid == currentUserUid }
+                                
+                                CompactRecordCard(
                                     record = record,
                                     context = context,
+                                    onOpenFile = {
+                                        if (canAccess) {
+                                            openFileUrlDoctor(context, record.fileUrl, record.fileType)
+                                        } else {
+                                            selectedPrivateRecord = record
+                                            showGlassBreakDialog = true
+                                        }
+                                    },
+                                    onCardClick = {
+                                        if (canAccess) {
+                                            // Open the details bottom sheet
+                                            detailsRecord = record
+                                            showDetailsSheet = true
+                                        } else {
+                                            // Trigger glass break dialog for private records
+                                            selectedPrivateRecord = record
+                                            showGlassBreakDialog = true
+                                        }
+                                    },
+                                    showGlassBreakButton = !canAccess,
                                     onGlassBreak = {
                                         selectedPrivateRecord = record
                                         showGlassBreakDialog = true
-                                    },
-                                    onOpenFile = {
-                                        openFileUrlDoctor(context, record.fileUrl, record.fileType)
                                     }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-fun DoctorRecordCard(
-    record: HealthRecord,
-    context: Context,
-    onGlassBreak: () -> Unit,
-    onOpenFile: () -> Unit
-) {
-    val currentUserUid = Firebase.auth.currentUser?.uid
-    val canAccess = !record.isPrivate || 
-                   record.doctorAccessList.contains(currentUserUid) ||
-                   record.glassBreakAccess.any { it.doctorUid == currentUserUid }
-    
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = canAccess) { onOpenFile() },
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                !canAccess -> PrivateColor.copy(alpha = 0.08f)
-                record.isPrivate -> PrivateColor.copy(alpha = 0.05f)
-                else -> SurfaceColor
-            }
-        ),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Thumbnail Preview
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(if (canAccess) HeaderTopColor.copy(alpha = 0.08f) else PrivateColor.copy(alpha = 0.1f))
-                    .clickable(enabled = canAccess) { onOpenFile() },
-                contentAlignment = Alignment.Center
-            ) {
-                if (canAccess) {
-                    if (record.isImage()) {
-                        // Show image thumbnail
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(record.fileUrl)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = "Preview",
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .clip(RoundedCornerShape(12.dp)),
-                            contentScale = ContentScale.Crop
-                        )
-                    } else {
-                        // PDF or other file - show icon
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Icon(
-                                when {
-                                    record.isPdf() -> Icons.Default.PictureAsPdf
-                                    else -> Icons.Default.InsertDriveFile
-                                },
-                                contentDescription = null,
-                                tint = if (record.isPdf()) Color(0xFFE53935) else HeaderTopColor,
-                                modifier = Modifier.size(36.dp)
-                            )
-                            Text(
-                                record.getFileExtension().uppercase(),
-                                fontSize = 10.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = TextSecondary
-                            )
-                        }
-                    }
-                } else {
-                    // Locked thumbnail
-                    Icon(
-                        Icons.Default.Lock,
-                        contentDescription = "Private",
-                        tint = PrivateColor,
-                        modifier = Modifier.size(36.dp)
-                    )
-                }
-            }
-            
-            // Content Column
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Header Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            record.fileName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = HeaderTopColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        Text(
-                            record.getFormattedFileSize(),
-                            fontSize = 11.sp,
-                            color = TextSecondary
-                        )
-                    }
-
-                    if (record.isPrivate) {
-                        Surface(
-                            color = PrivateColor,
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Lock,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(10.dp),
-                                    tint = Color.White
-                                )
-                                Spacer(Modifier.width(2.dp))
-                                Text(
-                                    "PRIVATE",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    }
-                }
-
-                if (canAccess) {
-                    if (record.description.isNotBlank()) {
-                        Text(
-                            record.description,
-                            fontSize = 12.sp,
-                            color = HeaderTopColor.copy(alpha = 0.8f),
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    if (record.notes.isNotBlank()) {
-                        Text(
-                            "Notes: ${record.notes}",
-                            fontSize = 11.sp,
-                            color = AccentColor,
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                    
-                    if (record.pastMedication.isNotBlank()) {
-                        Text(
-                            "Past Medication: ${record.pastMedication}",
-                            fontSize = 11.sp,
-                            color = HeaderTopColor,
-                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-                } else {
-                    Text(
-                        "🔒 Private record - Break Glass to access",
-                        fontSize = 11.sp,
-                        color = PrivateColor,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-
-                // Footer
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                            .format(record.uploadDate.toDate()),
-                        fontSize = 11.sp,
-                        color = TextSecondary
-                    )
-
-                    if (!canAccess) {
-                        Surface(
-                            onClick = onGlassBreak,
-                            color = GlassBreakColor,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Warning,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = Color.White
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "Break Glass",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    } else {
-                        // Open icon for accessible records
-                        Surface(
-                            onClick = onOpenFile,
-                            color = HeaderTopColor.copy(alpha = 0.1f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.OpenInNew,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = HeaderTopColor
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "Open",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = HeaderTopColor
                                 )
                             }
                         }

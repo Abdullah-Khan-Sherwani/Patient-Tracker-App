@@ -30,6 +30,8 @@ import com.example.patienttracker.data.DoctorNote
 import com.example.patienttracker.data.DoctorNoteRepository
 import com.example.patienttracker.data.HealthRecord
 import com.example.patienttracker.data.HealthRecordRepository
+import com.example.patienttracker.ui.components.CompactRecordCard
+import com.example.patienttracker.ui.components.RecordDetailsBottomSheet
 import com.example.patienttracker.util.PrescriptionPdfGenerator
 import com.google.firebase.auth.ktx.auth
 import com.google.firebase.ktx.Firebase
@@ -100,6 +102,8 @@ fun MyRecordsScreen(
     var selectedRecord by remember { mutableStateOf<HealthRecord?>(null) }
     var showAccessLog by remember { mutableStateOf(false) }
     var selectedTab by remember { mutableStateOf(0) } // 0 = My Records, 1 = Prescriptions
+    var showDetailsSheet by remember { mutableStateOf(false) }
+    var detailsRecord by remember { mutableStateOf<HealthRecord?>(null) }
     val scope = rememberCoroutineScope()
 
     LaunchedEffect(Unit) {
@@ -257,6 +261,41 @@ fun MyRecordsScreen(
             },
             containerColor = SurfaceColor,
             shape = RoundedCornerShape(28.dp)
+        )
+    }
+
+    // Record Details Bottom Sheet
+    if (showDetailsSheet && detailsRecord != null) {
+        RecordDetailsBottomSheet(
+            record = detailsRecord!!,
+            context = context,
+            onDismiss = { 
+                showDetailsSheet = false
+                detailsRecord = null
+            },
+            onOpenFile = {
+                openFileUrl(context, detailsRecord!!.fileUrl, detailsRecord!!.fileType)
+            },
+            onDownload = {
+                // Open in browser for download
+                openFileUrl(context, detailsRecord!!.fileUrl, detailsRecord!!.fileType)
+            },
+            onDelete = {
+                scope.launch {
+                    val recordToDelete = detailsRecord!!
+                    val result = HealthRecordRepository.deleteRecord(recordToDelete.recordId)
+                    if (result.isSuccess) {
+                        records = records.filter { it.recordId != recordToDelete.recordId }
+                        showDetailsSheet = false
+                        detailsRecord = null
+                    }
+                }
+            },
+            onViewAccessLog = {
+                selectedRecord = detailsRecord
+                showAccessLog = true
+            },
+            showDeleteButton = true // Patient owns these records
         )
     }
 
@@ -510,26 +549,17 @@ fun MyRecordsScreen(
                 }
 
                 items(records) { record ->
-                    RecordCard(
+                    CompactRecordCard(
                         record = record,
                         context = context,
-                        onViewAccessLog = {
-                            selectedRecord = record
-                            showAccessLog = true
-                        },
-                        onDelete = {
-                            scope.launch {
-                                val result = HealthRecordRepository.deleteRecord(record.recordId)
-                                if (result.isSuccess) {
-                                    records = records.filter { it.recordId != record.recordId }
-                                }
-                            }
-                        },
                         onOpenFile = {
-                            android.util.Log.d("MyRecordsScreen", "RecordCard clicked! Opening: ${record.fileName}")
-                            android.util.Log.d("MyRecordsScreen", "Record fileUrl: ${record.fileUrl}")
-                            android.util.Log.d("MyRecordsScreen", "Record fileType: ${record.fileType}")
+                            android.util.Log.d("MyRecordsScreen", "CompactRecordCard clicked! Opening: ${record.fileName}")
                             openFileUrl(context, record.fileUrl, record.fileType)
+                        },
+                        onCardClick = {
+                            // Open the details bottom sheet
+                            detailsRecord = record
+                            showDetailsSheet = true
                         }
                     )
                 }
@@ -605,295 +635,6 @@ fun MyRecordsScreen(
                     } // End of tab 1
                 } // End of when
             } // End of Column
-        }
-    }
-}
-
-@Composable
-fun RecordCard(
-    record: HealthRecord,
-    context: Context,
-    onViewAccessLog: () -> Unit,
-    onDelete: () -> Unit,
-    onOpenFile: () -> Unit
-) {
-    var showDeleteDialog by remember { mutableStateOf(false) }
-
-    if (showDeleteDialog) {
-        AlertDialog(
-            onDismissRequest = { showDeleteDialog = false },
-            title = { Text("Delete Record?", fontWeight = FontWeight.Bold) },
-            text = { Text("This action cannot be undone.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        onDelete()
-                        showDeleteDialog = false
-                    }
-                ) {
-                    Text("Delete", color = Color.Red, fontWeight = FontWeight.Bold)
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
-                    Text("Cancel", color = AccentColor)
-                }
-            },
-            containerColor = SurfaceColor,
-            shape = RoundedCornerShape(28.dp)
-        )
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onOpenFile() },
-        colors = CardDefaults.cardColors(
-            containerColor = if (record.isPrivate) PrivateColor.copy(alpha = 0.1f) else SurfaceColor
-        ),
-        shape = RoundedCornerShape(20.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-    ) {
-        Row(
-            modifier = Modifier.padding(12.dp),
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // Thumbnail Preview
-            Box(
-                modifier = Modifier
-                    .size(80.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(AccentColor.copy(alpha = 0.1f))
-                    .clickable { onOpenFile() },
-                contentAlignment = Alignment.Center
-            ) {
-                if (record.isImage()) {
-                    // Show image thumbnail
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(record.fileUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Preview",
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .clip(RoundedCornerShape(12.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    // PDF or other file - show icon
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        Icon(
-                            when {
-                                record.isPdf() -> Icons.Default.PictureAsPdf
-                                else -> Icons.Default.InsertDriveFile
-                            },
-                            contentDescription = null,
-                            tint = if (record.isPdf()) Color(0xFFE53935) else AccentColor,
-                            modifier = Modifier.size(36.dp)
-                        )
-                        Text(
-                            record.getFileExtension().uppercase(),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryColor.copy(alpha = 0.6f)
-                        )
-                    }
-                }
-                
-                // Tap to open overlay
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(Color.Black.copy(alpha = 0.0f)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Optional: show play/open icon on hover
-                }
-            }
-            
-            // Content Column
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // Header Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            record.fileName,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = PrimaryColor,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                        // Show dependent name if this is for a dependent
-                        if (record.dependentName.isNotBlank()) {
-                            Text(
-                                "For: ${record.dependentName}",
-                                fontSize = 11.sp,
-                                color = AccentColor
-                            )
-                        }
-                    }
-
-                    if (record.isPrivate) {
-                        Surface(
-                            color = PrivateColor,
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Lock,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(10.dp),
-                                    tint = Color.White
-                                )
-                                Spacer(Modifier.width(2.dp))
-                                Text(
-                                    "Private",
-                                    fontSize = 9.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                // Description
-                if (record.description.isNotBlank()) {
-                    Text(
-                        record.description,
-                        fontSize = 12.sp,
-                        color = PrimaryColor.copy(alpha = 0.7f),
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                if (record.notes.isNotBlank()) {
-                    Text(
-                        "Notes: ${record.notes}",
-                        fontSize = 11.sp,
-                        color = AccentColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-                
-                if (record.pastMedication.isNotBlank()) {
-                    Text(
-                        "Past Medication: ${record.pastMedication}",
-                        fontSize = 11.sp,
-                        color = PrimaryColor,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
-
-                // Footer Row
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
-                                .format(record.uploadDate.toDate()),
-                            fontSize = 11.sp,
-                            color = AccentColor
-                        )
-                        Text(
-                            record.getFormattedFileSize(),
-                            fontSize = 10.sp,
-                            color = PrimaryColor.copy(alpha = 0.5f)
-                        )
-                    }
-
-                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        // Open File Button
-                        Surface(
-                            onClick = { 
-                                android.util.Log.d("RecordCard", "Open button clicked for: ${record.fileName}")
-                                onOpenFile() 
-                            },
-                            color = PrimaryColor,
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.OpenInNew,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = Color.White
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "Open",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = Color.White
-                                )
-                            }
-                        }
-                        
-                        // View Access Log Button
-                        Surface(
-                            onClick = onViewAccessLog,
-                            color = AccentColor.copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(12.dp)
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Icon(
-                                    Icons.Default.Visibility,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(14.dp),
-                                    tint = AccentColor
-                                )
-                                Spacer(Modifier.width(4.dp))
-                                Text(
-                                    "${record.viewedBy.size}",
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = AccentColor
-                                )
-                            }
-                        }
-
-                        // Delete Button
-                        IconButton(
-                            onClick = { showDeleteDialog = true },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                Icons.Default.Delete,
-                                contentDescription = "Delete",
-                                tint = Color.Red.copy(alpha = 0.7f),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-                }
-            }
         }
     }
 }
